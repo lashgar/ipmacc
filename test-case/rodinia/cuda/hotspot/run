@@ -1,0 +1,1 @@
+time ./hotspot 1024 2 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out

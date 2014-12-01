@@ -1,0 +1,7 @@
+cd srad_v1
+time ./srad_g++ 100 0.5 502 458
+mv image_out.pgm output.g++.pgm
+time ./srad_cuda 100 0.5 502 458
+mv image_out.pgm output.cuda.pgm
+time ./srad_opencl 100 0.5 502 458
+mv image_out.pgm output.opencl.pgm

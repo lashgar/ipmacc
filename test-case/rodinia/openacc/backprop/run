@@ -1,0 +1,4 @@
+time ./backprop_g++ 65536
+time ./backprop_ipmacc_cuda 65536
+time ./backprop_ipmacc_opencl 65536
+echo 'RUNNING NEW BENCHMARK BACKPROP' >> ~/run_script/diff_error

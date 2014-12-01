@@ -1,0 +1,201 @@
+#!/bin/bash
+
+VERSION=0.5.0b
+function usage()
+{
+    echo "usage: ipmacc c-file <compile flags> "
+}
+function version()
+{
+    echo "IPMACC $VERSION"
+    #echo "This tool is originally developed by Ahmad Lashgar and Alireza Majidi at IPM."
+}
+
+# ENVIRONMENT SETUP
+# 1. find the ipmacc root
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+path=$DIR/
+#t=`pwd`/$0
+#path=${t%/*}
+#echo "IPMACC is located at $path"
+
+# 2. set python path for openacc parser and pycparser
+export PYTHONPATH=$path/:$path/pycparser/:$PYTHONPATH
+#echo $PYTHONPATH
+
+# 3. Compile/Link flags for CUDA/OpenCL destination
+export CFLAG="-I$path/include"
+export LDFLAG="-L$path/lib -lopenacc"
+if [ "$CUDASUPPORT" == "1" ] ; then
+ export CFLAG="$CFLAG -I$CUDAHOME/include/ "
+ export LDFLAG="$LDFLAG -L$CUDAHOME/lib64/ -lcudart"
+fi
+if [ "$OPENCLSUPPORT" == "1" ] ; then
+ export CFLAG="$CFLAG -I$OPENCLINC/ "
+ export LDFLAG="$LDFLAG -L$OPENCLLIB/ -lOpenCL"
+fi
+if [ "$VERBOSE" == "1" ] ; then
+ echo 'LDFLAG: '$LDFLAG
+ echo ' CFLAG: '$CFLAG
+fi
+
+# 4. find the arguments and pass proper args to nvcc directly
+ARGS=(${@})
+NARG=${#ARGS[@]}
+#echo $ARGS $NARG
+NVCCARGS=
+for (( i = 0 ; i < $NARG ; i++ )) ; do
+    # check for pending args
+    if [ "$tapending" == "1" ] ; then
+        ta=${ARGS[i]}
+        tapending="0"
+        continue
+    elif [ "$accfilepending" == "1" ] ; then
+        INFILE=${ARGS[i]}
+        accfilepending="0"
+        continue
+    fi
+
+    # pars new arg
+    if [ "${ARGS[i]}" == "--cflags" ] ; then
+        echo $CFLAG
+        exit 1
+    elif [ "${ARGS[i]}" == "--ldflags" ] ; then
+        echo $LDFLAG
+        exit 1
+    elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--help" ] ; then
+        usage
+        exit 1
+    elif [ "${ARGS[i]}" == "-v" ] || [ "${ARGS[i]}" == "--version" ] ; then
+        version
+        exit 1
+    elif [ "${ARGS[i]}" == "--ta" ] ; then
+        tapending="1"
+    elif [ "${ARGS[i]}" == "--accfile" ] ; then
+        accfilepending="1"
+    elif [ "$i" != "0" ] ; then
+        # append this arg
+        NVCCARGS="${NVCCARGS} ${ARGS[i]}"
+    fi
+done;
+
+if [ "$INFILE" == "" ] ; then
+    INFILE=$1
+fi
+if [ "$1" == "" ] ; then
+    usage
+    exit 1
+elif [ ! -f "$INFILE" ] ; then
+    echo "No such file: $INFILE"
+    usage
+    exit 1
+fi
+
+
+# destination of code generation 
+TARGETARCH=
+if [ "$ta" == "nvcuda" ] ; then
+    if [ "$CUDASUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
+    fi
+    TARGETARCH="nvcuda"
+elif [ "$ta" == "nvopencl" ] ; then
+    TARGETARCH="nvopencl"
+    if [ "$OPENCLSUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvopencl while the environemnt is not setup for OpenCL'
+    fi
+else
+    #fallback
+    if [ "$VERBOSE" == "1" ] ; then
+     echo "falling back to CUDA target"
+    fi
+    TARGETARCH="nvcuda"
+    if [ "$CUDASUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
+    fi
+fi
+
+
+
+# Path to nvcc
+NVCC=${CUDAHOME}/bin/nvcc
+if [ ! -f "$NVCC" ] && [ "$TARGETARCH" == "nvcuda" ] ; then
+    echo "unable to locate nvcc"
+    echo "potentially, environment variables are not properly set!"
+    echo "check the README file for installation and setup"
+    echo "exiting with failure"
+    exit 1
+fi
+# System C/C++ Compiler
+CC=gcc
+CXX=g++
+
+# GENERATE SOFTLINK IN CASE THE COMPILATION WAS NOT SUCCESSFUL
+rm $path/parser/utils_clause.py -f
+ln -s $path/src/utils_clause.py $path/parser/
+# GENERATE SOFTLINK FOR VERSION MANAGEMENT
+rm $path/preprocessor.py $path/preprocessor.pyc -f
+ln -s $path/src/preprocessor-0.1.7b.py $path/preprocessor.py
+rm $path/scanner.py -f
+ln -s $path/src/scanner-0.2.4b.py $path/scanner.py
+rm $path/codegen.py -f
+ln -s $path/src/codegen-${VERSION}.py $path/codegen.py
+
+# DETERMINE OUTPUT NAME
+if [ "$TARGETARCH" == "nvcuda" ] ; then
+    OUTPUT=`echo "$INFILE " | sed -r 's/(\.cu\ )/_ipmacc\.cu/g' | sed -r 's/(\.[cC]\ )/_ipmacc\.cu/g' | sed -r 's/(\.cpp\ )/_ipmacc\.cu/g' `
+else 
+    OUTPUT=`echo "$INFILE " | sed -r 's/(\.[cC]\ )/_ipmacc\.c/g' | sed -r 's/(\.cpp\ )/_ipmacc\.cpp/g' `
+fi
+
+# RUN IPMACC
+# 1. parse and generate fully-bracketed C/C++ code
+$path/uncrustify/build/bin/uncrustify -c $path/uncrustify/build/bin/avalon.cfg -l C -f $INFILE -o $INFILE.uncrustify
+if [ "$?" != "0" ] ; then
+    exit 255
+fi
+
+# 2. running scanner to generate intermediate xml (file is stored under $PWD/__inter.xml)
+python2 $path/scanner.py --file $INFILE.uncrustify -k -q
+if [ "$?" != "0" ] ; then
+    exit 255
+fi
+rm $INFILE.uncrustify -f
+
+# 3. run parser to check the validity under xml
+$path/parser/parser.sh __inter.xml
+
+if [ "$?" == "0" ] ; then
+    # 4. OpenACC to CUDA code generation
+    if [ "$VERBOSE" == "1" ] ; then
+     echo -en "\n========CODE GENERATOR LOGS=========\n"
+    fi
+    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS"
+    if [ "$?" == "0" ] ; then
+        if [ $TARGETARCH == "nvcuda" ] ; then
+            # 5. Call NVCC to compile the CUDA
+            if [ "$VERBOSE" == "1" ] ; then
+             echo -en "\n=============NVCC LOGS==============\n"
+             echo "$NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+            fi
+            #echo "$NVCC $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+            $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__
+            if [ "$?" != "0" ] ; then
+                echo "[failed] nvcc failed to generate the binary"
+            fi
+        elif [ $TARGETARCH == "nvopencl" ] ; then
+            # 5. Call CC to compile the CUDA
+            if [ "$VERBOSE" == "1" ] ; then
+             echo -en "\n=============$CXX LOGS==============\n"
+             echo "$CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__"
+            fi
+            $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__
+            if [ "$?" != "0" ] ; then
+                echo "[failed] $CXX failed to generate the binary"
+            fi
+        fi
+    fi
+    rm $OUTPUT~ -f #cleaning GNU indent
+fi
+
+rm yacctab.py lextab.py -f

@@ -1,0 +1,14 @@
+Compile srad_v1 for CPU only:
+	$ make v1_cpu
+Compile srad_v1 for OpenCL only:
+	$ make v1_opencl
+Compile srad_v1 for CUDA only:
+	$ make v1_cuda
+Compile srad_v2 for CPU only:
+	$ make v2_cpu
+Compile srad_v2 for OpenCL only:
+	$ make v2_opencl
+Compile srad_v2 for CUDA only:
+	$ make v2_cuda
+Compile all:
+	$ make

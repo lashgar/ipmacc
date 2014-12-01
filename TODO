@@ -1,0 +1,25 @@
+==================
+TODO:
+- Support all clauses of kernel, data, and loop directive
+- Fully support use of non-standard types in C/C++ (template, class, union, enum, typedef, and struct)
+- Support function template of C++
+- Support class template of C++
+- Support 'kernels loop' directive
+- Improve pragmadecomposer parser to detect malformed reduction/private
+- Improve compilation speed
+- Support 2D arrays
+- Support parallel directive
+- Support entire API
+- BUGFIX: codegen fails to find the type/size upon passing struct element to data clause
+
+DONE:
+- Replacing pycparser XML generator with srcML generator (faster and lower-level)
+- Support serial loops
+- Fully-support dynamic allocation
+- Detect pragma region without full-bracketing
+- Detecting the region of `for` loop with nested one-statement if-else
+- Fixing the bug in copy statement detection (parenteces are not allowed by now)
+- Prepare a comprehensive ipmacc accelerator query (like clinfo)
+- Replace all `define` micro to prevent clBuiltProgram failure
+- Support OpenCL generators
+- Function call inside the region

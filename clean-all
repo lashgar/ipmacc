@@ -1,0 +1,37 @@
+#!/bin/bash
+
+ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Code standardazing
+cd $ROOTDIR/uncrustify/
+rm uncrustify/ -rf
+cd $ROOTDIR
+
+# Parser
+# pycparser
+rm $ROOTDIR/parser/utils_clause.pyc $ROOTDIR/parser/utils_clause.py -f
+# srcML
+cd $ROOTDIR/srcML/src/
+make clean > /dev/null
+rm $ROOTDIR/srcML/wrapper/wrapper.pyc -f
+cd $ROOTDIR/srcML/
+rm bin/ obj/ doc/ src/ -rf
+
+# clean preprocessor, scanner, and code-generator
+cd $ROOTDIR
+rm preprocessor.py codegen.py scanner.py -f
+rm *.pyc a.out -f
+
+# Samples
+cd $ROOTDIR/test-case/
+rm -f *_ipmacc.cu *_ipmacc.c *.out *.a *.o mand.tga
+make clean
+make clean -C rodinia/openacc/
+
+
+# API
+cd $ROOTDIR
+rm $ROOTDIR/lib/ -rf
+cd $ROOTDIR/src/
+make clean
+

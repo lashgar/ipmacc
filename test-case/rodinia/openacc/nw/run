@@ -1,0 +1,7 @@
+time ./needle_g++ 8192 10 > result.g++.txt
+time ./needle_ipmacc_cuda 8192 10 > result.cuda.txt
+time ./needle_ipmacc_opencl 8192 10 > result.opencl.txt
+echo 'RUNNING NEW BENCHMARK NEEDLE' >> ~/run_script/diff_error
+diff result.g++.txt result.cuda.txt >> ~/run_script/diff_error
+diff result.g++.txt result.opencl.txt >> ~/run_script/diff_error
+

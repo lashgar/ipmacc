@@ -1,0 +1,7 @@
+# need gcc-4.4 or latter
+yum install libxml2 libxml2-devel
+yum install antlr antlr-devel -y
+yum install libarchive-devel libarchive -y
+yum install libxslt libxslt-devel -y
+cd src
+make 

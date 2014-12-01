@@ -1,0 +1,19 @@
+syntax: glob
+
+*.pyc
+tests/parser.out
+tests/*tab.py
+build
+yacctab.py
+lextab.py
+dist
+MANIFEST
+*.exe
+*.o
+parser.out
+*.orig
+*.rej
+.tox
+
+
+glob:utils/z.c

@@ -1,0 +1,178 @@
+!
+!
+!      Copyright 2009-2010, STMicroelectronics, Incorporated.
+!      All rights reserved.
+!
+!        STMICROELECTRONICS, INCORPORATED PROPRIETARY INFORMATION
+! This software is supplied under the terms of a license agreement
+! or nondisclosure agreement with STMicroelectronics and may not be
+! copied or disclosed except in accordance with the terms of that
+! agreement.
+
+!
+! An example of single precision matrix multiply
+! Build for emulation mode with:
+!   pgfortran -Mcuda=emu sgemm.cuf
+! Build for running without optimizations:
+!   pgfortran sgemm.cuf
+! Build for running with optimizations:
+!   pgfortran -O2 sgemm.cuf
+!
+
+MODULE saxpy_sgemm
+
+CONTAINS
+  attributes(device) subroutine saxpy16(a, b, c)
+    real, device :: a
+    real, dimension(16) :: b
+    real, device, dimension(16) :: c
+    c = c + a * b
+  end subroutine
+
+  attributes(global) subroutine sgemmNN_16x16(a, b, c, m, n, k, alpha, beta)
+    real, device :: a(m,*), b(k,*), c(m,*)
+    integer, value :: m, n, k
+    real, value :: alpha, beta
+
+    real, shared, dimension(17,16) :: bs
+    real, device, dimension(16) :: cloc
+
+    inx = threadidx%x
+    iny = threadidx%y
+    ibx = (blockidx%x-1) * 256
+    iby = (blockidx%y-1) * 16
+
+    ia = ibx + (iny-1)*16 + inx
+    ib = inx
+    ic = ia
+
+    jb = iby + iny
+    jc = iby + 1
+
+    cloc = 0.0
+
+    do ik = 1, k, 16
+      bs(iny,inx) = b(ib,jb)
+      call syncthreads()
+
+      do j = 1, 16
+        call saxpy16(a(ia,ik+j-1), bs(1,j), cloc)
+      end do
+
+      ib = ib + 16
+      call syncthreads()
+    end do
+
+    do ii = 1, 16
+      c(ic,jc+ii-1) = alpha*cloc(ii) + beta*c(ic,jc+ii-1)
+    end do
+  end subroutine
+
+END MODULE
+
+subroutine sgemm_cpu(a, b, c, m, n, k, alpha, beta)
+  real, dimension(m,k) :: a
+  real, dimension(k,n) :: b
+  real, dimension(m,n) :: c
+  real alpha, beta
+  do im = 1, m
+    do in = 1, n
+      temp = 0.0
+      do ik = 1, k
+        temp = temp + a(im,ik) * b(ik,in)
+      end do
+      c(im,in) = alpha*temp + beta*c(im,in)
+    end do
+  end do
+end subroutine
+
+program main
+  use cudafor
+  use saxpy_sgemm
+  integer, parameter :: N = 256
+  integer, parameter :: NREPS = 1000
+  ! matrix data
+  real, dimension(N,N) :: A, B, C, gold
+  real, allocatable, device, dimension(:,:) :: dA, dB, dC
+  !
+  real alpha, beta
+  type(cudaDeviceProp) :: prop
+  type(cudaEvent) :: start, stop
+  type(dim3) :: blocks
+  type(dim3) :: threads
+  character*20 arg
+  integer idevice
+
+  nargs = command_argument_count()
+  idevice = 0
+  do i = 1, nargs
+    call get_command_argument(i,arg)
+    if ((arg(1:7) .eq. "-device") .and. (i.lt.nargs)) then
+      call get_command_argument(i+1,arg)
+      read(arg,'(i2)') idevice
+    end if
+  end do
+
+  istat = cudaSetDevice(idevice)
+  istat = cudaGetDeviceProperties(prop,idevice)
+  ilen = verify(prop%name, ' ', .true.)
+  write (*,900) prop%name(1:ilen), &
+                real(prop%clockRate)/1000.0, &
+                real(prop%totalGlobalMem)/1024.0/1024.0
+
+  istat = cudaEventCreate(start)
+  istat = cudaEventCreate(stop)
+
+  call random_number(A)
+  call random_number(B)
+
+  allocate(dA(N,N))
+  allocate(dB(N,N))
+  allocate(dC(N,N))
+
+  dA = A
+  dB = B
+  dC = 0.0
+
+  alpha = 1
+  beta = 0
+  m = N
+  k = N
+  blocks = dim3(N/256, N/16, 1)
+  threads = dim3(16, 16, 1)
+
+  call sgemm_cpu(A, B, gold, m, N, k, alpha, beta)
+
+  ! timing experiment
+  time = 0.0
+  istat = cudaEventRecord(start, 0)
+  do j = 1, NREPS
+    call sgemmNN_16x16<<<blocks, threads>>>(dA, dB, dC, m, N, k, alpha, beta)
+  end do
+  istat = cudaEventRecord(stop, 0)
+  istat = cudaThreadSynchronize()
+  istat = cudaEventElapsedTime(time, start, stop)
+  time = time / (NREPS*1.0e3)
+
+  C = dC
+
+  nerrors = 0
+  do j = 1, N
+    do i = 1, N
+      if (abs(gold(i,j) - C(i,j)) .gt. 1.0e-4) then
+        nerrors = nerrors + 1
+      end if
+    end do
+  end do
+
+  if (nerrors .eq. 0) then
+    print *,"Test passed!"
+  else
+    print *,nerrors," errors were encountered"
+  endif
+
+  gflops = 2.0 * N * N * N/time/1e9
+  write (*,901) m,k,k,N,time*1.0e3,gflops
+900 format('\nDevice:',a,', ',f6.1,' MHz clock, ',f6.1,' MB memory.\n')
+901 format(i0,'x',i0,' * ',i0,'x',i0,':\t',f8.3,' ms\t',f8.3,' GFlops/s')
+end program

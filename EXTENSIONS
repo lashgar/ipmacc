@@ -1,0 +1,39 @@
+===================
+IPMACC extensions to OpenACC
+===================
+IPMACC adds few clauses to OpenACC to improve performance of OpenACC application. 
+
+
+===================
+Software-managed cache (smc)
+===================
+smc lets the programmer to exploit scratch pad local memory and share data within a gang. Programmer identify a region of array accessed by single iteration of loop. Compiler should fetch data into the local memory and replaces corresponding array accesses with local memory access.
+
+Syntax: #pragma acc loop smc(var-list:type:pivot:down-range:up-range:divergent) new-line
+
+Description of parameters:
+    var-list the array identifier
+        should be a valid array name
+
+    type can be:
+        READ_ONLY -- assumes that the array will not be overwritten
+        READ_WRITE -- assumes that the dirty local data should be written backs
+        WRITE_ONLY -- assumes that the local data is not expected to be read back again
+
+    pivot (unsigned int) is the offset of address to be cached:
+        species the center element of array to be fetched into local memory. The pivot value is specified in respect to the loop iterator.
+
+    down-range (unsigned int)
+        specifies the maximum deviated-down access to array that should be fetched into local memory
+
+    up-range (unsigned int)
+        specifies the maximum deviated-down access to array that should be fetched into local memory
+
+    divergent (bool)
+        specifies whether the compiler should generate code for divergent avoidance or not.
+
+Example:
+    #pragma acc loop smc(a[READ_ONLY:0:1:1:false],b[READ_ONLY:-2:0:1:false])
+    for(i=0; i<size; ++i){
+        c[i]=a[i-1]+a[i]+a[i+1]+b[i-2]+b[i-1];
+

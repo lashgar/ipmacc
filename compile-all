@@ -1,0 +1,59 @@
+#!/bin/bash
+
+
+if [ "$IPMACCROOT" == "" ] ; then
+    echo 'warning: IPMACCROOT is not set'
+    echo 'please refer to the README before starting the compilation'
+fi
+
+ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Code standardazing
+cd $ROOTDIR/uncrustify/
+echo -en '~ compiling uncrustify .'
+tar xvzf uncrustify.tar.gz > /dev/null
+echo -en '.'
+cd uncrustify/
+make clean > /dev/null
+echo -en '.'
+./configure --prefix=$ROOTDIR/uncrustify/build/ > /dev/null
+echo -en '.'
+make > /dev/null 
+echo -en '.'
+make install > /dev/null
+echo '. done'
+
+# Parser
+# pycparser
+echo -en '~ compiling pycparser .'
+cd $ROOTDIR/parser/
+make
+echo -en '.'
+ln -s $ROOTDIR/src/utils_clause.py $ROOTDIR/parser/
+echo '. done'
+# srcML
+echo -en '~ compiling srcML parser .'
+cd $ROOTDIR/srcML/
+tar xvzf srcml.tar.gz > /dev/null
+cd src/
+make > /dev/null
+#ln -s $ROOTDIR/srcML/wrapper/wrapper.py $ROOTDIR/wrapper.py
+echo '. done'
+
+# Scanner and CUDA code generator
+cd $ROOTDIR
+rm $ROOTDIR/preprocessor.py -f
+ln -s $ROOTDIR/src/preprocessor-0.1.7b.py $ROOTDIR/preprocessor.py
+rm $ROOTDIR/scanner.py -f
+ln -s $ROOTDIR/src/scanner-0.2.4b.py $ROOTDIR/scanner.py
+rm $ROOTDIR/codegen.py -f
+ln -s $ROOTDIR/src/codegen-0.4.2b.py $ROOTDIR/codegen.py
+
+# API
+echo -en '~ compiling OpenACC API .'
+cd $ROOTDIR/src/
+make > /dev/null
+echo '. done'
+
+# set environment
+#export LD_LIBRARY_PATH=$ROOTDIR/lib:$LD_LIBRARY_PATH

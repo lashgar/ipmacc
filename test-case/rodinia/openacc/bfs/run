@@ -1,0 +1,13 @@
+INFILE=../../data/bfs/graph1MW_6.txt
+time ./bfs_g++ $INFILE
+#mv result.txt  result.g++.txt
+time ./bfs_cuda $INFILE
+#mv result.txt result.cuda.txt
+time ./bfs_opencl $INFILE
+#mv result.txt result.opencl.txt
+# to compare the results, set DUMPOUT line in Makefile and uncomment the lines below
+#echo 'RUNNING NEW BENCHMARK BFS' >> ~/run_script/diff_error
+#diff result.g++.txt result.cuda.txt   >> ~/run_script/diff_error
+#diff result.g++.txt result.opencl.txt >> ~/run_script/diff_error
+
+

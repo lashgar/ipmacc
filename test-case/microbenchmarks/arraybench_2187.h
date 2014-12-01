@@ -1,0 +1,10 @@
+void refer();
+void copyintest();
+void copyouttest();
+void createtest();
+void reductiontest();
+void privatetest();
+void kerneltest();
+double getclock(void);
+void delay(int, double*);
+void stats(double*, double*, double*);

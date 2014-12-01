@@ -1,0 +1,19 @@
+
+# IPMACC environment
+#set the following variable to the location of IPMACC, where `ipmacc' script exists
+export IPMACCROOT=/home/lashgar/ipmacc-stable/ipmacc
+
+# CUDA environment
+# comment the following line to disable CUDA integration in libopenacc, else set CUDAHOME properly
+export CUDASUPPORT=1
+export CUDAHOME=/usr/local/cuda/
+
+# OpenCL environment
+# comment the following line to disable OpenCL integration in libopenacc, else set OPENCLLIB and OPENCLINC properly
+export OPENCLSUPPORT=1
+export OPENCLLIB=/usr/lib64/
+export OPENCLINC=/usr/local/cuda/include/
+
+# no modification is needed for the following lines
+export LD_LIBRARY_PATH=$IPMACCROOT/lib:$LD_LIBRARY_PATH
+export PATH=$IPMACCROOT/:$PATH

@@ -1,0 +1,6 @@
+./srad_g++ 100 0.5 502 458
+mv image_out.pgm output.g++.pgm
+./srad_cuda 100 0.5 502 458
+mv image_out.pgm output.cuda.pgm
+./srad_opencl 100 0.5 502 458
+mv image_out.pgm output.opencl.pgm

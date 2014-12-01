@@ -1,0 +1,8 @@
+Compile for CPU only:
+	$ make cpu
+Compile for OpenCL only:
+	$ make opencl
+Compile for CUDA only:
+	$ make cuda
+Compile all:
+	$ make

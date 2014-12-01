@@ -1,0 +1,63 @@
+Rodinia Benchmark Suite 2.1
+===========================
+
+I. Overview
+
+The University of Virginia Rodinia Benchmark Suite is a collection of parallel programs which targets 
+heterogeneous computing platforms with both multicore CPUs and GPUs.
+
+II. Usage
+
+1. Pakage Structure
+
+rodinia_2.1/bin		: binary executables
+rodinia_2.1/common	: common configuration file
+rodinia_2.1/cuda	: source code for the CUDA implementations
+rodinia_2.1/data	: input files
+rodinia_2.1/openacc : source code for the OpenACC implementations
+rodinia_2.1/openmp	: source code for the OpenMP implementations
+rodinia_2.1/opencl	: source code for the OpenCL implementations
+
+2. Build Rodinia
+
+Install the CUDA/OCL drivers, SDK and toolkit on your machine. 
+
+Modify the rodinia_2.1/common/make.config file to change the settings of rodinia home directory and CUDA/OCL library paths.
+
+To compile all the programs of the Rodinia benchmark suite, simply use the universal make file to compile all the programs, or go to each 
+benchmark directory and make individual programs. 
+
+3. Run Rodinia
+
+There is a 'run' file specifying the sample command to run each program.
+
+IV. Change Log
+Oct. 09, 2012: Rodinia 2.2 is released
+        - BFS: Delete invalid flag CL_MEM_USE_HOST_PTR from _clMallocRW and _clMalloc functions in opencl verion. Thanks Alexey Kravets (CARP European research project).
+        - Hotspot: hotspot_kernel.cl:61 correct the index calculation as grid_cols *loadYidx + loadXidx. Correct the same problem in hotspot.cu:152. Thanks Alexey Kravets.
+        - Pathfinder: Added two __syncthreads in dynproc_kernel function of CUDA version to avoid data race. Thanks Ronny Krashinsky(Nvidia company) and Jiayuan Meng(Argonne National Laboratory). Alexey Kravets found and corrected the same problem in opencl version. 
+        - SRAD: Replace CUDA function __syncthreads() in srad OpenCL kernel with OpenCL barrier(CLK_LOCAL_MEM_FENCE).
+        - NN: Fixed the bug of CUDA version on certain input sizes. The new version detects excess of x-dimension size limit of a CUDA block grid and executes a two-dimensional grid if needed.(Only cuda version has this problem)
+        - Promote B+Tree to main distribution (with output)
+        - Promote Myocyte to main distribution (with output)
+	
+June 27, 2012: Rodinia 2.1 is released
+	- Include fixes for SRAD, Heartwall, Particle Filter and Streamcluster
+Nov 23, 2011: Rodinia 2.0.1 is released
+	- Include a CUDA version of NN comparable to the OCL version.
+	- Use a new version of clutils that is BSD, not GPL.
+Nov 11, 2011: Rodinia 2.0 is released
+	- Include several applications into the main suite:
+	  lavaMD, Gaussian Elimination, Pathfinder, k-Nearest Neighbor and Particle Filter. 
+	  Detailed application information can also be found at http://lava.cs.virginia.edu/wiki/rodinia
+	- Merge new OpenCL implementations into the main tarball.
+Mar 01, 2010: Rodinia 1.0 is released
+
+III. Contact
+
+Shuai Che: sc5nf@cs.virginia.edu
+Kevin Skadron: skadron@cs.virginia.edu
+
+Rodinia wiki: 
+
+http://lava.cs.virginia.edu/wiki/rodinia

@@ -1,0 +1,227 @@
+====================
+Component Description:
+scanner-<version>.py
+Preprocesses the input C code to tag the code into <c>, <for>, and <pragma> labels. The output is an XML file ready to be validated by parser. The same file is fed into the code generator.
+
+0.1.1b
+-Early working version
+-Restricted to define the pragma region start and end by { and }
+
+0.1.2b
+-Defining the region of where applied to 'pragma acc kernels'
+
+0.1.3b
+-Remove comments to prevent pycparser crash
+
+0.1.4b
+-Enhanced with option parser (optparse)
+-Only detect `for` loops within pragma (not all `for` loops)
+
+0.1.5b
+-Augmenting the scanner to detect loop boundary, loop increament steps, and iteration count
+
+0.1.6b
+-Preprocessor.py put necessary parantheses enabling auto-detection of pragma region without full-bracketing
+
+0.1.7b
+-Debugging, verbose, and keep intermediate mode capabilities are included
+-BUGFIX: nested comments, iterator declaration inside the `for` statement,
+
+0.1.8b
+-BUGFIX: ignore characters in the string "blah blah"
+-Removing comments to reduce code size
+-BUGFix: bug in the block comment detector.
+
+0.1.9b
+-BUGFIX: miss-detection of for loop
+
+0.2.0b
+-The type of loop iterator is carried with the loop specification, if declared in the loop initial statement.
+
+0.2.1b
+-Proper prompt upon exiting due to miss-formed for-loop initialize statement
+
+0.2.2b
+-Revised algorithm to perform faster.
+
+0.2.3b
+-Supporting struct/array reference in the for condition statement.
+
+0.2.4b
+-Supporting pointer reference in the for condition statement.
+
+====================
+Component Description:
+codegen-<version>.py
+Generating a CUDA code corresponding to the given XML file.
+
+0.1.1b
+-Early working version
+
+0.1.2b
+-Supporting none-parallel loops
+
+0.1.3b
+-Faster compilation time
+
+0.1.4b
+-Supporting dynamic allocation
+
+0.1.5b
+-BUGFix: unchecked function arguments may miss some variable types
+-BUGFix: given arguments of kernel call 
+-BUGFIX: multi-word variable types
+
+0.1.6b
+-BUGFix: many missing typedef and struct due to excluding include directives. Now we append a workout to let pycparser work with GNU directives.
+
+0.1.7b
+-Support data clauses in the kernels directive
+-Clause support for data and kernels directive: create, present_or_copy, present_or_copyin, and present_or_copyout
+
+0.1.8b
+-Clause support for kernels directive: async and if
+
+0.1.9b
+-BUGFIX: The type of array initialized upon declaration is miss identified.
+
+0.2.1b
+-Clause support for data and kernels directive: deviceptr
+-Implicit allocation and tansfer of the arrays (default assumption of OpenACC)
+-BUGFIX: incomptibility with `restrict` pointers.
+-BUGFIX: the initial value of loop iterator should be zero, which is now fixed.
+
+0.2.2b
+-BUGFIX: Variables cannot be multiple letters.
+
+0.2.3b
+-Renewed method for detecting the amount of parallelism in the kernels region.
+
+0.2.4b
+-BUGFIX: uniform view under both kernel generation and early full code AST generation.
+-BUGFIX: special characters are allowed in the offset/size pair of copy clauses.
+
+0.2.5b
+-Supporting `private` and `reduction` clause for the loop directive
+-BUGFIX: for-loop dimensioning in 0.2.3b
+
+0.2.6b
+-BUGFIX: replacing regex-style clause parser with character-by-character analyzer (clauseDecomposer_break:utils_clause.py)
+-BUGFIX: set "-I" flag for cpp to find openacc.h include file.
+
+0.2.7b  13April9
+-Modularized to facilitate the OpenCL port.
+-Early OpenCL support (reduction/private) are unsupported
+-BUGFIX: Declaring all the loop iterators in the kernel (removing global accesses)
+
+0.2.8b
+-BUGFIX: Single variable (non-array) copy in-out
+
+0.2.9b
+-Implementation of two-level tree reduction algorithm both for CUDA/OpenCL
+
+0.3.0b
+-BUGFIX: The iterator of work-sharing loop is declared immediately befor the loop.
+
+0.3.1b
+-Including gang/vector information in the for loop
+-BUGFIX: OpenACC in the extern functions.
+-BUGFIX: size_t is not known in pycparser. Always attaching <stdio.h> to code with <openacc.h>.
+
+0.3.2b
+-Early support for gang/vector
+
+0.3.3b
+-Support for `present` clause in data/kernels region
+
+0.3.4b
+-New C parser (srcML)
+-Support arbitrary struct types on accelerator
+-BUGFIX: miss detection of pointer variables.
+-BUGFIX: present clause does not need allocation
+-BUGFIX: in srcML wrapper.
+-BUGFIX: co-existence of reduction and copyout caused a codegeneration crash.
+
+0.3.5b
+-Avoid warning prompts for C/C++ keywords undefinitions
+-BUGFIX: always generating present copy/copyin/copyout/create
+-Allow function calls within region
+
+0.3.6b
+-BUGFIX: nested reduction.
+-BUGFIX: non-standard types.
+
+0.3.7b
+-Preventing 'No such file error' from cpp upon including user-defined include files. We now pass the current path of c-file to GNU cpp.
+-Support 'present_or_create' clause
+
+0.3.8b
+-Support templates
+-Pass '-x c++' to underlying gnu cpp
+-Pass compilation arguments to gnu cpp
+
+0.3.9b
+-Expect OpenACC regions without kernel call (data region only)
+-Prototype kernel calls just above the parent function (prevent undeclared type/structs)
+
+0.4.0b
+-Avoid declaring device variable where possible. Handle them in API.
+-Generating OpenCL extension for double support.
+
+0.4.1b
+-Generate acc_create_or_present for every copyout statement.
+
+0.4.2b
+-BUGFIX: deviceptr clause.
+-Improving memory-efficiency of reduction
+
+0.4.3b
+-BUGFIX: reduction.
+
+0.4.4b
+-Performance improvement: OpenCL kernel will be compiled once for entire program.
+
+0.4.5b
+-Skip unused forward declarations in OpenCL
+
+0.4.6b
+-Faster reduction on OpenCL
+
+0.4.7b
+-Using clFinish instead of clFlush for synchronization.
+
+0.4.8b
+-Implementation of READ_ONLY software managed cached (smc) clause for CUDA/OpenCL backend. Divergent code is not fully-supported.
+
+0.4.9b
+-Implementation of READ_WRITE and WRITE_ONLY smc clause for CUDA backend. Divergent code is not fully-supported.
+
+0.5.0b
+-BUGFIX: pass ipmacc `-I` arguments to GNU cpp.
+
+=========================
+Component Description:
+preprocessor-<version>.py
+generate intermediate C/C++ file to be parsed by scanner.
+
+0.1.1b
+-Bracketing the region of pragma
+
+0.1.2b
+-BUGFix: uncleared tagbodytemp lead to improper code
+
+0.1.3b
+-BUGFix: bug in the block comment detector.
+
+0.1.4b
+-Bracketing the region of one-statement for loops
+-BUGFIX: ignore characters in the string "blah blah"
+
+0.1.5b
+-BUGFIX: miss-detection of for loop
+
+0.1.6b
+-BUGFIX: pragma can be multiple line command using '\' ignore character
+
+0.1.7b
+-BUGFIX: multi-line pragma/define
