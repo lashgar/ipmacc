@@ -1,0 +1,70 @@
+====================
+The compiler should work on most Linux systems. It is developed under CentOS 6.2 64-bit:
+- gcc/g++ : 4.4.6
+- python  : 2.6.6
+
+====================
+Pre-requistics:
+
+Requirements:
+- python python-lxml
+- GNU cpp bison
+    on RedHat-like systems:
+        $ yum install bison
+    on ubuntu-like systems:
+        $ sudo apt-get install bison
+    on SUSE-like systems:
+        $ zypper install bison
+- In case of CUDA backend, CUDA Toolkit (>=4.2)
+    Download and install from NVIDIA website: http://developer.nvidia.com/cuda-toolkit
+- In case of OpenCL backend, OpenCL platform (>=1.0)
+- GCC/G++ 4.4 or latter
+- For srcML:
+    on RedHat-like systems:
+        $ yum install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel boost boost-devel java
+    on ubuntu-like systems:
+        $ sudo apt-get install libxml2 libxml2-dev antlr libantlr-dev libarchive-dev ia32-libs libxslt-dev libboost-dev
+    on SUSE-like systems:
+        $ zypper install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel
+
+Optional:
+- GNU indent (disbled by default)
+    indenting the CUDA/OpenCL target code to improve readablity. This can be enabled by setting ENABLE_INDENT=True in early lines of `codegen.py` file.
+
+====================
+Installation:
+Step 1:
+Modify the 'setup_environment' file in the ipmacc root directory and set variables properly according to the information given there. Then, source this file to have proper environment in the current bash:
+$ source ./setup_environment
+
+Notice that these variables are needed everytime you use IPMACC to compile applications or run the generated binaries. You may prefer to put the above command in the home bash file (e.g. ~/.bashrc).
+
+If the environment is setup properly, ipmacc should be available on the PATH: 
+$ which ipmacc
+
+Step 2:
+Start compilation by:
+$ chmod +x ./compile-all
+$ ./compile-all
+
+====================
+Usage:
+$ <ipmacc-flags> ipmacc <c-file> <compile-flags>
+    <ipmacc-flags>
+        ta=<target> target: nvopencl or nvcuda
+    <c-file>
+        input OpenACC C/CPP file
+    <compile-flags>
+        nvcc/g++ flags
+
+IPMACC translates OpenACC API (function calls or directives) in the input C-file to OpenCL/CUDA source. In case no compilation flag is passed, and if the compilation succeeds, two files will be generated:
+    1) the translation destination OpenCL/CUDA source file is created in the same path as the C-file, with the `_ipmacc.[cu/c/cpp]` suffix.
+    2) a.out is generated in current directory
+
+
+====================
+Known issues:
+-srcML, the parser which is used in IPMACC, has a compatibility issue with latest version of libxml2. In future release of IPMACC, we plan to include the compatible version of libxml2 in the package. To resolve this issue, use libxml2-2.7.6 which can be downloaded from here:
+ftp://gd.tuwien.ac.at/pub/libxml/
+
+
