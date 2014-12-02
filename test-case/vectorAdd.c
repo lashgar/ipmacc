@@ -42,7 +42,7 @@ int main()
         //C
         printf("Calculation on GPU ... ");
         tic = clock();
-        #pragma acc data pcopyin(a[0:SIZE],b[0:SIZE]) pcopyout(c[0:SIZE]) copyin(a[0:SIZE])
+        #pragma acc data pcopyin(a[0:SIZE],b[0:SIZE]) pcopyout(c[0:SIZE])
         {
             # pragma acc kernels 
             {

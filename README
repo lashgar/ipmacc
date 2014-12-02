@@ -4,8 +4,9 @@ IPMACC support data, kernels, and loop directive. It also allows user-defiend da
 
 ====================
 Getting Started:
-Refer to INSTALL file for performing the installation.
-After the installation, the best way to start is to compile the provided samples in the test-case/ directory. Example:
+- Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
+- Refer to INSTALL file for performing the installation.
+- After the installation, the best way to start is to compile the provided samples in the test-case/ directory. Example:
 $ ipmacc test-case/vectorAdd.c
 
 ====================
