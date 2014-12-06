@@ -24,6 +24,7 @@ if [ "$?" == "255" ] ; then
 fi
 
 # analyze the OpenACC enhanced C code
+#python $path/codeanalyzer.py -f $1 
 python $path/codeanalyzer.py -f $1 | $path/oaccparser
 #echo $?
 if [ "$?" == "255" ] ; then

@@ -34,18 +34,54 @@ Optional:
 ====================
 Installation:
 Step 1:
-Modify the 'setup_environment' file in the ipmacc root directory and set variables properly according to the information given there. Then, source this file to have proper environment in the current bash:
-$ source ./setup_environment
-
-Notice that these variables are needed everytime you use IPMACC to compile applications or run the generated binaries. You may prefer to put the above command in the home bash file (e.g. ~/.bashrc).
-
-If the environment is setup properly, ipmacc should be available on the PATH: 
-$ which ipmacc
+    Modify the 'setup_environment' file in the ipmacc root directory and set variables properly according to the information given there. Then, source this file to have proper environment in the current bash:
+    $ source ./setup_environment
+    
+    Notice that these variables are needed everytime you use IPMACC to compile applications or run the generated binaries. You may prefer to put the above command in the home bash file (e.g. ~/.bashrc).
+    
+    If the environment is setup properly, ipmacc should be available on the PATH: 
+    $ which ipmacc
 
 Step 2:
-Start compilation by:
-$ chmod +x ./compile-all
-$ ./compile-all
+    Start compilation by:
+    $ chmod +x ./compile-all
+    $ ./compile-all
+    
+    In this step, you me see several warnings but there shouldn't be any error! Compilation successfully terminates with the following prompt:
+    ~ compiling OpenACC API .. done
+
+Step 3:
+    At this step, you should be able to see ipmacc on the command-line:
+    $ ipmacc --version
+    IPMACC 0.7.5b
+
+Step 4:
+    Compile and run samples in test-case/ directory:
+    [lashgar@sysadm2 test-case]$ ipmacc vectorAdd.c -o vectorAdd
+            warning: Storing the translated code in <vectorAdd_ipmacc.cu> (target: <nvcuda>)
+    nvcc warning : The 'compute_10' and 'sm_10' architectures are deprecated, and may be removed in a future release.
+    [lashgar@sysadm2 test-case]$ ./vectorAdd
+    Calculation on GPU ...  150.0000 ms
+    Calculation on GPU ...  10.0000 ms
+    Calculation on GPU ...  0.0000 ms
+    Calculation on CPU ...  0.0000 ms
+    OpenACC vectoradd test was successful!
+    [lashgar@sysadm2 test-case]$ ipmacc vectorAdd.c -o vectorAdd -arch=sm_35
+            warning: Storing the translated code in <vectorAdd_ipmacc.cu> (target: <nvcuda>)
+    [lashgar@sysadm2 test-case]$ ./vectorAdd
+    Calculation on GPU ...  140.0000 ms
+    Calculation on GPU ...  0.0000 ms
+    Calculation on GPU ...  0.0000 ms
+    Calculation on CPU ...  0.0000 ms
+    OpenACC vectoradd test was successful!
+    [lashgar@sysadm2 test-case]$ 
+
+Step 5:
+    Verify correctness of ipmacc under latest features (software-managed cache and two-dimensional grid/thread block) by:
+    [lashgar@sysadm2 ipmacc]$ cd test-case/rodinia/smc/hotspot/
+    [lashgar@sysadm2 ipmacc]$ cat README
+    [lashgar@sysadm2 hotspot]$ bash testbench
+
 
 ====================
 Usage:

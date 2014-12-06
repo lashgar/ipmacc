@@ -29,6 +29,7 @@ S:       'C'        { if(DEBUGMODE) printf(">2\n"); }
 P:       'K' K 'k'  { if(DEBUGMODE) printf(">4\n"); }
        | 'D' S 'd'  { if(DEBUGMODE) printf(">5\n"); }
        | 'D' F 'd'  { if(DEBUGMODE) printf(">5A\n"); }
+       | 'F' S 'f'  { if(DEBUGMODE) printf(">5B\n"); }
        | error      { printf("unsupported directive\n"); return -1; }
 /*       | 'A'        { printf(">6\n"); }*/
 ;
@@ -47,6 +48,7 @@ L:       'L' F  'l'         { if(DEBUGMODE) printf(">10\n"); }
 
 F:       'F' 'C' 'f'        { if(DEBUGMODE) printf(">12\n"); }
        | 'F' 'C' F  'C' 'f' { if(DEBUGMODE) printf(">13\n"); }
+       | 'F' 'C' M  'C' 'f' { if(DEBUGMODE) printf(">13A\n"); }
        | 'F' 'C' L  'C' 'f' { if(DEBUGMODE) printf(">14\n"); }
        | 'F' F 'f'          { if(DEBUGMODE) printf(">15\n"); }
        | 'F' L 'f'          { if(DEBUGMODE) printf(">16\n"); }
@@ -56,9 +58,23 @@ F:       'F' 'C' 'f'        { if(DEBUGMODE) printf(">12\n"); }
        | error              { printf("unexpected pragma in the for loop\n"); return -1; }
 
 H:       H H                { if(DEBUGMODE) printf(">20\n"); }
-       | F 'C'
+       | F 'C'              { if(DEBUGMODE) printf(">21\n"); }
+       | 'C' F              { if(DEBUGMODE) printf(">22\n"); }
+       | F                  { if(DEBUGMODE) printf(">23\n"); }
+       | 'C' M 'C'          { if(DEBUGMODE) printf(">24\n"); }
+       | 'C' M H            { if(DEBUGMODE) printf(">25\n"); }
+       | M H                { if(DEBUGMODE) printf(">26\n"); }
+       | M H 'C'            { if(DEBUGMODE) printf(">27\n"); }
+       | M                  { if(DEBUGMODE) printf(">28\n"); }
        | error              { printf("unexpected content in for loop\n"); return -1; }
 ;
+
+M:       'M' 'm'                  { if(DEBUGMODE) printf(">23\n"); }
+       | 'M' F 'm'                  { if(DEBUGMODE) printf(">24\n"); }
+       | 'M' 'C' 'm'                  { if(DEBUGMODE) printf(">25\n"); }
+       | error              { printf("unexpected content within cache region\n"); return -1; }
+;
+
 
 /*
 */

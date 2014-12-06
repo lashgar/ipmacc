@@ -1,1 +1,1 @@
-ARCH= -arch=sm_13
+ARCH= -arch=sm_35

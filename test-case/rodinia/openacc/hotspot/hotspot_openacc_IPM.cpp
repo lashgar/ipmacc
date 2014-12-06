@@ -244,7 +244,7 @@ int main(int argc, char **argv)
 #ifdef OUTPUT
 	int i ;
 	for(i=0; i < grid_rows * grid_cols; i++)
-	fprintf(stdout, "%d\t%g\n", i, temp[i]);
+	fprintf(stdout, "%d\t%f\n", i, temp[i]);
 #endif
 	/* cleanup	*/
 	free(temp);

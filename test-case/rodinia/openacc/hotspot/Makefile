@@ -1,7 +1,7 @@
 
 include ../../common/arch.mk
 
-#DUMPOUT= -DOUTPUT
+DUMPOUT= -DOUTPUT
 
 # C compiler
 CC = g++
@@ -21,4 +21,4 @@ opencl:
 	ta=nvopencl $(ACC) hotspot_openacc_IPM.cpp -o hotspot_$(ACC)_opencl $(ACL_FLAGS) 
 
 clean:
-	rm -f hotspot_$(CC) hotspot_$(ACC)* *.o a.out result*txt *_ipmacc.cu *_ipmacc.cpp
+	rm -f hotspot_$(CC) hotspot_$(ACC)* *.o a.out result*txt *_ipmacc.cu *_ipmacc.cpp .testlog* .perflog* diff_error
