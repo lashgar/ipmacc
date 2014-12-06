@@ -636,7 +636,7 @@ void* acc_create( void* hostptr, size_t bytes )
 #ifdef __NVCUDA__
 		cudaError_t err=cudaMalloc((void**)&devptr,bytes);
 		if(err!=cudaSuccess){
-			printf("failed to allocate memory %16llu bytes on CUDA device: %d error-code (%d)\n", bytes, __ipmacc_clerr,err);
+			printf("failed to allocate memory %16llu bytes on CUDA device: %d\n", bytes, __ipmacc_clerr);
 		}else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
 #endif 
 	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
@@ -663,21 +663,15 @@ void* acc_create( void* hostptr, size_t bytes )
 void* acc_present_or_create ( void* hostptr, size_t bytes)
 {
 	void *devptr=acc_deviceptr(hostptr);
-    if (getenv("IPMACCLIB_VERBOSE")){
-        printf("Looking up address on device (hostptr: %p devptr: %p)\n", hostptr, devptr);
-    }
-
 	if(devptr){
 		return devptr ;
 	}else{
 		devptr = acc_create(hostptr, bytes);
 	}
-
 #ifdef DEBUG_LIB
 	assert(devptr!=NULL);
 	printf("ipmacc: create devpointer %p\n",devptr);
 #endif
-
 	return devptr;
 }
 void* acc_pcreate ( void* hostptr, size_t bytes)

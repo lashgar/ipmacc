@@ -50,6 +50,12 @@ Preprocesses the input C code to tag the code into <c>, <for>, and <pragma> labe
 0.2.4b
 -Supporting pointer reference in the for condition statement.
 
+0.2.5b
+-Supporting cache directive
+
+0.2.6b
+-Skip iteratation step detection for serial loops
+
 ====================
 Component Description:
 codegen-<version>.py
@@ -198,6 +204,53 @@ Generating a CUDA code corresponding to the given XML file.
 
 0.5.0b
 -BUGFIX: pass ipmacc `-I` arguments to GNU cpp.
+
+0.6.0b-0.6.1b
+-Supporting energy efficient library.
+-Supporting passing kernel to library.
+
+0.6.2b
+-BUGFIX: redundant variable declaration in energy-libary support
+
+0.6.3b (working version for smc. unstable)
+-BUGFIX: do not rename float3 and float4 in OpenACC to CUDA translation
+-Leave SMC region uninitialized
+
+0.6.4b (working version for smc. unstable)
+-BUGFIX: support multiple kernels, multiple SMC regions
+
+0.6.5b (working version for smc. unstable)
+-Change in shared memory address caculation.
+
+0.6.6b (working version for smc. unstable)
+-Redesign the smc notation for programmer readability
+
+0.6.7b (working version for smc. unstable write/ stable read)
+-Redesign the smc notation for programmer readability again
+
+0.6.8b stable non-divergent smc implementation
+-Supporting cache clause
+
+0.6.9b
+-Implementing 2D smc
+
+0.7.0b
+-Debuging 2D smc
+
+0.7.1b
+-Optimizing smc implementation; optimized fetch.
+
+0.7.2b
+-Optimizing smc implementation; optimizing addres translation.
+
+0.7.3b
+-Optimizing smc implementation: applying same optimization as 2D to 1D arrays.
+
+0.7.4b
+-Implement vector clause for loop directive
+
+0.7.5b
+-Launching a number of thread blocks exactly matching the number of loop iteration. No longer submitting one extra thread-block to cover boundaries.
 
 =========================
 Component Description:

@@ -75,8 +75,7 @@ typedef enum{
 	acc_device_host = 2,
 	acc_device_not_host = 3,
 	acc_device_nvcuda = 4,
-    acc_device_nvocl = 5,
-    acc_device_intelocl = 6
+	acc_device_nvocl = 5
 }acc_device_t;
 
 
@@ -153,10 +152,7 @@ void acc_set_device_type( acc_device_t devtype ){
 	int count=-1;
 	if(devtype==acc_device_nvcuda){
 		//CUDA on NV
-        __ipmacc_devicetype=devtype;
-	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
-        //OpenCL platform
-        __ipmacc_devicetype=devtype;
+		__ipmacc_devicetype=acc_device_nvcuda;
 	}else{
 		fprintf(stderr,"Unimplemented device type!\n");
 		exit(-1);
@@ -195,13 +191,13 @@ void* acc_partition_device(cl_device_id *device_to_partition, acc_device_t devty
 		fprintf(stderr,"Device partitioning is not supported on CUDA\n");
 		exit(-1);
 #endif 
-	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
+	}else if(devtype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		unsigned int ncore_per_partition=0;
 		sscanf(getenv("IPMACC_DEVICE_PART"),"%u",&ncore_per_partition);
 		assert(ncore_per_partition>0);
 		int i;
-		cl_device_partition_property prop[]={CL_DEVICE_PARTITION_EQUALLY,ncore_per_partition,0};
+		const cl_device_partition_property prop[]={CL_DEVICE_PARTITION_EQUALLY,ncore_per_partition,0};
 		cl_uint subdeviceCount_g=32; // guess number of sub-devices
 		cl_uint subdeviceCount_r=-1;
 		cl_device_id *subdevices=(cl_device_id*)malloc(sizeof(cl_device_id)*subdeviceCount_g);
@@ -225,8 +221,7 @@ void* acc_partition_device(cl_device_id *device_to_partition, acc_device_t devty
 	}
 }
 void acc_init( acc_device_t devtype ){
-    //printf("HAH<\n");
-    acc_set_device_type(devtype);
+printf("HAH<\n");
 	if(devtype==acc_device_nvcuda){
 		//CUDA on NV
 		if(acc_get_num_devices(devtype)>0){
@@ -238,8 +233,8 @@ void acc_init( acc_device_t devtype ){
 			exit(-1);
 		}
 		if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: device init.\n");
-		//__ipmacc_devicetype=devtype;//acc_device_nvcuda;
-	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
+		__ipmacc_devicetype=acc_device_nvcuda;
+	}else if(devtype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		int i, j;
 		char* value;
@@ -268,30 +263,11 @@ void acc_init( acc_device_t devtype ){
 		platform_deviceCount=(int*)malloc(sizeof(int)*platformCount);
 		platform_device_computeunit_counts=(int**)malloc(sizeof(int*)*platformCount);
 		// get list of devices in each platform
-		int selected_platformID=0;// select the platform of intend
-        char *selected_platformName=NULL;
 		for (i = 0; i < platformCount; i++) {
 			clGetPlatformInfo(platforms[i],CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
 			platform_name = (char *)malloc(sizeof(char)*platform_name_size);
 			clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, platform_name_size, platform_name, NULL);
 			if (getenv("IPMACCLIB_VERBOSE")) printf("platform name: %s\n", platform_name);
-            // set the platform
-            switch(devtype){
-                case acc_device_nvocl:
-                    if(strcmp(platform_name,"NVIDIA CUDA")==0){
-                        selected_platformID=i;
-                        selected_platformName=platform_name;
-                    }
-                break;
-                case acc_device_intelocl:
-                    if(strcmp(platform_name,"Intel(R) OpenCL")==0){
-                        selected_platformID=i;
-                        selected_platformName=platform_name;
-                    }
-                break;
-                default:
-                break;
-            }
 
 			// get all devices
 			clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_DEFAULT, 0, NULL, &deviceCount);
@@ -329,9 +305,7 @@ void acc_init( acc_device_t devtype ){
 				printf("Error in clCreateContext();\n");
 			}
 		}
-        if (getenv("IPMACC_VERBOSE")){
-            printf("Selected Platform Name: %s\n", selected_platformName);
-        }
+		int selected_platformID=0;// select the platform of intend
 		int selected_deviceID=0;  // select a device in the platform of intend
 		int selected_n_computeUnits=platform_device_computeunit_counts[selected_platformID][selected_deviceID]; // number of compute units in the selected device
 
@@ -455,7 +429,7 @@ void acc_init( acc_device_t devtype ){
 				}
 			}
 		}
-		//__ipmacc_devicetype=device_type;//acc_device_nvocl;
+		__ipmacc_devicetype=acc_device_nvocl;
 #endif
 	}else{
 		fprintf(stderr,"Unimplemented device type!\n");
@@ -526,7 +500,7 @@ void acc_list_devices_spec( acc_device_t devtype ){
 #endif 
 		fprintf(stderr,"Unimplemented device type!\n");
 		exit(-1);
-	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
+	}else if(devtype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		// this code is imported from [1] with minor modifications.
 		// [1] http://dhruba.name/2012/08/14/opencl-cookbook-listing-all-devices-and-their-critical-attributes/
@@ -636,10 +610,10 @@ void* acc_create( void* hostptr, size_t bytes )
 #ifdef __NVCUDA__
 		cudaError_t err=cudaMalloc((void**)&devptr,bytes);
 		if(err!=cudaSuccess){
-			printf("failed to allocate memory %16llu bytes on CUDA device: %d error-code (%d)\n", bytes, __ipmacc_clerr,err);
+			printf("failed to allocate memory %16llu bytes on CUDA device: %d\n", bytes, __ipmacc_clerr);
 		}else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
 #endif 
-	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+	}else if(__ipmacc_devicetype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		devptr=(void*)clCreateBuffer(__ipmacc_clctx, CL_MEM_READ_WRITE, bytes, NULL, &__ipmacc_clerr);
 		if(__ipmacc_clerr!=CL_SUCCESS){
@@ -663,21 +637,15 @@ void* acc_create( void* hostptr, size_t bytes )
 void* acc_present_or_create ( void* hostptr, size_t bytes)
 {
 	void *devptr=acc_deviceptr(hostptr);
-    if (getenv("IPMACCLIB_VERBOSE")){
-        printf("Looking up address on device (hostptr: %p devptr: %p)\n", hostptr, devptr);
-    }
-
 	if(devptr){
 		return devptr ;
 	}else{
 		devptr = acc_create(hostptr, bytes);
 	}
-
 #ifdef DEBUG_LIB
 	assert(devptr!=NULL);
 	printf("ipmacc: create devpointer %p\n",devptr);
 #endif
-
 	return devptr;
 }
 void* acc_pcreate ( void* hostptr, size_t bytes)
@@ -713,7 +681,7 @@ void acc_copyout_and_keep ( void * hostptr, size_t bytes)
 		if (getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [copyout]   from device (ptr: %p)\n",bytes,devptr);
 		cudaMemcpy(hostptr, devptr, bytes, cudaMemcpyDeviceToHost);
 #endif 
-	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+	}else if(__ipmacc_devicetype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [copyout]   from device (ptr: %p)\n",bytes);
 		cl_command_queue temp_queue=NULL;
@@ -774,7 +742,7 @@ void* acc_present_or_copyin( void* hostptr, size_t bytes )
 		if (getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [copyin]    to device (ptr: %p)\n",bytes,devptr);
 		cudaMemcpy(devptr, hostptr, bytes, cudaMemcpyHostToDevice); 
 #endif 
-	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+	}else if(__ipmacc_devicetype==acc_device_nvocl){
 #ifdef __NVOPENCL__
 		if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [copyin]    from device (ptr: %p)\n",bytes,devptr);
 		cl_command_queue temp_queue=NULL;
@@ -817,14 +785,6 @@ void* acc_pcopyin ( void* hostptr , size_t bytes )
  * only available in OpenCL */
 
 // this structure keeps the track of all compiled kernels
-typedef struct training_kernel_log_s {
-	// gathered information
-	double consumed_energy;
-	double time_duration;
-	unsigned int n_stalls;
-	// configuration
-	unsigned int n_core;
-} training_kernel_log_t;
 typedef struct training_kernel_s {
 	cl_kernel obj;
 	int id;
@@ -833,7 +793,6 @@ typedef struct training_kernel_s {
 	int nargs;
 	int ncalls;
 	double consumed_energy;
-	training_kernel_log_t *log;
 	struct training_kernel_s *next;
 } training_kernel_t;
 // head of the list of the compiled kernels:
@@ -954,7 +913,7 @@ void *acc_training_kernel_start(int kernelId){
 	printf("*************************************************************************\n");
 	printf("starting kernel training for kernel> %u\n",kernelId);
 	getEnergy( &package0_before, &core0_before, PACKAGE0_CORE);
-	//getEnergy( &package1_before, &core8_before, PACKAGE1_CORE);
+	getEnergy( &package1_before, &core8_before, PACKAGE1_CORE);
 	//	printf("current energy for package#%d: %.6f\n", PACKAGE0, package0_before);
 	//	printf("current energy for package#%d: %.6f\n", PACKAGE1, package1_before);
 	//	printf("current energy for core#%d: %.6f\n", PACKAGE0_CORE, core0_before);
@@ -992,8 +951,8 @@ void *acc_training_kernel_end(){
 #ifdef RALP
 	// captuing energy at the end of kenel execution time
 	getEnergy( &package0_after, &core0_after, PACKAGE0_CORE);
-	//getEnergy( &package1_after, &core8_after, PACKAGE1_CORE);
-	double consumed_energy = (package0_after - package0_before);// + (package1_after - package1_before);
+	getEnergy( &package1_after, &core8_after, PACKAGE1_CORE);
+	double consumed_energy = (package0_after - package0_before) + (package1_after - package1_before);
 	printf("Consumed energy for kernel> %u: %.6f\n",kernelId, consumed_energy);
 	// measuring consumed energy of the kernel
 	p->consumed_energy = consumed_energy;
@@ -1016,10 +975,6 @@ void *acc_training_kernel_end(){
 	printf("Ending kernel training for kernel> %u\n\n",kernelId);
 	printf("*************************************************************************\n");
 
-
-	// add the log to list: time, consumed_energy
-	// FIXME
-	
 	return obj;
 }
 

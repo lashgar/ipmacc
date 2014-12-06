@@ -229,8 +229,8 @@ class srcML:
                 #<parameter_list>(<param><decl><type>
                 if USEALT2:
                     # ALT 2
-                    for stm in fcn.findall(".//parameter_list/param"):
-                        for ch in stm.findall(".//decl"):
+                    for stm in fcn.findall(".//parameter_list/param/"):
+                        for ch in stm.findall(".//decl/"):
                             arg_stmt=self.getAllText(ch).strip()+';'
                             [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
                             e_vnames+=e_vars
@@ -248,7 +248,7 @@ class srcML:
                         e_vtypes+=e_types
                 else:
                     # ALT 1
-                    decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param")
+                    decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param/")
                     for ch in decls:
                         #stmt=self.getAllText(ch).strip()
                         #[e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
@@ -257,8 +257,8 @@ class srcML:
                         #e_vnames+=e_vars
                         #e_vsizes+=e_sizes
                         #e_vtypes+=e_types
-                        type=self.getAllText(ch.find(".//decl/type")).strip()
-                        vlist=ch.findall(".//decl/name")
+                        type=self.getAllText(ch.find(".//decl/type/")).strip()
+                        vlist=ch.findall(".//decl/name/")
                         for v in vlist:
                             [vname,arr]=self.cleanVarName(self.getAllText(v))
                             type+=arr.count('[')*'*'
@@ -286,7 +286,7 @@ class srcML:
 
     def getDeclaredVars(self, root):
         vnames=[]
-        for v in root.findall(".//decl/name"):
+        for v in root.findall(".//decl/name/"):
             [vname,arr]=self.cleanVarName(self.getAllText(v))
             if vname!='':
                 vnames.append(vname.strip())
@@ -442,7 +442,7 @@ class srcML:
                 except:
                     nonFunctionTemplate=True
             if not found:
-                for fcn in root.findall(".//function"):
+                for fcn in root.findall(".//function/"):
                     nm=fcn.find("name")
                     if nm.text==kernelsParents[id]:
                         try:
@@ -482,8 +482,8 @@ class srcML:
                 #print 'function found!'
                 if USEALT2:
                     # ALT 2
-                    for stm in fcn.findall(".//parameter_list/param"):
-                        for ch in stm.findall(".//decl"):
+                    for stm in fcn.findall(".//parameter_list/param/"):
+                        for ch in stm.findall(".//decl/"):
                             arg_stmt=self.getAllText(ch).strip()+';'
                             [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
                             e_vnames+=e_vars
@@ -506,10 +506,10 @@ class srcML:
                             return e_size
                 else:
                     # ALT 1
-                    decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param")
+                    decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param/")
                     for ch in decls:
                         # go through all declarations
-                        vlist=ch.findall(".//decl/name")
+                        vlist=ch.findall(".//decl/name/")
                         for v in vlist:
                             # check all variable names declared in this statemet
                             [vn,arr]=self.cleanVarName(self.getAllText(v))
@@ -517,10 +517,10 @@ class srcML:
                                 # here we found the variable
                                 if DEBUG: print '============'
                                 if DEBUG: print tostring(ch)
-                                type=self.getAllText(ch.find(".//decl/type")).strip()
+                                type=self.getAllText(ch.find(".//decl/type/")).strip()
                                 nDynDims=type.count('*')
                                 dims=[]
-                                for dim in ch.findall(".//decl/name/index"):
+                                for dim in ch.findall(".//decl/name/index/"):
                                     if DEBUG:
                                         print 'dim > '+self.getAllText(dim)
                                         print 'size >'+' ('+self.getAllText(dim).replace('[','',1)[::-1].replace(']','',1)[::-1].strip()+')'
@@ -570,7 +570,7 @@ class srcML:
 
     def getAllNames(self, root):
         names=[]
-        for nm in root.findall(".//name"):
+        for nm in root.findall(".//name/"):
             try:
                 str=nm.text.strip()
                 if DEBUG: print 'new identifier > '+str
@@ -656,7 +656,7 @@ class srcML:
     def getAllKernelArgs(self, root):
         print 'called'
         names=[]
-        for np in root.findall(".//parameter_list/param"):
+        for np in root.findall(".//parameter_list/param/"):
             #for nm in np.findall(".//decl/"):
             arg_stmt=self.getAllText(np).strip()+';'
             if DEBUG: print '========================='+arg_stmt

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.5.0b
+VERSION=0.7.5b
 function usage()
 {
     echo "usage: ipmacc c-file <compile flags> "
@@ -66,7 +66,8 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
     elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--help" ] ; then
         usage
         exit 1
-    elif [ "${ARGS[i]}" == "-v" ] || [ "${ARGS[i]}" == "--version" ] ; then
+    elif [ "${ARGS[i]}" == "--version" ] ; then
+    #elif [ "${ARGS[i]}" == "-v" ] || [ "${ARGS[i]}" == "--version" ] ; then
         version
         exit 1
     elif [ "${ARGS[i]}" == "--ta" ] ; then
@@ -137,7 +138,7 @@ ln -s $path/src/utils_clause.py $path/parser/
 rm $path/preprocessor.py $path/preprocessor.pyc -f
 ln -s $path/src/preprocessor-0.1.7b.py $path/preprocessor.py
 rm $path/scanner.py -f
-ln -s $path/src/scanner-0.2.4b.py $path/scanner.py
+ln -s $path/src/scanner-0.2.6b.py $path/scanner.py
 rm $path/codegen.py -f
 ln -s $path/src/codegen-${VERSION}.py $path/codegen.py
 

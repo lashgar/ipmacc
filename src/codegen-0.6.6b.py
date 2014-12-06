@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import tostring
 #from termcolor import colored
 import os
+from random import randint
 
 ipmaccprefix=os.path.dirname(os.path.realpath(__file__))+"/../"
 sys.path.extend(['.', '..', ipmaccprefix+'./pycparser/', ipmaccprefix+"/srcML/wrapper/"])
@@ -24,7 +25,8 @@ ERRORDUMP=True
 REDUCTION_TWOLEVELTREE=True # two-level tree reduction is the default policy.
     # setting the control to False, generates only CUDA code which is supported on limited number of devices (cc>=1.3). 
 USEPYCPARSER=False # True: pycparser, False: srcML
-WARNING=False 
+USEAPI=True # use API instead of hard-code for performing OpenCL kernel compilation
+WARNING=False
 
 # Debugging level control
 DEBUG=0 #general
@@ -143,7 +145,7 @@ class codegen(object):
                                 'uchar2', 'char3', 'uchar3', 'char4', 'uchar4', 'short1', 'ushort1', 'short2', 'ushort2', 'uint2', 
                                 'int3', 'uint3', 'int4', 'uint4', 'long1', 'ulong1', 'short3', 'ushort3', 'short4', 'ushort4', 
                                 'int1', 'uint1', 'int2', 'long2', 'ulong2', 'long3', 'ulong3', 'long4', 'ulong4', 'longlong1', 
-                                'ulonglong1', 'longlong2', 'ulonglong2', 'float1', 'float2', 'float3', 'float4',
+                                'ulonglong1', 'longlong2', 'ulonglong2', 'float1', 'float2',# 'float3', 'float4',
                                 'double1', 'double2', 'double3', 'double4']
                                 # cuda types which are available
 
@@ -170,6 +172,8 @@ class codegen(object):
         self.prefix_kernel_privred_region='__kernel_privred_region_'
         self.prefix_kernel_smc_fetch='__kernel_smc_fetch_' # it may encompass fetch/initilization for one or more arrays
         self.prefix_kernel_smc_fetchend='__kernel_smc_fetchend_' # it may encompass fetch/initilization for one or more arrays
+        self.prefix_kernel_smc_startpointer='__kernel_smc_startpointer_' # it may encompass fetch/initilization for one or more arrays
+        self.prefix_kernel_smc_endpointer='__kernel_smc_endpointer_' # it may encompass fetch/initilization for one or more arrays
         self.prefix_kernel_smc_varpref='__kernel_smc_var_data_' 
         self.prefix_kernel_smc_tagpref='__kernel_smc_var_tag_' 
         self.prefix_kernel_reduction_iterator='__kernel_reduction_iterator'
@@ -688,7 +692,7 @@ class codegen(object):
     def syncDevice_cuda(self):
         code=''
         code+='if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Synchronizing the region with host\\n");\n'
-        code+='cudaDeviceSynchronize();\n'
+        code+='{\ncudaError err=cudaDeviceSynchronize();\nif(err!=cudaSuccess){\nprintf("Kernel Launch Error! error code (%d)\\n",err);\nassert(0&&"Launch Failure!\\n");}\n}\n'
         return code
     def openCondition_cuda(self,cond):
         return 'if('+cond+'){\n'
@@ -847,31 +851,46 @@ class codegen(object):
         smc_select_calls=''
         smc_write_calls=''
         if len(smcinfo)>0:
+            if DEBUGSMC: print 'found smc clause'
             pfreelist=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi] in smcinfo:
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
                 if kernelB.find(fcall)==-1:
                     # this smc does not belong to this kernel, ignore 
+                    if DEBUGSMC: print 'skip> '+fcall
                     continue
                 length=self.blockDim_cuda+'+'+dw+'+'+up
                 # declare local memories
                 decl+='\n/* declare the shared memory of '+v+' */\n'
                 decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+'];\n'
                 decl+='__shared__ unsigned char '+self.prefix_kernel_smc_tagpref+v+'['+length+'];\n'
+                decl+='__shared__ unsigned int '+self.prefix_kernel_smc_startpointer+v+';\n'
+                decl+='__shared__ unsigned int '+self.prefix_kernel_smc_endpointer+v+';\n'
                 decl+='{\n'
                 decl+='int iterator_of_smc=0;\n'
                 decl+='for(iterator_of_smc=threadIdx.x; iterator_of_smc<('+length+'); iterator_of_smc+=blockDim.x){\n'
-                decl+=self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
+                decl+='//'+self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
                 decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc]=0;\n'
                 decl+='}\n__syncthreads();\n'
                 decl+='}\n'
                 if st=='READ_ONLY' or st=='READ_WRITE':
                     # fetch data to local memory
                     datafetch ='{ // fetch begins\nint kk;\n'
-                    datafetch+='__syncthreads();\n'
-                    datafetch+='for(int kk=threadIdx.x; kk<('+length+'); kk+=blockDim.x)\n'
+                    datafetch+='if(threadIdx.x==0){\n'
+                    #datafetch+=self.prefix_kernel_smc_startpointer+v+'=0;\n' #FIXME
+                    datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-('+p+'&'+self.blockDim_cuda+')-'+dw+';\n'
+                    datafetch+=self.prefix_kernel_smc_endpointer+v+'='+self.prefix_kernel_smc_startpointer+v+'+'+self.blockDim_cuda+'+'+up+';\n'
+                    datafetch+='}\n'
+                    #datafetch+='if(threadIdx.x==0){\n'+self.prefix_kernel_smc_startpointer+v+'=(blockIdx.x*'+self.blockDim_cuda+')-'+dw+'+'+p+';\n}\n'
+                    if div=='false':
+                        datafetch+='int stride=blockDim.x;\n__syncthreads();\n'
+                    else:
+                        datafetch+='int stride=__syncthreads_count(1);\n'
+                    datafetch+='for(int kk=threadIdx.x; kk<('+length+'); kk+=stride)\n'
+                    #datafetch+='for(int kk=threadIdx.x; kk<('+length+'); kk+=blockDim.x)\n'
                     datafetch+='{\n'
-                    datafetch+='int idx=blockIdx.x*'+self.blockDim_cuda+'+kk-'+dw+'+'+p+';\n'
+                    datafetch+='int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
+                    #datafetch+='int idx=blockIdx.x*'+self.blockDim_cuda+'+kk-'+dw+'+'+p+';\n'
                     datafetch+='if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
                     datafetch+='{\n'
                     datafetch+=self.prefix_kernel_smc_varpref+v+'[kk]='+v+'[idx];\n'
@@ -880,29 +899,35 @@ class codegen(object):
                     datafetch+='}\n'
                     datafetch+='__syncthreads();\n'
                     datafetch+='} // end of fetch\n'
-                    datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+')\n'
+                    datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_endpointer+v+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
+                    #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
                     kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
                 # construct the smc_select_ per array for READ
-                smc_select_calls+='__device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before){\n'
+                smc_select_calls+='__device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before, unsigned int startptr, int lbnd, int ubnd){\n'
                 if div=='false':
                     smc_select_calls+='// the pragmas are well-set. do not check the boundaries.\n'
-                    smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
+                    #smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
+                    smc_select_calls+='assert((index-startptr)>=0);\n' #FIXME
+                    smc_select_calls+='assert((index-startptr)<256);\n' #FIXME
+                    smc_select_calls+='return s_array[index-startptr];\n'
                 else:
                     smc_select_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                     smc_select_calls+='// dynamic runtime performs the check\n'
-                    smc_select_calls+='bool a=index>=down;\n'
-                    smc_select_calls+='bool b=index<up;\n'
+                    smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
+                    smc_select_calls+='bool b=index<=up && index<ubnd;\n'
                     smc_select_calls+='bool d=a&b;\n'
                     smc_select_calls+='if(d){\n'
-                    smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
+                    #smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
+                    smc_select_calls+='return s_array[index-startptr];\n'
                     smc_select_calls+='}\n'
                     smc_select_calls+='return g_array[index];\n'
                 smc_select_calls+='}\n'
                 # construct the smc_write_ per array for WRITE
-                smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before,'+t.replace('*','')+' value){\n'
+                smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before,'+t.replace('*','')+' value, unsigned int startptr){\n'
                 if div=='false':
                     smc_write_calls+='// the pragmas are well-set. do not check the boundaries.\n'
-                    smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
+                    smc_write_calls+='s_array[index-startptr]=value;\n'
+                    #smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
                 else:
                     smc_write_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                     smc_write_calls+='// dynamic runtime performs the check\n'
@@ -910,7 +935,8 @@ class codegen(object):
                     smc_write_calls+='bool b=index<up;\n'
                     smc_write_calls+='bool d=a&b;\n'
                     smc_write_calls+='if(d){\n'
-                    smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
+                    smc_write_calls+='s_array[index-startptr]=value;\n'
+                    #smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
                     smc_write_calls+='}\n'
                     smc_write_calls+='g_array[index]=value;\n'
                 smc_write_calls+='}\n'
@@ -963,7 +989,7 @@ class codegen(object):
                         writeIdx_loc=']'.join('['.join(kernelB[writeIdx_str:assignmentIdx].split('[')[1:]).split(']')[:-1])
                         writeIdx_val=kernelB[assignmentIdx+1:writeIdx_end]
                         #writeIdx_replacer='__smc_write_'+str(a)+'_'+v+'('+v+','+self.prefix_kernel_smc_varpref+v+','+writeIdx_loc+','+writeIdx_val[:-1]+');'
-                        writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+');\n'
+                        writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+', '+self.prefix_kernel_smc_startpointer+v+');\n'
                         writeIdx_replacer+='__syncthreads();\n'
                         writeIdxList.append([v, a, p, dw, up, writeIdx_str, writeIdx_end, assignmentIdx])
                         print 'smc: write-access on ->\n\tlocation:'+writeIdx_loc+'\n\tstart-in-kernelB:'+str(writeIdx_str)+'\n\tend-in-kernelB:'+str(writeIdx_end)+'\n\tvalue-in-kernelB:'+writeIdx_val+'\n\tend-to-end-statement:<<'+kernelB[writeIdx_str:writeIdx_end]+'>> \n\treplacer:'+writeIdx_replacer
@@ -991,7 +1017,7 @@ class codegen(object):
                     [v, a, p, dw, up, wst, wen, asgidx]=writeIdxList[wi]
                     writeIdx_loc=']'.join('['.join(kernelB[wst:asgidx].split('[')[1:]).split(']')[:-1])
                     writeIdx_val=kernelB[asgidx+1:wen]
-                    writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+');\n'
+                    writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+','+self.prefix_kernel_smc_startpointer+v+');\n'
                     writeIdx_replacer+='__syncthreads();\n'
                     kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
                 # generate writeback code
@@ -1087,11 +1113,14 @@ class codegen(object):
         codeC+='extern size_t __ipmacc_parmsz;\n'
         codeC+='extern cl_device_id* __ipmacc_cldevs;\n'
         codeC+='extern cl_command_queue __ipmacc_command_queue;\n'
+        codeC+='extern cl_command_queue __ipmacc_temp_cmdqueue;\n'
         return codeC
     def syncDevice_opencl(self):
         code=''
         code+='if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Synchronizing the region with host\\n");\n'
-        code+='clFinish(__ipmacc_command_queue);\n'
+        code+='clFinish(__ipmacc_temp_cmdqueue);\n'
+        if USEAPI: code+='acc_training_kernel_end();\n'
+        #code+='clFinish(__ipmacc_command_queue);\n'
         return code
     def openCondition_opencl(self,cond):
         return 'if('+cond+'){\n'
@@ -1142,6 +1171,7 @@ class codegen(object):
         # construct smc calls
         smc_select_calls=''
         if len(smcinfo)>0:
+            if DEBUGSMC: print 'found smc clause'
             pfreelist=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi] in smcinfo:
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
@@ -1176,38 +1206,45 @@ class codegen(object):
         cleanKerDec=cleanKerDec.replace('\n','\\n')
         kernelInvoc='\n/* kernel call statement*/\n'
         kernelInvoc+='static cl_kernel __ipmacc_clkern'+kerId_str+'=NULL;\n'
-        kernelInvoc+='if( __ipmacc_clkern'+kerId_str+'==NULL){\n'
-        extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
-        kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
-        kernelInvoc+='cl_program __ipmacc_clpgm'+kerId_str+';\n'
-        kernelInvoc+='__ipmacc_clpgm'+kerId_str+'=clCreateProgramWithSource(__ipmacc_clctx, 1, &kernelSource'+kerId_str+', NULL, &__ipmacc_clerr);\n'
-        kernelInvoc+=self.checkCallError_opencl('clCreateProgramWithSource','')
-        kernelInvoc+='char __ipmacc_clcompileflags'+kerId_str+'[128];\n'
-        kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', " ");\n'
-        #kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', "-cl-mad-enable");\n'
-        exceptionHandler="""
-        size_t log_size=1024;
-        char *build_log=NULL;
-        __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-        if(__ipmacc_clerr!=CL_SUCCESS){
-            printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
-        }
-        build_log = (char*)malloc((log_size+1));
-        // Second call to get the log
-        __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
-        if(__ipmacc_clerr!=CL_SUCCESS){
-            printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
-        }
-        build_log[log_size] = '\\0';
-        printf("--- Build log (%d)---\\n ",log_size);
-        fprintf(stderr, "%s\\n", build_log);
-        free(build_log);"""
-        kernelInvoc+='__ipmacc_clerr=clBuildProgram(__ipmacc_clpgm'+kerId_str+', 0, NULL, __ipmacc_clcompileflags'+kerId_str+', NULL, NULL);\n'
-        kernelInvoc+=self.checkCallError_opencl('clBuildProgram',exceptionHandler)
-        #kernelInvoc+='cl_kernel __ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
-        kernelInvoc+='__ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
-        kernelInvoc+='}\n'
-        kernelInvoc+=self.checkCallError_opencl('clCreateKernel','')
+        kernelRandomId=str(randint(1,10000000))
+        if USEAPI:
+            extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
+            kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
+            kernelInvoc+="__ipmacc_clkern"+kerId_str+"=(cl_kernel)acc_training_kernel_add(kernelSource"+kerId_str+", (char*)\" \", (char*)\""+self.prefix_kernel_gen+str(kerId_str)+"\","+kernelRandomId+", "+str(len(args))+");\n"
+        else:
+            kernelInvoc+='if( __ipmacc_clkern'+kerId_str+'==NULL){\n'
+            extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
+            kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
+            kernelInvoc+='cl_program __ipmacc_clpgm'+kerId_str+';\n'
+            kernelInvoc+='__ipmacc_clpgm'+kerId_str+'=clCreateProgramWithSource(__ipmacc_clctx, 1, &kernelSource'+kerId_str+', NULL, &__ipmacc_clerr);\n'
+            kernelInvoc+=self.checkCallError_opencl('clCreateProgramWithSource','')
+            kernelInvoc+='char __ipmacc_clcompileflags'+kerId_str+'[128];\n'
+            kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', " ");\n'
+            #kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', "-cl-mad-enable");\n'
+            exceptionHandler="""
+            size_t log_size=1024;
+            char *build_log=NULL;
+            __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+            if(__ipmacc_clerr!=CL_SUCCESS){
+                printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
+            }
+            build_log = (char*)malloc((log_size+1));
+            // Second call to get the log
+            __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
+            if(__ipmacc_clerr!=CL_SUCCESS){
+                printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
+            }
+            build_log[log_size] = '\\0';
+            printf("--- Build log (%d)---\\n ",log_size);
+            fprintf(stderr, "%s\\n", build_log);
+            free(build_log);"""
+            kernelInvoc+='__ipmacc_clerr=clBuildProgram(__ipmacc_clpgm'+kerId_str+', 0, NULL, __ipmacc_clcompileflags'+kerId_str+', NULL, NULL);\n'
+            kernelInvoc+=self.checkCallError_opencl('clBuildProgram',exceptionHandler)
+            #kernelInvoc+='cl_kernel __ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
+            kernelInvoc+='__ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
+            kernelInvoc+=self.checkCallError_opencl('clCreateKernel','')
+            kernelInvoc+='}\n'
+
         for j in range(0,len(args)):
             pointer=(args[j].find('*')!=-1)
             argName=args[j].split(' ')[-1]
@@ -1234,7 +1271,10 @@ class codegen(object):
         kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %d\\tblockDim: %d\\n",'+gridDim+','+blockDim+');\n')
         kernelInvoc+='size_t global_item_size'+kerId_str+' = '+gridDim+';\n'
         kernelInvoc+='size_t local_item_size'+kerId_str+' = '+blockDim+';\n'
-        kernelInvoc+='__ipmacc_clerr=clEnqueueNDRangeKernel(__ipmacc_command_queue, __ipmacc_clkern'+kerId_str+', 1, NULL,\n &global_item_size'+kerId_str+', &local_item_size'+kerId_str+', 0, NULL, NULL);\n'
+        kernelInvoc+='__ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
+        #kernelInvoc+='cl_command_queue __ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
+        if USEAPI: kernelInvoc+='acc_training_kernel_start('+kernelRandomId+');\n'
+        kernelInvoc+='__ipmacc_clerr=clEnqueueNDRangeKernel(__ipmacc_temp_cmdqueue, __ipmacc_clkern'+kerId_str+', 1, NULL,\n &global_item_size'+kerId_str+', &local_item_size'+kerId_str+', 0, NULL, NULL);\n'
         kernelInvoc+=self.checkCallError_opencl('clEnqueueNDRangeKernel','')
         #kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'<<<'+gridDim+','+blockDim+'>>>('+(','.join(callArgs))+');'
         kernelInvoc+='\n/* kernel call statement*/\n'
@@ -1370,7 +1410,7 @@ class codegen(object):
                 decl+='{\n'
                 decl+='int iterator_of_smc=0;\n'
                 decl+='for(iterator_of_smc=get_local_id(0); iterator_of_smc<('+length+'); iterator_of_smc+=get_local_size(0)){\n'
-                decl+=self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
+                decl+='// '+self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
                 decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc]=0;\n'
                 decl+='}\nbarrier(CLK_LOCAL_MEM_FENCE);\n'
                 decl+='}\n'
@@ -2674,7 +2714,8 @@ class codegen(object):
                     except:
                         print 'Error: Could not determine the type of variable declared for smc: '+variable
                         exit(-1)
-                    endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, kid, dimlow, dimhigh])
+                    endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, corr, dimlow, dimhigh])
+                    #endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, kid, dimlow, dimhigh])
             corr+=1
         return endList
 

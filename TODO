@@ -6,11 +6,13 @@ TODO:
 - Support class template of C++
 - Support 'kernels loop' directive
 - Improve pragmadecomposer parser to detect malformed reduction/private
-- Improve compilation speed
 - Support 2D arrays
 - Support parallel directive
 - Support entire API
 - BUGFIX: codegen fails to find the type/size upon passing struct element to data clause
+- Support dynamic shared memory size (for smc and cache clause)
+- BUGFIX: '\n' character in for statement cause XML crash.
+- BUGFIX: two terminating condition in the for loop may lead to XML crash.
 
 DONE:
 - Replacing pycparser XML generator with srcML generator (faster and lower-level)
@@ -23,3 +25,4 @@ DONE:
 - Replace all `define` micro to prevent clBuiltProgram failure
 - Support OpenCL generators
 - Function call inside the region
+- Improve compilation speed

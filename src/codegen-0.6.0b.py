@@ -1091,7 +1091,8 @@ class codegen(object):
     def syncDevice_opencl(self):
         code=''
         code+='if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Synchronizing the region with host\\n");\n'
-        code+='clFinish(__ipmacc_command_queue);\n'
+        code+='clFinish(__ipmacc_temp_cmdqueue);\n'
+        #code+='clFinish(__ipmacc_command_queue);\n'
         return code
     def openCondition_opencl(self,cond):
         return 'if('+cond+'){\n'
@@ -1176,38 +1177,45 @@ class codegen(object):
         cleanKerDec=cleanKerDec.replace('\n','\\n')
         kernelInvoc='\n/* kernel call statement*/\n'
         kernelInvoc+='static cl_kernel __ipmacc_clkern'+kerId_str+'=NULL;\n'
-        kernelInvoc+='if( __ipmacc_clkern'+kerId_str+'==NULL){\n'
-        extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
-        kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
-        kernelInvoc+='cl_program __ipmacc_clpgm'+kerId_str+';\n'
-        kernelInvoc+='__ipmacc_clpgm'+kerId_str+'=clCreateProgramWithSource(__ipmacc_clctx, 1, &kernelSource'+kerId_str+', NULL, &__ipmacc_clerr);\n'
-        kernelInvoc+=self.checkCallError_opencl('clCreateProgramWithSource','')
-        kernelInvoc+='char __ipmacc_clcompileflags'+kerId_str+'[128];\n'
-        kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', " ");\n'
-        #kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', "-cl-mad-enable");\n'
-        exceptionHandler="""
-        size_t log_size=1024;
-        char *build_log=NULL;
-        __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-        if(__ipmacc_clerr!=CL_SUCCESS){
-            printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
-        }
-        build_log = (char*)malloc((log_size+1));
-        // Second call to get the log
-        __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
-        if(__ipmacc_clerr!=CL_SUCCESS){
-            printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
-        }
-        build_log[log_size] = '\\0';
-        printf("--- Build log (%d)---\\n ",log_size);
-        fprintf(stderr, "%s\\n", build_log);
-        free(build_log);"""
-        kernelInvoc+='__ipmacc_clerr=clBuildProgram(__ipmacc_clpgm'+kerId_str+', 0, NULL, __ipmacc_clcompileflags'+kerId_str+', NULL, NULL);\n'
-        kernelInvoc+=self.checkCallError_opencl('clBuildProgram',exceptionHandler)
-        #kernelInvoc+='cl_kernel __ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
-        kernelInvoc+='__ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
-        kernelInvoc+='}\n'
-        kernelInvoc+=self.checkCallError_opencl('clCreateKernel','')
+        USEAPI=True
+        if USEAPI:
+            extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
+            kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
+            kernelInvoc+="__ipmacc_clkern"+kerId_str+"=(cl_kernel)acc_training_kernel_add(kernelSource"+kerId_str+", (char*)\" \", (char*)\""+self.prefix_kernel_gen+str(kerId_str)+"\","+kerId_str+", "+str(len(args))+");\n"
+        else:
+            kernelInvoc+='if( __ipmacc_clkern'+kerId_str+'==NULL){\n'
+            extensionSupports='#ifdef cl_khr_fp64\\n#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n#elif defined(cl_amd_fp64)\\n#pragma OPENCL EXTENSION cl_amd_fp64 : enable\\n#else\\n#error \\"Double precision floating point not supported by OpenCL implementation.\\"\\n#endif\\n'
+            kernelInvoc+='const char* kernelSource'+kerId_str+' ="'+extensionSupports+cleanKerDec+'";\n'
+            kernelInvoc+='cl_program __ipmacc_clpgm'+kerId_str+';\n'
+            kernelInvoc+='__ipmacc_clpgm'+kerId_str+'=clCreateProgramWithSource(__ipmacc_clctx, 1, &kernelSource'+kerId_str+', NULL, &__ipmacc_clerr);\n'
+            kernelInvoc+=self.checkCallError_opencl('clCreateProgramWithSource','')
+            kernelInvoc+='char __ipmacc_clcompileflags'+kerId_str+'[128];\n'
+            kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', " ");\n'
+            #kernelInvoc+='sprintf(__ipmacc_clcompileflags'+kerId_str+', "-cl-mad-enable");\n'
+            exceptionHandler="""
+            size_t log_size=1024;
+            char *build_log=NULL;
+            __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+            if(__ipmacc_clerr!=CL_SUCCESS){
+                printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
+            }
+            build_log = (char*)malloc((log_size+1));
+            // Second call to get the log
+            __ipmacc_clerr=clGetProgramBuildInfo(__ipmacc_clpgm"""+kerId_str+""", __ipmacc_cldevs[0], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
+            if(__ipmacc_clerr!=CL_SUCCESS){
+                printf("OpenCL Runtime Error in clGetProgramBuildInfo! id: %d\\n",__ipmacc_clerr);
+            }
+            build_log[log_size] = '\\0';
+            printf("--- Build log (%d)---\\n ",log_size);
+            fprintf(stderr, "%s\\n", build_log);
+            free(build_log);"""
+            kernelInvoc+='__ipmacc_clerr=clBuildProgram(__ipmacc_clpgm'+kerId_str+', 0, NULL, __ipmacc_clcompileflags'+kerId_str+', NULL, NULL);\n'
+            kernelInvoc+=self.checkCallError_opencl('clBuildProgram',exceptionHandler)
+            #kernelInvoc+='cl_kernel __ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
+            kernelInvoc+='__ipmacc_clkern'+kerId_str+' = clCreateKernel(__ipmacc_clpgm'+kerId_str+', "'+self.prefix_kernel_gen+str(kerId_str)+'", &__ipmacc_clerr);\n'
+            kernelInvoc+=self.checkCallError_opencl('clCreateKernel','')
+            kernelInvoc+='}\n'
+
         for j in range(0,len(args)):
             pointer=(args[j].find('*')!=-1)
             argName=args[j].split(' ')[-1]
@@ -1234,7 +1242,8 @@ class codegen(object):
         kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %d\\tblockDim: %d\\n",'+gridDim+','+blockDim+');\n')
         kernelInvoc+='size_t global_item_size'+kerId_str+' = '+gridDim+';\n'
         kernelInvoc+='size_t local_item_size'+kerId_str+' = '+blockDim+';\n'
-        kernelInvoc+='__ipmacc_clerr=clEnqueueNDRangeKernel(__ipmacc_command_queue, __ipmacc_clkern'+kerId_str+', 1, NULL,\n &global_item_size'+kerId_str+', &local_item_size'+kerId_str+', 0, NULL, NULL);\n'
+        kernelInvoc+='cl_command_queue __ipmacc_temp_cmdqueue=(cl_command_queue)acc_decide_command_queue('+kerId_str+');\n'
+        kernelInvoc+='__ipmacc_clerr=clEnqueueNDRangeKernel(__ipmacc_temp_cmdqueue, __ipmacc_clkern'+kerId_str+', 1, NULL,\n &global_item_size'+kerId_str+', &local_item_size'+kerId_str+', 0, NULL, NULL);\n'
         kernelInvoc+=self.checkCallError_opencl('clEnqueueNDRangeKernel','')
         #kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'<<<'+gridDim+','+blockDim+'>>>('+(','.join(callArgs))+');'
         kernelInvoc+='\n/* kernel call statement*/\n'
