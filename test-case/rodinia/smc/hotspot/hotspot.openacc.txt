@@ -1,0 +1,15 @@
+==3781== NVPROF is profiling process 3781, command: ./hotspot_ipmacc_cuda 1024 1024 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024
+==3781== Profiling application: ./hotspot_ipmacc_cuda 1024 1024 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024
+==3781== Profiling result:
+   Start  Duration            Grid Size      Block Size     Regs*    SSMem*    DSMem*      Size  Throughput           Device   Context    Stream  Name
+1.34144s  2.0331ms                    -               -         -         -         -  8.3886MB  4.1261GB/s   Tesla K20c (0)         1         7  [CUDA memcpy HtoD]
+1.34377s  2.0229ms                    -               -         -         -         -  8.3886MB  4.1468GB/s   Tesla K20c (0)         1         7  [CUDA memcpy HtoD]
+1.34580s  405.09us           (4097 1 1)       (256 1 1)        33        0B        0B         -           -   Tesla K20c (0)         1         7  __generated_kernel_region_0(double, double*, double*, double, double, double, double, double, double*, double, int, int) [199]
+1.34625s  113.09us           (4097 1 1)       (256 1 1)         8        0B        0B         -           -   Tesla K20c (0)         1         7  __generated_kernel_region_1(double*, double*, int, int) [206]
+1.34641s  385.54us           (4097 1 1)       (256 1 1)        33        0B        0B         -           -   Tesla K20c (0)         1         7  __generated_kernel_region_0(double, double*, double*, double, double, double, double, double, double*, double, int, int) [221]
+1.34682s  112.26us           (4097 1 1)       (256 1 1)         8        0B        0B         -           -   Tesla K20c (0)         1         7  __generated_kernel_region_1(double*, double*, int, int) [228]
+1.34697s  2.0857ms                    -               -         -         -         -  8.3886MB  4.0219GB/s   Tesla K20c (0)         1         7  [CUDA memcpy DtoH]
+
+Regs: Number of registers used per CUDA thread. This number includes registers used internally by the CUDA driver and/or tools and can be more than what the compiler shows.
+SSMem: Static shared memory allocated per CUDA block.
+DSMem: Dynamic shared memory allocated per CUDA block.
