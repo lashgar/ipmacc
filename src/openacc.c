@@ -189,7 +189,7 @@ int acc_get_device_num( acc_device_t devtype ){
 // int acc_async_test_all();
 // void acc_async_wait( acc_device_t devtype );
 // void acc_async_wait_all();
-void* acc_partition_device(cl_device_id *device_to_partition, acc_device_t devtype  ){
+void* acc_partition_device(void *device, acc_device_t devtype  ){
 	if(devtype==acc_device_nvcuda){
 #ifdef __NVCUDA__
 		fprintf(stderr,"Device partitioning is not supported on CUDA\n");
@@ -197,6 +197,7 @@ void* acc_partition_device(cl_device_id *device_to_partition, acc_device_t devty
 #endif 
 	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
 #ifdef __NVOPENCL__
+        cl_device_id *device_to_partition=device;
 		unsigned int ncore_per_partition=0;
 		sscanf(getenv("IPMACC_DEVICE_PART"),"%u",&ncore_per_partition);
 		assert(ncore_per_partition>0);
