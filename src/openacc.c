@@ -636,7 +636,7 @@ void* acc_create( void* hostptr, size_t bytes )
 #ifdef __NVCUDA__
 		cudaError_t err=cudaMalloc((void**)&devptr,bytes);
 		if(err!=cudaSuccess){
-			printf("failed to allocate memory %16llu bytes on CUDA device: %d error-code (%d)\n", bytes, __ipmacc_clerr,err);
+			printf("failed to allocate memory %16llu bytes on CUDA device: error-code (%d)\n", bytes, err);
 		}else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
 #endif 
 	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
@@ -813,6 +813,8 @@ void* acc_pcopyin ( void* hostptr , size_t bytes )
 // INTERNAL IPMACC //
 // //////////////////
 
+
+#ifdef __NVOPENCL__
 /* TRAINING Wrappers:
  * only available in OpenCL */
 
@@ -1222,4 +1224,4 @@ int getEnergy( double *packageEnergy, double *coreEnergy, int core){
 }
 
 
-
+#endif // OPENCL Support
