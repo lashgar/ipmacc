@@ -1,2 +1,2 @@
-INFILE=../../data/bfs/graph1MW_6.txt
+INFILE=../../data/bfs/graph65536.txt
 ./bfs_opencl $INFILE

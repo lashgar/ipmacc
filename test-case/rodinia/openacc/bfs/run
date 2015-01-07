@@ -1,4 +1,4 @@
-INFILE=../../data/bfs/graph1MW_6.txt
+INFILE=../../data/bfs/graph65536.txt
 time ./bfs_g++ $INFILE
 mv result.txt  result.g++.txt
 time ./bfs_cuda $INFILE
