@@ -87,6 +87,16 @@ Step 5:
     [lashgar@sysadm2 ipmacc]$ cat README
     [lashgar@sysadm2 hotspot]$ bash testbench
 
+Step 6:
+    Verify correctness of all available benchmarks by running compare_cuda.sh and compare_opencl.sh in test-case/rodinia/:
+    $ cd test-case/rodinia/
+    $ bash ./compare_cuda.sh
+    Executing above instructions compares the memory and kernel time of OpenACC-over-CUDA and CUDA versions.
+    Similarily, compare OpenACC-over-OpenCL and OpenCL versions.
+    $ bash ./compare_opencl.sh  
+    
+    Notice: these files rely on NVIDIA CUDA and NVIDIA OpenCL runtime.
+    Notice: there are many configurable parameters in these scripts. Just look them up!
 
 ====================
 Usage:
