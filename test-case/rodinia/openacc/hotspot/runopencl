@@ -1,0 +1,1 @@
+./hotspot_ipmacc_opencl  1024 1024 16  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_cuda.txt

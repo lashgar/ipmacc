@@ -1,6 +1,7 @@
 include ../../common/make.config
+include ../../common/arch.mk
 
-ARCH= -arch=sm_20
+#ARCH= -arch=sm_35
 # C compiler
 CC = gcc
 CC_FLAGS = -g  -O2
@@ -42,4 +43,4 @@ imagenet.o: imagenet.c backprop.h
 
 
 clean:
-	rm -f *.o *~ backprop backprop_cuda.linkinfo
+	rm -f *.o *~ backprop backprop_cuda.linkinfo *txt

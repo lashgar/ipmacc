@@ -81,7 +81,8 @@ void bpnn_train_kernel(BPNN *net, float *eo, float *eh)
   create(input_weights[0:(in*hid)], hidden_weights[0:(hid*out)]) \
   create(hidden_delta[0:hid], output_delta[0:out]) \
   create(input_prev_weights[0:(in*hid)], hidden_prev_weights[0:(hid*out)]) \
-  copyin(target[0:out])
+  copyin(target[0:out]) \
+  copyout(input_units[0:in],input_weights[0:(in*hid)])
 {
   printf("Performing CPU computation\n");
   bpnn_layerforward(input_units, hidden_units, input_weights, in, hid);

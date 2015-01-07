@@ -7,7 +7,7 @@ include ../../common/arch.mk
 CC = g++
 ACC = ipmacc
 CC_FLAGS = -O3 
-ACC_FLAGS = $(ARCH) -O3
+ACC_FLAGS = $(ARCH) -O3 
 ACL_FLAGS= -O3
 #CC_FLAGS = -O3 -I /usr/include/i386-linux-gnu/ -L /usr/lib/i386-linux-gnu/
 
@@ -37,4 +37,4 @@ imagenet.o:
 
 
 clean:
-	rm -f *.o *~ backprop_cuda.linkinfo backprop_g++ *ipmacc* 
+	rm -f *.o *~ backprop_cuda.linkinfo backprop_g++ *ipmacc*  *log *txt

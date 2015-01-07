@@ -251,6 +251,7 @@ cl_context cl_init_context(int platform, int dev,int quiet) {
 	// cl_platform_id platform = NULL;
 
 	status = clGetPlatformIDs(0, NULL, &numPlatforms);
+    numPlatforms=2;
 	if (printInfo) printf("Number of platforms detected:%d\n", numPlatforms);
 
 	// Print some information about the available platforms
@@ -319,11 +320,11 @@ cl_context cl_init_context(int platform, int dev,int quiet) {
 	int platform_touse;
 	unsigned int device_touse;
 	if (printInfo) printf("Enter Platform and Device No (Seperated by Space) \n");
-//	if (printInfo) scanf("%d %d", &platform_touse, &device_touse);
-//	else {
+	if (printInfo) scanf("%d %d", &platform_touse, &device_touse);
+	else {
 	  platform_touse = 0;
 	  device_touse = 0;
-//	}
+	}
 	if (!quiet) printf("Using Platform %d \t Device No %d \n",platform_touse, device_touse);
 
 	//! Recheck how many devices does our chosen platform have

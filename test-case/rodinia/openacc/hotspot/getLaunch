@@ -1,0 +1,3 @@
+iter=$1
+nvprof ./hotspot_ipmacc_cuda  1024 1024 $iter ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 &> log && log=`cat log | grep __generate | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && echo $log | sed 's/\ /\+/g' | bc
+log=`cat log | grep -e cudaSetupArg -e cudaLaunch  | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && echo $log | sed 's/\ /\+/g' | bc

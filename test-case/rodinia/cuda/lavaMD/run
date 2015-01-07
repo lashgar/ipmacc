@@ -1,1 +1,0 @@
-time ./lavaMD -boxes1d 10 > result.txt

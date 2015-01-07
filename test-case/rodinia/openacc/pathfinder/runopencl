@@ -1,0 +1,2 @@
+time ./pathfinder_ocl    131072 100 > output.ocl.txt
+#time ./pathfinder_ocl   100000 100 > output.ocl.txt

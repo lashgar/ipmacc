@@ -25,6 +25,7 @@ using namespace std;
 #define DEVICE   0
 #define M_SEED   9
 //#define BENCH_PRINT
+//#define DUMPOUT
 #define IN_RANGE(x, min, max)	((x)>=(min) && (x)<=(max))
 #define CLAMP_RANGE(x, min, max) x = (x<(min)) ? min : ((x>(max)) ? max : x )
 #define MIN(a, b) ((a)<=(b) ? (a) : (b))
@@ -66,10 +67,15 @@ void init(int argc, char** argv)
 	{
 		for (int j = 0; j < cols; j++)
 		{
-			wall[i][j] = rand() % 10;
+			wall[i][j] = (i+j + i*j) % 100; //rand() % 10;
 		}
 	}
-#ifdef BENCH_PRINT
+	for (int j = 0; j < cols; j++)
+	{
+		result[0] = wall[0][j];
+	}
+
+#ifdef DUMPOUT
 	for (int i = 0; i < rows; i++)
 	{
 		for (int j = 0; j < cols; j++)
@@ -104,7 +110,11 @@ int main(int argc, char** argv)
 	// Create and initialize the OpenCL object.
 	OpenCL cl(0);  // 1 means to display output (debugging mode).
 	cl.init(1);    // 1 means to use GPU. 0 means use CPU.
-	cl.gwSize(rows * cols);
+    //assert((cols + ((cols/256)*3*borderCols))%256 == 0); // work-group size is set to 256 statically.
+
+	//cl.gwSize( cols + ((cols/256)*3*borderCols));
+	cl.gwSize( cols*2);
+	//cl.gwSize(rows * cols);
 
 	// Create and build the kernel.
 	string kn = "dynproc_kernel";  // the kernel name, for future use.
@@ -113,17 +123,32 @@ int main(int argc, char** argv)
 	// Allocate device memory.
 	cl_mem d_gpuWall = clCreateBuffer(cl.ctxt(),
 	                                  CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
-	                                  sizeof(cl_int)*(size-cols),
-	                                  (data + cols),
+	                                  sizeof(cl_int)*(size),
+	                                  data,
+	                                  //sizeof(cl_int)*(size-cols),
+	                                  //(data + cols),
 	                                  NULL);
+    //  ALTERNATIVE
+	//cl_mem d_gpuWall = clCreateBuffer(cl.ctxt(),
+	//                                  CL_MEM_READ_ONLY,// | CL_MEM_USE_HOST_PTR,
+	//                                  sizeof(cl_int)*(size),
+    //                                  NULL,
+	//                                  //data,
+	//                                  //sizeof(cl_int)*(size-cols),
+	//                                  //(data + cols),
+	//                                  NULL);
+    //cl_int err=clEnqueueWriteBuffer(cl.q(), (cl_mem)d_gpuWall, CL_TRUE, 0, sizeof(cl_int)*(size), (void*)data, 0, NULL, NULL);
+    //if(err!=CL_SUCCESS) assert(0);
+    // END OF 
 
 	cl_mem d_gpuResult[2];
 
 	d_gpuResult[0] = clCreateBuffer(cl.ctxt(),
 	                                CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
 	                                sizeof(cl_int)*cols,
-	                                data,
+	                                result,
 	                                NULL);
+
 
 	d_gpuResult[1] = clCreateBuffer(cl.ctxt(),
 	                                CL_MEM_READ_WRITE,
@@ -195,12 +220,16 @@ int main(int argc, char** argv)
 	// Tack a null terminator at the end of the string.
 	h_outputBuffer[16383] = '\0';
 	
-#ifdef BENCH_PRINT
-	for (int i = 0; i < cols; i++)
-		printf("%d ", data[i]);
-	printf("\n");
-	for (int i = 0; i < cols; i++)
+#ifdef DUMPOUT
+	//for (int i = 0; i < cols; i++)
+	//	printf("%d ", data[i]);
+	//printf("\n");
+	for (int i = 0; i < cols; i++){
 		printf("%d ", result[i]);
+        if((i%10)==9){
+            printf("\n");
+        }
+    }
 	printf("\n");
 #endif
 

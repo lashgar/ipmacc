@@ -170,7 +170,7 @@ void BFSGraph( int argc, char** argv)
 			//changed
 			//	#pragma acc parallel loop vector reduction(||,stop) copyout(stop)
 #pragma acc kernels copyout(stop)
-#pragma acc loop reduction(||:stop) independent
+#pragma acc loop independent reduction(||:stop)
 			for(int tid=0; tid< no_of_nodes ; tid++ )
 			{
 				if (h_updating_graph_mask[tid] == true){
@@ -184,6 +184,14 @@ void BFSGraph( int argc, char** argv)
 		}
 		while(stop);
 	} /* end pragma acc data */
+//#ifdef __NVCUDA__
+//	acc_shutdown(acc_device_nvcuda);
+//#endif 
+//#ifdef __NVOPENCL__
+//	acc_shutdown(acc_device_nvocl);
+//	//acc_list_devices_spec( acc_device_nvocl );
+//#endif 
+
 
 	//Store the result into a file
 	#ifdef DUMPOUT

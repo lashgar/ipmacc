@@ -6,7 +6,3 @@ Compile for CUDA only:
 	$ make cuda
 Compile all:
 	$ make
-
-
-
-run the testbench file to verify correctness against various configurations.

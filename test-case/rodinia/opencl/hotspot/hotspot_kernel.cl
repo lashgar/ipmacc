@@ -1,28 +1,40 @@
 
+#ifdef cl_khr_fp64
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#elif defined(cl_amd_fp64)
+#pragma OPENCL EXTENSION cl_amd_fp64 : enable
+#else
+#error \"Double precision floating point not supported by OpenCL implementation.\"
+#endif
+
 #define BLOCK_SIZE 16
 #define IN_RANGE(x, min, max)   ((x)>=(min) && (x)<=(max))
 
 __kernel void hotspot(  int iteration,  //number of iteration
-                               global float *power,   //power input
-                               global float *temp_src,    //temperature input/output
-                               global float *temp_dst,    //temperature input/output
+                               global double *power,   //power input
+                               global double *temp_src,    //temperature input/output
+                               global double *temp_dst,    //temperature input/output
                                int grid_cols,  //Col of grid
                                int grid_rows,  //Row of grid
 							   int border_cols,  // border offset 
 							   int border_rows,  // border offset
-                               float Cap,      //Capacitance
-                               float Rx, 
-                               float Ry, 
-                               float Rz, 
-                               float step) {
+                               double Cap,      //Capacitance
+                               double Rx, 
+                               double Ry, 
+                               double Rz, 
+                               double step,
+	                           double step_div_Cap,
+	                           double Rx_1,
+	                           double Ry_1,
+	                           double Rz_1) {
 	
-	local float temp_on_cuda[BLOCK_SIZE][BLOCK_SIZE];
-	local float power_on_cuda[BLOCK_SIZE][BLOCK_SIZE];
-	local float temp_t[BLOCK_SIZE][BLOCK_SIZE]; // saving temporary temperature result
+	local double temp_on_cuda[BLOCK_SIZE][BLOCK_SIZE];
+	local double power_on_cuda[BLOCK_SIZE][BLOCK_SIZE];
+	local double temp_t[BLOCK_SIZE][BLOCK_SIZE]; // saving temporary temperature result
 
-	float amb_temp = 80.0f;
-	float step_div_Cap;
-	float Rx_1,Ry_1,Rz_1;
+	double amb_temp = 80.0f;
+	//double step_div_Cap;
+	//double Rx_1,Ry_1,Rz_1;
 
 	int bx = get_group_id(0);
 	int by = get_group_id(1);
@@ -30,11 +42,11 @@ __kernel void hotspot(  int iteration,  //number of iteration
 	int tx = get_local_id(0);
 	int ty = get_local_id(1);
 
-	step_div_Cap=step/Cap;
+	//step_div_Cap=step/Cap;
 
-	Rx_1=1/Rx;
-	Ry_1=1/Ry;
-	Rz_1=1/Rz;
+	//Rx_1=1/Rx;
+	//Ry_1=1/Ry;
+	//Rz_1=1/Rz;
 
 	// each block finally computes result for a small block
 	// after N iterations. 

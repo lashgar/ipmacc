@@ -1,0 +1,5 @@
+cd srad_v1
+./srad_opencl 100 0.5 502 458
+mv image_out.pgm output.cuda.pgm
+mv opencl_profile_*.log ../
+cd ..

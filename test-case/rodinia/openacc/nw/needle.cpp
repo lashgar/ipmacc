@@ -5,6 +5,9 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+
+#include <assert.h>
+
 int i = 0 ;
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
@@ -115,7 +118,7 @@ runTest( int argc, char** argv)
 
 	max_rows = max_rows + 1;
 	max_cols = max_cols + 1;
-	referrence = (int *)malloc( max_rows * max_cols * sizeof(int) );
+	referrence = (int *)calloc( max_rows * max_cols, sizeof(int) );
 	input_itemsets = (int *)malloc( max_rows * max_cols * sizeof(int) );
 	output_itemsets = (int *)malloc( max_rows * max_cols * sizeof(int) );
 
@@ -154,7 +157,7 @@ runTest( int argc, char** argv)
 
 
 
-#pragma acc data copy(input_itemsets[0:max_rows*max_cols],referrence[0:max_rows*max_cols])
+#pragma acc data copy(input_itemsets[0:max_rows*max_cols]) copyin(referrence[0:max_rows*max_cols])
 	{
 		//Compute top-left matrix 
 		printf("Processing top-left matrix\n");
@@ -163,7 +166,7 @@ runTest( int argc, char** argv)
 #pragma acc kernels present(input_itemsets,referrence)
 #pragma acc loop independent 
 			for( idx = 0 ; idx <= i ; idx++){
-				index = (idx + 1) * max_cols + (i + 1 - idx);
+				int index = (idx + 1) * max_cols + (i + 1 - idx);
 				input_itemsets[index]= maximum( input_itemsets[index-1-max_cols]+ referrence[index], 
 						input_itemsets[index-1]         - penalty, 
 						input_itemsets[index-max_cols]  - penalty);
@@ -179,7 +182,7 @@ runTest( int argc, char** argv)
 #pragma acc kernels present(input_itemsets,referrence)
 #pragma acc loop independent 
 			for( idx = 0 ; idx <= i ; idx++){
-				index =  ( max_cols - idx - 2 ) * max_cols + idx + max_cols - i - 2 ;
+				int index =  ( max_cols - idx - 2 ) * max_cols + idx + max_cols - i - 2 ;
 				input_itemsets[index]= maximum( input_itemsets[index-1-max_cols]+ referrence[index], 
 						input_itemsets[index-1]         - penalty, 
 						input_itemsets[index-max_cols]  - penalty);
@@ -189,14 +192,14 @@ runTest( int argc, char** argv)
 		}
 	} /* end pragma acc data */
 
-//#define TRACEBACK
-#ifdef TRACEBACK
+//#define DUMPOUT
+#ifdef DUMPOUT
 
 	FILE *fpo = fopen("result.txt","w");
 	fprintf(fpo, "print traceback value GPU:\n");
 
 	for (int i = max_rows - 2,  j = max_rows - 2; i>=0, j>=0;){
-		int nw, n, w, traceback;
+		int nw, n, w, traceback=0;
 		if ( i == max_rows - 2 && j == max_rows - 2 )
 			fprintf(fpo, "%d ", input_itemsets[ i * max_cols + j]); //print the first element
 		if ( i == 0 && j == 0 )
@@ -215,6 +218,7 @@ runTest( int argc, char** argv)
 			n  = input_itemsets[(i - 1) * max_cols + j];
 		}
 		else{
+            assert(0);
 		}
 
 		//traceback = maximum(nw, w, n);

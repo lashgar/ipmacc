@@ -1,6 +1,7 @@
-time ./hotspot_g++ 1024 1024 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.g++.txt
-time ./hotspot_ipmacc_cuda  1024 1024 2  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_cuda.txt
-#time ./hotspot_ipmacc_opencl 1024 1024 2 ~/rodinia/data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_opencl.txt
-echo 'RUNNING NEW BENCHMARK HOTSPOT' >> ./diff_error
-diff result.g++.txt result.ipmacc_cuda.txt >> ./diff_error
-diff result.g++.txt result.ipmacc_opencl.txt >> ./diff_error
+INPUT="1024 1024 2  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
+time ./hotspot_g++ $INPUT > result.g++.txt
+time ./hotspot_ipmacc_cuda  $INPUT > result.ipmacc_cuda.txt
+time ./hotspot_ipmacc_opencl $INPUT > result.ipmacc_opencl.txt
+#echo 'RUNNING NEW BENCHMARK HOTSPOT' >> ~/run_script/diff_error
+diff result.g++.txt result.ipmacc_cuda.txt #>> ~/run_script/diff_error
+diff result.g++.txt result.ipmacc_opencl.txt #>> ~/run_script/diff_error

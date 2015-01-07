@@ -1,16 +1,5 @@
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include "msr.h"
-#include <sys/time.h>
-///////////////////////////
-// INTERFACING FUNCTIONS //
-///////////////////////////
-void ipmacc_prompt(char *s){
-	if (getenv("IPMACC_VERBOSE"))
-		printf("%s",s);
-}
+#include "common.h"
 
 /////////////////////////////////////////
 // INTERNAL DEVICE-HOST MEMORY MAPPING //
@@ -96,6 +85,11 @@ int __ipmacc_devicetype=acc_device_nvcuda;
 int __ipmacc_devicetype=acc_device_nvocl;
 #endif
 #include <CL/cl.h>
+
+#ifdef cl_device_partition_property
+#define __NVOPENCL12__
+#endif
+
 cl_int __ipmacc_clerr = CL_SUCCESS;
 cl_context __ipmacc_clctx = NULL;
 size_t __ipmacc_parmsz;
@@ -196,7 +190,7 @@ void* acc_partition_device(void *device, acc_device_t devtype  ){
 		exit(-1);
 #endif 
 	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
-#ifdef __NVOPENCL__
+#ifdef __NVOPENCL12__
         cl_device_id *device_to_partition=device;
 		unsigned int ncore_per_partition=0;
 		sscanf(getenv("IPMACC_DEVICE_PART"),"%u",&ncore_per_partition);
@@ -380,6 +374,7 @@ void acc_init( acc_device_t devtype ){
 			}
 			if(getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: device init.\n");
 		}else{
+            #ifdef __NVOPENCL12__ 
 			// dynamic device partitioning
 			// 2.I 
 			// find the number of possible partitionings
@@ -455,6 +450,7 @@ void acc_init( acc_device_t devtype ){
 					printf("\t\tcommand-queue on partitioining #%d [created]\n",i);
 				}
 			}
+            #endif 
 		}
 		//__ipmacc_devicetype=device_type;//acc_device_nvocl;
 #endif
@@ -465,7 +461,7 @@ void acc_init( acc_device_t devtype ){
 }
 void acc_shutdown( acc_device_t devtype ){
 
-printf("HAH>\n");
+    if(getenv("IPMACC_VERBOSE")) printf("IPMACC: [shutting down the accelerator!]\n");
 #ifdef RALP
 	getEnergy( &package0_after, &core0_after, PACKAGE0_CORE);
 	getEnergy( &package1_after, &core8_after, PACKAGE1_CORE);
@@ -524,9 +520,43 @@ void acc_list_devices_spec( acc_device_t devtype ){
 	if(devtype==acc_device_nvcuda){
 		//CUDA on NV
 #ifdef __NVCUDA__
+    // outsourced from http://gpucoder.livejournal.com/1064.html
+    int devCount;
+    cudaGetDeviceCount(&devCount);
+    printf("CUDA Device Query...\n");
+    printf("There are %d CUDA devices.\n", devCount);
+ 
+    // Iterate through devices
+    int i, j;
+    for (i = 0; i < devCount; ++i)
+    {
+        // Get device properties
+        printf("\nCUDA Device #%d\n", i);
+        struct cudaDeviceProp devProp;
+        cudaGetDeviceProperties(&devProp, i);
+        printf("\tMajor revision number:         %d\n",  devProp.major);
+        printf("\tMinor revision number:         %d\n",  devProp.minor);
+        printf("\tName:                          %s\n",  devProp.name);
+        printf("\tTotal global memory:           %u\n",  devProp.totalGlobalMem);
+        printf("\tTotal shared memory per block: %u\n",  devProp.sharedMemPerBlock);
+        printf("\tTotal registers per block:     %d\n",  devProp.regsPerBlock);
+        printf("\tWarp size:                     %d\n",  devProp.warpSize);
+        printf("\tMaximum memory pitch:          %u\n",  devProp.memPitch);
+        printf("\tMaximum threads per block:     %d\n",  devProp.maxThreadsPerBlock);
+        for (j = 0; j < 3; ++j){
+            printf("\tMaximum dimension %d of block:  %d\n", j, devProp.maxThreadsDim[j]);
+        }
+        for (j = 0; j < 3; ++j){
+            printf("\tMaximum dimension %d of grid:   %d\n", j, devProp.maxGridSize[j]);
+        }
+        printf("\tClock rate:                    %d\n",  devProp.clockRate);
+        printf("\tTotal constant memory:         %u\n",  devProp.totalConstMem);
+        printf("\tTexture alignment:             %u\n",  devProp.textureAlignment);
+        printf("\tConcurrent copy and execution: %s\n",  (devProp.deviceOverlap ? "Yes" : "No"));
+        printf("\tNumber of multiprocessors:     %d\n",  devProp.multiProcessorCount);
+        printf("\tKernel execution timeout:      %s\n",  (devProp.kernelExecTimeoutEnabled ? "Yes" : "No"));
+    }
 #endif 
-		fprintf(stderr,"Unimplemented device type!\n");
-		exit(-1);
 	}else if(devtype==acc_device_nvocl || devtype==acc_device_intelocl){
 #ifdef __NVOPENCL__
 		// this code is imported from [1] with minor modifications.
@@ -638,6 +668,7 @@ void* acc_create( void* hostptr, size_t bytes )
 		cudaError_t err=cudaMalloc((void**)&devptr,bytes);
 		if(err!=cudaSuccess){
 			printf("failed to allocate memory %16llu bytes on CUDA device: error-code (%d)\n", bytes, err);
+            exit(-1);
 		}else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
 #endif 
 	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
@@ -645,6 +676,7 @@ void* acc_create( void* hostptr, size_t bytes )
 		devptr=(void*)clCreateBuffer(__ipmacc_clctx, CL_MEM_READ_WRITE, bytes, NULL, &__ipmacc_clerr);
 		if(__ipmacc_clerr!=CL_SUCCESS){
 			printf("failed to allocate memory %16llu bytes on OpenCL device: %d\n", bytes, __ipmacc_clerr);
+            exit(-1);
 		}else{
 			if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
 		}
@@ -786,7 +818,7 @@ void* acc_present_or_copyin( void* hostptr, size_t bytes )
 		}
 		cl_int err=clEnqueueWriteBuffer(temp_queue, (cl_mem)devptr, CL_TRUE, 0, bytes, hostptr, 0, NULL, NULL);
 		if(err!=CL_SUCCESS){
-			printf("Runtime error! Cannot read buffer from device: #%d\n",err);
+			printf("Runtime error! Cannot write buffer to device: #%d\n",err);
 			exit(-1);
 		}
 
@@ -860,6 +892,7 @@ void* acc_training_kernel_add(const char *kernelSource, char *compileFlags, char
 	__ipmacc_clpgm0=clCreateProgramWithSource(__ipmacc_clctx, 1, &kernelSource, NULL, &__ipmacc_clerr);
 	if(__ipmacc_clerr!=CL_SUCCESS){
 		printf("OpenCL Runtime Error in clCreateProgramWithSource! id: %d\n",__ipmacc_clerr);
+        printf("have you forgot acc_init() in the begining of program?!\n");
 		exit(-1);
 	}
 	char __ipmacc_clcompileflags0[128];
@@ -892,7 +925,8 @@ void* acc_training_kernel_add(const char *kernelSource, char *compileFlags, char
 		build_log[log_size] = '\0';
 		printf("--- Build log (%d) ---\n ",log_size);
 		fprintf(stderr, "%s\n", build_log);
-		free(build_log);exit(-1);
+		free(build_log);
+        exit(-1);
 	}
 	// append the kernel to the list of compiled kernels
 	training_kernel_t *nodeToAppend=(training_kernel_t*)malloc(sizeof(training_kernel_t)*1);
@@ -940,7 +974,7 @@ void* acc_training_decide_command_queue(int kernelId)
 			// decide the command-queue for kernelId based
 			// on the gathered information
 			static int id=0;
-			printf("Selected command-queue: #%d\n",id);
+			if(getenv("IPMACC_VERBOSE")) printf("[IPMACC] Selected command-queue: #%d\n",id);
 			return __ipmacc_clpartitions_command_queues[(id++)%__ipmacc_clnpartition];
 		}
 	}
@@ -953,10 +987,11 @@ void *acc_training_kernel_start(int kernelId){
 	/* HERE WE GO */
 
 #ifdef RALP
-
-	printf("*************************************************************************\n");
-	printf("starting kernel training for kernel> %u\n",kernelId);
-	getEnergy( &package0_before, &core0_before, PACKAGE0_CORE);
+    if(getenv("IPMACC_VERBOSE")){
+    	printf("[IPMACC] *************************************************************************\n");
+	    printf("[IPMACC] starting kernel training for kernel> %u\n",kernelId);
+    	getEnergy( &package0_before, &core0_before, PACKAGE0_CORE);
+    }
 	//getEnergy( &package1_before, &core8_before, PACKAGE1_CORE);
 	//	printf("current energy for package#%d: %.6f\n", PACKAGE0, package0_before);
 	//	printf("current energy for package#%d: %.6f\n", PACKAGE1, package1_before);
@@ -997,7 +1032,7 @@ void *acc_training_kernel_end(){
 	getEnergy( &package0_after, &core0_after, PACKAGE0_CORE);
 	//getEnergy( &package1_after, &core8_after, PACKAGE1_CORE);
 	double consumed_energy = (package0_after - package0_before);// + (package1_after - package1_before);
-	printf("Consumed energy for kernel> %u: %.6f\n",kernelId, consumed_energy);
+	if(getenv("IPMACC_VERBOSE")) printf("[IPMACC] Consumed energy for kernel> %u: %.6f\n",kernelId, consumed_energy);
 	// measuring consumed energy of the kernel
 	p->consumed_energy = consumed_energy;
 
@@ -1014,11 +1049,11 @@ void *acc_training_kernel_end(){
 	gettimeofday(&t2, 0);
 
 	double time = (1000000.0*(t2.tv_sec-t1.tv_sec) + t2.tv_usec-t1.tv_usec)/1000000.0;
-	printf("Execution-Time for kernel> %u : %f\n\n", kernelId, time);
-
-	printf("Ending kernel training for kernel> %u\n\n",kernelId);
-	printf("*************************************************************************\n");
-
+    if(getenv("IPMACC_VERBOSE")){
+    	printf("[IPMACC] Execution-Time for kernel> %u : %f\n\n", kernelId, time);
+	    printf("[IPMACC] Ending kernel training for kernel> %u\n\n",kernelId);
+    	printf("[IPMACC] *************************************************************************\n");
+    }
 
 	// add the log to list: time, consumed_energy
 	// FIXME

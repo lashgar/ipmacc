@@ -1,0 +1,10 @@
+[Matrix Multiply Using CUDA] - Starting...
+GPU Device 0: "Tesla K20c" with compute capability 3.5
+
+MatrixA(4096,4096), MatrixB(4096,4096)
+Computing result using CUDA Kernel...
+done
+Performance= 258.32 GFlop/s, Time= 532.049 msec, Size= 137438953472 Ops, WorkgroupSize= 1024 threads/block
+Checking computed result for correctness: Result = PASS
+
+Note: For peak performance, please refer to the matrixMulCUBLAS example.

@@ -12,7 +12,7 @@
 
 #define MAX_THREADS_PER_BLOCK 512
 
-#define bool int
+//#define bool char
 
 //Structure to hold a node information
 struct Node
@@ -229,6 +229,7 @@ int main(int argc, char * argv[])
 		}
 		work_group_size = num_of_threads_per_block;
 		// allocate host memory
+        //printf("sizeofbool:%d\n",sizeof(bool));
 		h_graph_nodes = (Node*) malloc(sizeof(Node)*no_of_nodes);
 		h_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);
 		h_updating_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);

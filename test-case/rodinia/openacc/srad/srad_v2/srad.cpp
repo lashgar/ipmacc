@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 #endif 
 #ifdef __NVOPENCL__
 	acc_init( acc_device_nvocl );
-	//acc_list_devices_spec( acc_device_nvocl );
+	acc_list_devices_spec( acc_device_nvocl );
 #endif 
 
 

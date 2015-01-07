@@ -12,15 +12,15 @@ void run(int argc, char** argv);
 #define pin_stats_pause(cycles)   stopCycle(cycles)
 #define pin_stats_dump(cycles)    printf("timer: %Lu\n", cycles)
 
-#define BENCH_PRINT
+//#define DUMPOUT
 
 int rows, cols;
 int* data;
-#define wall(i,j) (data[i*rows+j])
+#define wall(i,j) (data[i*cols+j])
 int* result;
 #define M_SEED 9
 
-    void
+void
 init(int argc, char** argv)
 {
     if(argc==3){
@@ -33,6 +33,7 @@ init(int argc, char** argv)
     data = new int[rows*cols];
     result = new int[cols];
 
+    assert(data && result);
     //int seed = M_SEED;
     //srand(seed);
 
@@ -40,20 +41,20 @@ init(int argc, char** argv)
     {
         for (int j = 0; j < cols; j++)
         {
-            wall(i,j) = (i+j - i*j) % 10;
+            wall(i,j) = (i+j + i*j) % 100;
         }
     }
     for (int j = 0; j < cols; j++)
         result[j] = wall(0,j);
-#ifdef BENCH_PRINT
-    //    for (int i = 0; i < rows; i++)
-    //    {
-    //        for (int j = 0; j < cols; j++)
-    //        {
-    //            printf("%d ",wall(i,j)) ;
-    //        }
-    //        printf("\n") ;
-    //    }
+#ifdef DUMPOUT
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                printf("%d ",wall(i,j)) ;
+            }
+            printf("\n") ;
+        }
 #endif
 }
 
@@ -97,10 +98,11 @@ void run(int argc, char** argv)
 
     dst = result;
     src = new int[cols];
-    memset(src, 0, sizeof(int)*cols);
+    //memset(src, 0, sizeof(int)*cols);
+    //memset(data, 0, sizeof(int)*rows*cols);
 
     pin_stats_reset();
-    #pragma acc data copyin(src[0:cols],data[0:rows*cols]) copy(dst[0:cols])
+    #pragma acc data copyin(src[0:cols],data[0:rows*cols]) copyout(dst[0:cols])
     {
         int t;
         for ( t = 0; t < rows-1; t++) {
@@ -116,16 +118,16 @@ void run(int argc, char** argv)
                 if (n < cols-1)
                     min = MIN(min, src[n+1]);
                 // dst[n] = wall(t+1,n)+min;
-                dst[n] =  (data[(t+1)*rows+n]) + min ;
-
+                dst[n] =  (data[(t+1)*cols+n]) + min ;
             }
         }
-    } /* end pragma acc data */
+    }
+    /* end pragma acc data */
 
     pin_stats_pause(cycles);
     pin_stats_dump(cycles);
 
-#ifdef BENCH_PRINT
+#ifdef DUMPOUT
 
     //    for (int i = 0; i < cols; i++)
     //
@@ -135,8 +137,9 @@ void run(int argc, char** argv)
 
     for (int i = 0; i < cols; i++){
         printf("%d ",dst[i]) ;
-        if((i%10)==9)
+        if((i%10)==9){
             printf("\n");
+        }
     }
     printf("\n") ;
 

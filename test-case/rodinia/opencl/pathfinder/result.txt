@@ -1,3 +1,0 @@
-num_devices = 1
-file size: 2958
-Max local threads is 1024. Using 1000 for local work size. 

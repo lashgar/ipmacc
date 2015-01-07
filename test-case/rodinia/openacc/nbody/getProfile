@@ -1,0 +1,36 @@
+#!/bin/bash
+
+#export INPUT="../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
+#export INPUT="../../data/hotspot/temp_4096 ../../data/hotspot/power_4096"
+
+bin=matMul
+#bin=matMul_baseline
+
+echo chipSize,l2r,l2w,sr,sw,inst
+#for iter in 12 ; # 3 6 9 ;
+#do
+ #for size in 4 5 6 7 8 12 14 16 32 64 128 256 320 1024 2048 4096;
+ for size in 512 1024 2048 4096 8192 16384;
+ do
+   l2r="0.0"
+   l2w="0.0"
+   sr="0.0"
+   sw="0.0"
+   inst="0.0"
+   for rep in {1..30} ;
+   do
+    l2r="$l2r+"`cat .deepperflog.$size.t$rep | grep __generated_kernel_region_0 -A29 | grep l2_read_transactions | awk '{print $(NF-1)}'`
+    l2w="$l2w+"`cat .deepperflog.$size.t$rep | grep __generated_kernel_region_0 -A29 | grep l2_write_transactions | awk '{print $(NF-1)}'`
+    sr="$sr+"`cat .deepperflog.$size.t$rep | grep __generated_kernel_region_0 -A29 | grep shared_load_transactions | awk '{print $(NF-1)}'`
+    sw="$sw+"`cat .deepperflog.$size.t$rep | grep __generated_kernel_region_0 -A29 | grep shared_store_transactions | awk '{print $(NF-1)}'`
+    inst="$inst+"`cat .deepperflog.$size.t$rep | grep __generated_kernel_region_0 -A29 | grep inst_executed | awk '{print $(NF-1)}'`
+   done
+   l2r=`python -c "print str(float($l2r)/30.0)"`
+   l2w=`python -c "print str(float($l2w)/30.0)"`
+   sr=`python -c "print str(float($sr)/30.0)"`
+   sw=`python -c "print str(float($sw)/30.0)"`
+   inst=`python -c "print str(float($inst)/30.0)"`
+   echo $size,$l2r,$l2w,$sr,$sw,$inst
+ done
+#done
+

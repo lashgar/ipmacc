@@ -1,7 +1,7 @@
 #include "hotspot.h"
 
 
-void writeoutput(float *vect, int grid_rows, int grid_cols, char *file) {
+void writeoutput(double *vect, int grid_rows, int grid_cols, char *file) {
 
 	int i,j, index=0;
 	FILE *fp;
@@ -24,12 +24,12 @@ void writeoutput(float *vect, int grid_rows, int grid_cols, char *file) {
 }
 
 
-void readinput(float *vect, int grid_rows, int grid_cols, char *file) {
+void readinput(double *vect, int grid_rows, int grid_cols, char *file) {
 
 	int i,j;
 	FILE *fp;
 	char str[STR_SIZE];
-	float val;
+	double val;
 
 	if( (fp  = fopen(file, "r" )) ==0 )
 		fatal( "The file was not opened" );
@@ -58,19 +58,19 @@ void readinput(float *vect, int grid_rows, int grid_cols, char *file) {
 
 int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row, \
 		int total_iterations, int num_iterations, int blockCols, int blockRows, int borderCols, int borderRows,
-		float *TempCPU, float *PowerCPU) 
+		double *TempCPU, double *PowerCPU) 
 { 
 
-	float grid_height = chip_height / row;
-	float grid_width = chip_width / col;
+	double grid_height = chip_height / row;
+	double grid_width = chip_width / col;
 
-	float Cap = FACTOR_CHIP * SPEC_HEAT_SI * t_chip * grid_width * grid_height;
-	float Rx = grid_width / (2.0 * K_SI * t_chip * grid_height);
-	float Ry = grid_height / (2.0 * K_SI * t_chip * grid_width);
-	float Rz = t_chip / (K_SI * grid_height * grid_width);
+	double Cap = FACTOR_CHIP * SPEC_HEAT_SI * t_chip * grid_width * grid_height;
+	double Rx = grid_width / (2.0 * K_SI * t_chip * grid_height);
+	double Ry = grid_height / (2.0 * K_SI * t_chip * grid_width);
+	double Rz = t_chip / (K_SI * grid_height * grid_width);
 
-	float max_slope = MAX_PD / (FACTOR_CHIP * t_chip * SPEC_HEAT_SI);
-	float step = PRECISION / max_slope;
+	double max_slope = MAX_PD / (FACTOR_CHIP * t_chip * SPEC_HEAT_SI);
+	double step = PRECISION / max_slope;
 	int t;
 
 	int src = 0, dst = 1;
@@ -86,8 +86,14 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 	local_work_size[1] = BLOCK_SIZE;
 
 
-	long long start_time = get_time();	
+	double step_div_Cap=step/Cap;
 
+	double Rx_1=1/Rx;
+	double Ry_1=1/Ry;
+	double Rz_1=1/Rz;
+
+
+	long long start_time = get_time();	
 	for (t = 0; t < total_iterations; t += num_iterations) {
 
 		// Specify kernel arguments
@@ -100,11 +106,15 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 		clSetKernelArg(kernel, 5, sizeof(int), (void *) &row);
 		clSetKernelArg(kernel, 6, sizeof(int), (void *) &borderCols);
 		clSetKernelArg(kernel, 7, sizeof(int), (void *) &borderRows);
-		clSetKernelArg(kernel, 8, sizeof(float), (void *) &Cap);
-		clSetKernelArg(kernel, 9, sizeof(float), (void *) &Rx);
-		clSetKernelArg(kernel, 10, sizeof(float), (void *) &Ry);
-		clSetKernelArg(kernel, 11, sizeof(float), (void *) &Rz);
-		clSetKernelArg(kernel, 12, sizeof(float), (void *) &step);
+		clSetKernelArg(kernel, 8, sizeof(double), (void *) &Cap);
+		clSetKernelArg(kernel, 9, sizeof(double), (void *) &Rx);
+		clSetKernelArg(kernel, 10, sizeof(double), (void *) &Ry);
+		clSetKernelArg(kernel, 11, sizeof(double), (void *) &Rz);
+		clSetKernelArg(kernel, 12, sizeof(double), (void *) &step);
+		clSetKernelArg(kernel, 13, sizeof(double), (void *) &step_div_Cap);
+		clSetKernelArg(kernel, 14, sizeof(double), (void *) &Rx_1);
+		clSetKernelArg(kernel, 15, sizeof(double), (void *) &Ry_1);
+		clSetKernelArg(kernel, 16, sizeof(double), (void *) &Rz_1);
 
 		// Launch kernel
 		error = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
@@ -125,7 +135,7 @@ int compute_tran_temp(cl_mem MatrixPower, cl_mem MatrixTemp[2], int col, int row
 
 	long long end_time = get_time();
 	long long total_time = (end_time - start_time);	
-	printf("\nKernel time: %.3f seconds\n", ((float) total_time) / (1000*1000));
+	printf("\nKernel time: %.3f seconds\n", ((double) total_time) / (1000*1000));
 
 	return src;
 }
@@ -208,7 +218,7 @@ int main(int argc, char** argv) {
 
 	int size;
 	int grid_rows,grid_cols = 0;
-	float *FilesavingTemp,*FilesavingPower; //,*MatrixOut; 
+	double *FilesavingTemp,*FilesavingPower; //,*MatrixOut; 
 	char *tfile, *pfile, *ofile;
 
 	int total_iterations = 60;
@@ -236,9 +246,9 @@ int main(int argc, char** argv) {
 	int blockCols = grid_cols/smallBlockCol+((grid_cols%smallBlockCol==0)?0:1);
 	int blockRows = grid_rows/smallBlockRow+((grid_rows%smallBlockRow==0)?0:1);
 
-	FilesavingTemp = (float *) malloc(size*sizeof(float));
-	FilesavingPower = (float *) malloc(size*sizeof(float));
-	// MatrixOut = (float *) calloc (size, sizeof(float));
+	FilesavingTemp = (double *) malloc(size*sizeof(double));
+	FilesavingPower = (double *) malloc(size*sizeof(double));
+	// MatrixOut = (double *) calloc (size, sizeof(double));
 
 	if( !FilesavingPower || !FilesavingTemp) // || !MatrixOut)
 		fatal("unable to allocate memory");
@@ -271,13 +281,13 @@ int main(int argc, char** argv) {
 	// Create two temperature matrices and copy the temperature input data
 	cl_mem MatrixTemp[2];
 	// Create input memory buffers on device
-	MatrixTemp[0] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(float) * size, FilesavingTemp, &error);
+	MatrixTemp[0] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(double) * size, FilesavingTemp, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
-	MatrixTemp[1] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizeof(float) * size, NULL, &error);
+	MatrixTemp[1] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizeof(double) * size, NULL, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 
 	// Copy the power input data
-	cl_mem MatrixPower = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float) * size, FilesavingPower, &error);
+	cl_mem MatrixPower = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(double) * size, FilesavingPower, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 
 	// Perform the computation
@@ -285,11 +295,11 @@ int main(int argc, char** argv) {
 			blockCols, blockRows, borderCols, borderRows, FilesavingTemp, FilesavingPower);
 
 	// Copy final temperature data back
-	cl_float *MatrixOut = (cl_float *) clEnqueueMapBuffer(command_queue, MatrixTemp[ret], CL_TRUE, CL_MAP_READ, 0, sizeof(float) * size, 0, NULL, NULL, &error);
+	cl_double *MatrixOut = (cl_double *) clEnqueueMapBuffer(command_queue, MatrixTemp[ret], CL_TRUE, CL_MAP_READ, 0, sizeof(double) * size, 0, NULL, NULL, &error);
 	if (error != CL_SUCCESS) fatal_CL(error, __LINE__);
 
 	long long end_time = get_time();	
-	printf("Total time: %.3f seconds\n", ((float) (end_time - start_time)) / (1000*1000));
+	printf("Total time: %.3f seconds\n", ((double) (end_time - start_time)) / (1000*1000));
 
 	// Write final output to output file
 	#ifdef DUMPOUT

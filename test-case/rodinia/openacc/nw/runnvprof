@@ -1,0 +1,1 @@
+nvprof --print-gpu-trace ./needle_ipmacc_cuda 8192 10 > result.cuda.txt

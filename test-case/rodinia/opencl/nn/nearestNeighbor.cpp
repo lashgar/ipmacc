@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
 
   if (resultsCount > numRecords) resultsCount = numRecords;
 
+  
   context = cl_init_context(platform,device,quiet);
   
   recordDistances = OpenClFindNearestNeighbors(context,numRecords,locations,lat,lng,timing);

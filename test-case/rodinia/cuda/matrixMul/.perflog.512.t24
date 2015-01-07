@@ -1,0 +1,29 @@
+==7434== NVPROF is profiling process 7434, command: ./matrixMul -wA=512 -hA=512 -wB=512 -hB=512
+==7434== Profiling application: ./matrixMul -wA=512 -hA=512 -wB=512 -hB=512
+==7434== Profiling result:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 67.35%  1.0531ms         1  1.0531ms  1.0531ms  1.0531ms  void matrixMulCUDA<int=32>(float*, float*, float*, int, int)
+ 22.47%  351.33us         2  175.67us  174.95us  176.39us  [CUDA memcpy HtoD]
+ 10.18%  159.20us         1  159.20us  159.20us  159.20us  [CUDA memcpy DtoH]
+
+==7434== API calls:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 64.11%  209.62ms         3  69.874ms  156.62us  209.31ms  cudaMalloc
+ 34.65%  113.30ms         1  113.30ms  113.30ms  113.30ms  cudaDeviceReset
+  0.37%  1.2068ms         3  402.25us  306.99us  457.90us  cudaMemcpy
+  0.32%  1.0570ms         1  1.0570ms  1.0570ms  1.0570ms  cudaEventSynchronize
+  0.27%  893.63us       166  5.3830us     411ns  265.97us  cuDeviceGetAttribute
+  0.12%  395.00us         3  131.67us  116.82us  159.62us  cudaFree
+  0.05%  176.07us         1  176.07us  176.07us  176.07us  cudaDeviceSynchronize
+  0.03%  93.224us         2  46.612us  46.604us  46.620us  cuDeviceTotalMem
+  0.02%  74.671us         2  37.335us  35.322us  39.349us  cuDeviceGetName
+  0.01%  40.362us         1  40.362us  40.362us  40.362us  cudaGetDeviceProperties
+  0.01%  38.320us         1  38.320us  38.320us  38.320us  cudaLaunch
+  0.00%  15.732us         1  15.732us  15.732us  15.732us  cudaGetDevice
+  0.00%  14.382us         2  7.1910us  5.8780us  8.5040us  cudaEventRecord
+  0.00%  10.368us         2  5.1840us  1.8040us  8.5640us  cudaEventCreate
+  0.00%  5.4850us         1  5.4850us  5.4850us  5.4850us  cudaEventElapsedTime
+  0.00%  3.0690us         5     613ns     389ns  1.0560us  cudaSetupArgument
+  0.00%  2.3740us         4     593ns     503ns     712ns  cuDeviceGet
+  0.00%  2.3050us         2  1.1520us     589ns  1.7160us  cuDeviceGetCount
+  0.00%  1.6580us         1  1.6580us  1.6580us  1.6580us  cudaConfigureCall

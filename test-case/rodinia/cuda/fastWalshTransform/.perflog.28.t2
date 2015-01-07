@@ -1,0 +1,31 @@
+==11838== NVPROF is profiling process 11838, command: ./fastWalshTransform cuda --log2Data=28
+==11838== Profiling application: ./fastWalshTransform cuda --log2Data=28
+==11838== Profiling result:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 34.34%  408.94ms         1  408.94ms  408.94ms  408.94ms  [CUDA memcpy DtoH]
+ 33.68%  401.18ms        27  14.859ms  14.217ms  15.028ms  fwtBatch2Kernel(float*, float*, int)
+ 22.35%  266.21ms         2  133.10ms  1.3440us  266.21ms  [CUDA memcpy HtoD]
+  6.81%  81.120ms         3  27.040ms  27.039ms  27.042ms  fwtBatch1Kernel(float*, float*, int)
+  2.24%  26.723ms         1  26.723ms  26.723ms  26.723ms  modulateKernel(float*, float*, int)
+  0.57%  6.8449ms         1  6.8449ms  6.8449ms  6.8449ms  [CUDA memset]
+
+==11838== API calls:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 44.65%  683.49ms         3  227.83ms  6.8547ms  410.32ms  cudaMemcpy
+ 33.23%  508.67ms         2  254.33ms  153.81us  508.51ms  cudaDeviceSynchronize
+ 14.92%  228.35ms         2  114.18ms  1.3695ms  226.98ms  cudaMalloc
+  6.97%  106.65ms         1  106.65ms  106.65ms  106.65ms  cudaDeviceReset
+  0.12%  1.8373ms         2  918.65us  882.33us  954.97us  cudaFree
+  0.06%  914.98us       166  5.5110us     417ns  273.47us  cuDeviceGetAttribute
+  0.03%  482.97us        31  15.579us  12.897us  58.505us  cudaLaunch
+  0.01%  168.15us         5  33.629us  31.580us  38.517us  cudaGetDeviceProperties
+  0.01%  95.039us         2  47.519us  46.462us  48.577us  cuDeviceTotalMem
+  0.01%  85.073us         2  42.536us  40.413us  44.660us  cuDeviceGetName
+  0.00%  40.061us        93     430ns     373ns  1.2810us  cudaSetupArgument
+  0.00%  38.175us         1  38.175us  38.175us  38.175us  cudaMemset
+  0.00%  19.590us        31     631ns     419ns  5.7170us  cudaConfigureCall
+  0.00%  14.129us        30     470ns     429ns     644ns  cudaGetLastError
+  0.00%  6.7460us         1  6.7460us  6.7460us  6.7460us  cudaSetDevice
+  0.00%  3.6950us         2  1.8470us     413ns  3.2820us  cudaGetDeviceCount
+  0.00%  2.4760us         4     619ns     501ns     711ns  cuDeviceGet
+  0.00%  2.4090us         2  1.2040us     665ns  1.7440us  cuDeviceGetCount

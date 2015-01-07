@@ -1,0 +1,31 @@
+#!/bin/bash
+
+for rep in {1..30};
+do
+ for MULTIPLE in 128 256 512 1024 2048 4096;
+ do
+  SIZE=`expr 1024 \* $MULTIPLE`
+  ITER=120
+  #echo "Serial: running under $SIZE"
+  #./pathfinder_g++ $SIZE $ITER > output.serial.$SIZE.$ITER
+  #echo "OpenACC: running under $SIZE"
+  #nvprof ./pathfinder_cuda $SIZE $ITER > output.cuda.$SIZE.$ITER 2> .prof.acc.$SIZE.$ITER.$INNERITER.$rep
+  #diff output.cuda.$SIZE.$ITER output.serial.$SIZE.$ITER > diff
+  #if [ "$?" != "0" ] ; then
+  # echo "CUDA and Serial results differ under $SIZE"
+  # exit -1
+  #fi
+  #mv .prof.acc.$SIZE.$ITER.$INNERITER.$rep .prof.acc.$SIZE.$ITER.$rep
+  for INNERITER in 2 12 20 ; #1 2 3 4 5 6 8 10 12 14;
+  do
+   echo "SMC: running under $SIZE, $INNERITER inner iterations, rep $rep"
+   nvprof ./pathfinder $SIZE $ITER $INNERITER > .output.smc.$SIZE.$ITER.$INNERITER 2> .prof.smc.$SIZE.$ITER.$INNERITER.$rep
+   #diff output.smc.$SIZE.$ITER.$INNERITER output.serial.$SIZE.$ITER > diff
+   if [ "$?" != "0" ] ; then
+    echo "SMC and Serial results differ under $SIZE"
+    exit -1
+   fi
+  done
+  rm output.* -f
+ done
+done

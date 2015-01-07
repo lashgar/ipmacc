@@ -1,0 +1,2 @@
+./fastWalshTransform cuda openacc --log2Data=26
+./fastWalshTransform_ocl cuda openacc --log2Data=26

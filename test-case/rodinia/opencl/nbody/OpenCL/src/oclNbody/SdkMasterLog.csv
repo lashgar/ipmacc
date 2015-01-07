@@ -1,0 +1,3 @@
+oclNBody-SP, Throughput = inf GFLOP/s, Time = 0.00000 s, Size = 7680 bodies, NumDevsUsed = 1, Workgroup = 256
+oclNBody-SP, Throughput = inf GFLOP/s, Time = 0.00000 s, Size = 1024 bodies, NumDevsUsed = 1, Workgroup = 256
+oclNBody-SP, Throughput = inf GFLOP/s, Time = 0.00000 s, Size = 4096 bodies, NumDevsUsed = 1, Workgroup = 256

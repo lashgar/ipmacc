@@ -1,0 +1,1 @@
+./nbody_ocl -compare -openacc -numbodies=4096

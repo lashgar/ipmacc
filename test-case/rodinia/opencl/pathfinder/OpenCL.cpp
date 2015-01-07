@@ -91,14 +91,15 @@ void OpenCL::createKernel(string kernelName)
 	}
 	else
 	{
-		while (gwsize % howManyThreads != 0)
-		{
-			howManyThreads--;
-		}
-		if (VERBOSE)
-			printf("Max local threads is %zu. Using %zu for local work size. \n", lwsize, howManyThreads);
+		//while (gwsize % howManyThreads != 0)
+		//{
+		//	howManyThreads--;
+		//}
+		//if (VERBOSE)
+		//	printf("Max local threads is %zu. Using %zu for local work size. \n", lwsize, howManyThreads);
 
-		this->lwsize = howManyThreads;
+		//this->lwsize = howManyThreads;
+        this->lwsize = 256;
 	}
 }
 

@@ -17,12 +17,13 @@ yyerror (s)  /* Called by yyparse on error */
 %% /* Grammar rules and actions follow */
 
 input:   'S' S      { if(DEBUGMODE) printf(">0\n"); }
-//       | 'C'        { if(DEBUGMODE) printf(">1\n"); }    
+//       | CODE        { if(DEBUGMODE) printf(">1\n"); }    
        | error '\n'     { printf("malform parser input\n"); return -1; }
 ;
 
-S:       'C'        { if(DEBUGMODE) printf(">2\n"); }
-       | 'C' P S    { if(DEBUGMODE) printf(">3\n"); }
+S:       CODE        { if(DEBUGMODE) printf(">2\n"); }
+       //| CODE S      { if(DEBUGMODE) printf(">3\n"); }
+       | CODE P S    { if(DEBUGMODE) printf(">3\n"); }
        | error      { printf("The code should always begin with the C\n"); return -1; }
 ;
 
@@ -34,47 +35,54 @@ P:       'K' K 'k'  { if(DEBUGMODE) printf(">4\n"); }
 /*       | 'A'        { printf(">6\n"); }*/
 ;
 
-K:       'C'                { if(DEBUGMODE) printf(">7\n"); }
-/*       | 'C' L 'C'          { if(DEBUGMODE) printf(">8\n"); }*/
-       | 'C' L  K           { if(DEBUGMODE) printf(">8\n"); }
+K:       CODE                { if(DEBUGMODE) printf(">7\n"); }
+/*       | CODE L CODE          { if(DEBUGMODE) printf(">8\n"); }*/
+       | CODE L  K           { if(DEBUGMODE) printf(">8\n"); }
        | L                  { if(DEBUGMODE) printf(">9\n"); }
        | error              { printf("Error in the kernel region\n"); return -1; }
 ;
 
 L:       'L' F  'l'         { if(DEBUGMODE) printf(">10\n"); }
-       | 'L' 'C' F  'C' 'l' { if(DEBUGMODE) printf(">11\n"); }
+       | 'L' CODE F  CODE 'l' { if(DEBUGMODE) printf(">11\n"); }
        | error              { printf("expecting a `for` construct after the acc loop\n"); return -1; }
 ;
 
-F:       'F' 'C' 'f'        { if(DEBUGMODE) printf(">12\n"); }
-       | 'F' 'C' F  'C' 'f' { if(DEBUGMODE) printf(">13\n"); }
-       | 'F' 'C' M  'C' 'f' { if(DEBUGMODE) printf(">13A\n"); }
-       | 'F' 'C' L  'C' 'f' { if(DEBUGMODE) printf(">14\n"); }
+F:       'F' CODE 'f'        { if(DEBUGMODE) printf(">12\n"); }
+       | 'F' CODE F  CODE 'f' { if(DEBUGMODE) printf(">13\n"); }
+       | 'F' CODE M  CODE 'f' { if(DEBUGMODE) printf(">13A\n"); }
+       | 'F' CODE L  CODE 'f' { if(DEBUGMODE) printf(">14\n"); }
        | 'F' F 'f'          { if(DEBUGMODE) printf(">15\n"); }
        | 'F' L 'f'          { if(DEBUGMODE) printf(">16\n"); }
        | 'F' 'f'            { if(DEBUGMODE) printf(">17\n"); }
-       | 'C' H              { if(DEBUGMODE) printf(">18\n"); }
+       | CODE H              { if(DEBUGMODE) printf(">18\n"); }
        | 'F' S 'f'          { if(DEBUGMODE) printf(">19\n"); }
        | error              { printf("unexpected pragma in the for loop\n"); return -1; }
 
 H:       H H                { if(DEBUGMODE) printf(">20\n"); }
-       | F 'C'              { if(DEBUGMODE) printf(">21\n"); }
-       | 'C' F              { if(DEBUGMODE) printf(">22\n"); }
+       | F CODE              { if(DEBUGMODE) printf(">21\n"); }
+       | CODE F              { if(DEBUGMODE) printf(">22\n"); }
        | F                  { if(DEBUGMODE) printf(">23\n"); }
-       | 'C' M 'C'          { if(DEBUGMODE) printf(">24\n"); }
-       | 'C' M H            { if(DEBUGMODE) printf(">25\n"); }
+       | CODE M CODE          { if(DEBUGMODE) printf(">24\n"); }
+       | CODE M H            { if(DEBUGMODE) printf(">25\n"); }
        | M H                { if(DEBUGMODE) printf(">26\n"); }
-       | M H 'C'            { if(DEBUGMODE) printf(">27\n"); }
+       | M H CODE            { if(DEBUGMODE) printf(">27\n"); }
        | M                  { if(DEBUGMODE) printf(">28\n"); }
-       | error              { printf("unexpected content in for loop\n"); return -1; }
+       //| error              { printf("unexpected content in for loop\n"); return -1; }
 ;
 
-M:       'M' 'm'                  { if(DEBUGMODE) printf(">23\n"); }
-       | 'M' F 'm'                  { if(DEBUGMODE) printf(">24\n"); }
-       | 'M' 'C' 'm'                  { if(DEBUGMODE) printf(">25\n"); }
+M:       'M' 'm'                  { if(DEBUGMODE) printf(">29\n"); }
+       | 'M' F 'm'                  { if(DEBUGMODE) printf(">30\n"); }
+       | 'M' CODE 'm'                  { if(DEBUGMODE) printf(">31\n"); }
        | error              { printf("unexpected content within cache region\n"); return -1; }
 ;
 
+
+CODE:
+         'C'                {if(DEBUGMODE) printf(">32\n"); }
+       | 'A' 'a'            {if(DEBUGMODE) printf(">33\n"); }
+       | 'C' CODE 'C'       {if(DEBUGMODE) printf(">34\n"); }
+       //| 'C' F 'C'       {if(DEBUGMODE) printf(">34\n"); }
+       | error              { printf("unexpected content within C/C++ code region\n"); return -1; }
 
 /*
 */

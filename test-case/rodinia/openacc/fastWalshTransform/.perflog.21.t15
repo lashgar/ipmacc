@@ -1,0 +1,25 @@
+==17398== NVPROF is profiling process 17398, command: ./fastWalshTransform openacc --log2Data=21
+==17398== Profiling application: ./fastWalshTransform openacc --log2Data=21
+==17398== Profiling result:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 49.34%  5.4778ms         1  5.4778ms  5.4778ms  5.4778ms  __generated_kernel_region_0(float*, float*, float*, int, int)
+ 32.44%  3.6021ms         1  3.6021ms  3.6021ms  3.6021ms  [CUDA memcpy DtoH]
+ 18.22%  2.0226ms         2  1.0113ms     992ns  2.0216ms  [CUDA memcpy HtoD]
+
+==17398== API calls:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 63.22%  215.70ms         3  71.900ms  165.42us  215.37ms  cudaMalloc
+ 32.66%  111.43ms         1  111.43ms  111.43ms  111.43ms  cudaDeviceReset
+  3.74%  12.774ms         3  4.2579ms  181.49us  10.441ms  cudaMemcpy
+  0.27%  909.32us       166  5.4770us     419ns  262.79us  cuDeviceGetAttribute
+  0.05%  164.91us         5  32.981us  30.359us  37.039us  cudaGetDeviceProperties
+  0.03%  90.821us         2  45.410us  44.866us  45.955us  cuDeviceTotalMem
+  0.02%  71.404us         2  35.702us  34.120us  37.284us  cuDeviceGetName
+  0.01%  39.781us         1  39.781us  39.781us  39.781us  cudaLaunch
+  0.00%  8.3750us         1  8.3750us  8.3750us  8.3750us  cudaDeviceSynchronize
+  0.00%  6.4160us         1  6.4160us  6.4160us  6.4160us  cudaSetDevice
+  0.00%  4.1140us         2  2.0570us     523ns  3.5910us  cudaGetDeviceCount
+  0.00%  3.7370us         1  3.7370us  3.7370us  3.7370us  cudaConfigureCall
+  0.00%  3.2800us         5     656ns     391ns  1.1850us  cudaSetupArgument
+  0.00%  2.4560us         4     614ns     471ns     796ns  cuDeviceGet
+  0.00%  2.3610us         2  1.1800us     635ns  1.7260us  cuDeviceGetCount

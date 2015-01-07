@@ -1,0 +1,1 @@
+./nn_ipmacc_ocl filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_ocl.txt

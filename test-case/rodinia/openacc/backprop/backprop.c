@@ -225,6 +225,7 @@ void bpnn_layerforward(float *l1, float *l2, float *conn, int n1, int n2)
 {
   float sum;
   int j, k;
+  printf("n1> %d, n2> %d\n",n1,n2);
 
   /*** Set up thresholding unit ***/
   //#pragma acc kernels present(l1)
@@ -233,12 +234,14 @@ void bpnn_layerforward(float *l1, float *l2, float *conn, int n1, int n2)
   #pragma acc kernels present(l1,l2,conn)
     #pragma acc loop independent
   /*** For each unit in second layer ***/
-  for (j = 1; j <= n2; j++) {
+  for (j = 0; j <n2; j++) {
+  //for (j = 1; j <= n2; j++) {// FIXME
 
     /*** Compute weighted sum of its inputs ***/
     sum = 0.0;
-    #pragma acc loop independent reduction(+:sum)
-    for (k = 0; k <= n1; k++) {	
+    //#pragma acc loop independent reduction(+:sum)
+    for (k = 0; k < n1; k++) {	
+    //for (k = 0; k <= n1; k++) {	 //FIXME
       //sum += conn[k][j] * l1[k]; 
       sum += conn[k*n2+j] * l1[k]; 
     }
@@ -254,7 +257,8 @@ void bpnn_output_error(float *delta, float *target, float *output, int nj, float
   errsum = 0.0;
   #pragma acc kernels present(delta,target,output)
   #pragma acc loop independent reduction(+:errsum)
-  for (j = 1; j <= nj; j++) {
+  for (j = 0; j < nj; j++) {
+  //for (j = 1; j <= nj; j++) { //FIXME
     o = output[j];
     t = target[j];
     delta[j] = o * (1.0 - o) * (t - o);
@@ -278,11 +282,13 @@ void bpnn_hidden_error(float *delta_h,
   errsum = 0.0;
   #pragma acc kernels present(delta_h,delta_o,who,hidden)
   #pragma acc loop independent reduction(+:errsum)
-  for (j = 1; j <= nh; j++) {
+  for (j = 0; j < nh; j++) {
+  //for (j = 1; j <= nh; j++) { //FIXME
     h = hidden[j];
     sum = 0.0;
-    #pragma acc loop reduction(+:sum)
-    for (k = 1; k <= no; k++) {
+    //#pragma acc loop reduction(+:sum) independent
+    for (k = 0; k <no; k++) {
+    //for (k = 1; k <= no; k++) { //FIXME
       sum += delta_o[k] * who[j*no+k];
     }
     delta_h[j] = h * (1.0 - h) * sum;
@@ -302,9 +308,11 @@ void bpnn_adjust_weights(float *delta, int ndelta, float *ly, int nly, float *w,
 
   #pragma acc kernels present(delta,ly,w,oldw)
     #pragma acc loop independent
-  for (j = 1; j <= ndelta; j++) {
+  for (j = 0; j < ndelta; j++) {
+  //for (j = 1; j <= ndelta; j++) { //FIXME
     #pragma acc loop independent
-    for (k = 0; k <= nly; k++) {
+    for (k = 0; k < nly; k++) {
+    //for (k = 0; k <= nly; k++) { // FIXME
       new_dw = ((ETA * delta[j] * ly[k]) + (MOMENTUM * oldw[j*nly+k]));
 	  w[k*ndelta+j] += new_dw;
 	  oldw[k*ndelta+j] = new_dw;

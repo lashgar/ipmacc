@@ -1,0 +1,54 @@
+../../bin/linux/release/oclNbody Starting...
+
+Command line switches:
+  --qatest		Check correctness of GPU execution and measure performance)
+  --noprompt		Quit simulation automatically after a brief period
+  --n=<numbodies>	Specify # of bodies to simulate (default = 7680)
+  --double		Use double precision floating point values for simulation
+  --p=<workgroup X dim>	Specify X dimension of workgroup (default = 256)
+  --q=<workgroup Y dim>	Specify Y dimension of workgroup (default = 1)
+
+clGetPlatformID...
+
+Single precision execution...
+
+Get the Device info and select Device...
+  # of Devices Available = 2
+  Using Device 0, Tesla K20c  # of Compute Units = 13
+clCreateContext...
+clCreateCommandQueue...
+
+Number of Bodies = 4096
+Workgroup Dims = (256 x 1)
+
+Skipping InitGL...
+
+AllocateNBodyArrays m_dPos
+
+AllocateNBodyArrays m_dVel
+
+CreateProgramAndKernel _noMT... 
+Loading Uncompiled kernel from .cl file, using oclNbodyKernel.cl
+clCreateProgramWithSource
+clBuildProgram
+clCreateKernel
+
+CreateProgramAndKernel _MT... 
+Loading Uncompiled kernel from .cl file, using oclNbodyKernel.cl
+clCreateProgramWithSource
+clBuildProgram
+clCreateKernel
+
+Reset Nbody System...
+
+Running oclNbody Results Comparison...
+
+  Computing on the Device / GPU...
+  Writing out Device/GPU data file for analysis...
+  Computing on the Host / CPU...
+
+Results Match
+
+Profiling oclNbody...
+
+oclNBody-SP, Throughput = inf GFLOP/s, Time = 0.00000 s, Size = 4096 bodies, NumDevsUsed = 1, Workgroup = 256

@@ -1,5 +1,5 @@
 include ../../common/make.config
-CXX = g++
+CXX = g++ -DDUMPOUT
 DEBUGFLAGS = -g
 # You will need to modify the following 2 lines
 # by inserting the correct path to the OpenCL
@@ -16,5 +16,4 @@ main.o: main.cpp OpenCL.cpp kernels.cl
 	$(CXX) $(CXXFLAGS) main.cpp OpenCL.cpp
 
 clean:
-	clear
-	@rm -f pathfinder *.o *.out *~ *\#
+	rm -f pathfinder *.o *.out *~ *\#

@@ -1,7 +1,9 @@
-time ./pathfinder_g++    1000000 100 > output.g++.txt
-time ./pathfinder_cuda   1000000 100 > output.cuda.txt
-time ./pathfinder_opencl 1000000 100 > output.opencl.txt
-echo 'RUNNING NEW BENCHMARK PATHFINDER' >> ~/run_script/diff_error
-diff output.g++.txt output.cuda.txt >> ~/run_script/diff_error
-diff output.g++.txt output.opencl.txt >> ~/run_script/diff_error
+SIZE=131072
+ITER=100
+time ./pathfinder_g++    $SIZE $ITER > output.g++.txt
+time ./pathfinder_cuda   $SIZE $ITER > output.cuda.txt
+time ./pathfinder_opencl $SIZE $ITER > output.opencl.txt
+#echo 'RUNNING NEW BENCHMARK PATHFINDER' >> ~/run_script/diff_error
+diff output.g++.txt output.cuda.txt #>> ~/run_script/diff_error
+diff output.g++.txt output.opencl.txt #>> ~/run_script/diff_error
 

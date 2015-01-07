@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cd srad_v1
+bash ./run

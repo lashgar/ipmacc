@@ -1,0 +1,25 @@
+#!/bin/bash
+
+export INPUT="../../data/hotspot/temp_4096 ../../data/hotspot/power_4096"
+#export INPUT="../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
+
+echo chipSize,iterations,kerneltime,launchtime
+for iter in 12; #3 6 9 ;
+do
+ #for size in 4 5 6 7 8 12 14 16 32 64 128 256 320 1024 2048 4096;
+ for size in 16 32 64 128 256 512 1024 2048 4096;
+ do
+  exectime="0.0"
+  launch="0.0"
+  for rep in {1..30};
+  do
+   tmp=`cat .perflog.$size.$size.$iter.out.t$rep | grep __generated_kernel_region_0 | awk '{print $2}'`
+   exectime=$exectime"+"`python -c "print '$tmp'.replace('ns','').replace('us','*1000').replace('ms','*1000000')" | bc`
+   exectime=`echo $exectime | bc`
+   log=`cat .perflog.$size.$size.$iter.out.t$rep | grep -e cudaConfigureCall -e cudaSetupArg -e cudaLaunch  | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && launch="$launch+"`echo $log | sed 's/\ /\+/g' | bc`
+  done
+  exectime=`python -c "print str(float($exectime)/30.0)"`
+  launch=`python -c "print str(float($launch)/30.0)"`
+  echo $size,$iter,$exectime,$launch
+ done
+done

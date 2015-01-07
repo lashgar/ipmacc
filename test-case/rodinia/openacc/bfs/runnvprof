@@ -1,0 +1,2 @@
+INFILE=../../data/bfs/graph1MW_6.txt
+nvprof --print-gpu-trace ./bfs_cuda $INFILE

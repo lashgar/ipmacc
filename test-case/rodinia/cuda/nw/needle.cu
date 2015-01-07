@@ -109,6 +109,7 @@ void runTest( int argc, char** argv)
     for (int i = 0 ; i < max_cols; i++){
 		for (int j = 0 ; j < max_rows; j++){
 			input_itemsets[i*max_cols+j] = 0;
+            output_itemsets[i*max_cols+j]=0;
 		}
 	}
 	

@@ -13,6 +13,7 @@ TODO:
 - Support dynamic shared memory size (for smc and cache clause)
 - BUGFIX: '\n' character in for statement cause XML crash.
 - BUGFIX: two terminating condition in the for loop may lead to XML crash.
+- OpenACC syntax parser may disallow valid cases. Fix the parser state machine. (related file: parser/oaccparser.y)
 
 DONE:
 - Replacing pycparser XML generator with srcML generator (faster and lower-level)
@@ -26,3 +27,5 @@ DONE:
 - Support OpenCL generators
 - Function call inside the region
 - Improve compilation speed
+- Support for user-defined data types
+- Launch nested loops over multi-dimensional thread-blocks and kernel grids

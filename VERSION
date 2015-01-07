@@ -252,6 +252,17 @@ Generating a CUDA code corresponding to the given XML file.
 0.7.5b
 -Launching a number of thread blocks exactly matching the number of loop iteration. No longer submitting one extra thread-block to cover boundaries.
 
+0.7.6b
+-Add support for algorithm directive.
+-Add limited support for std vector.
+
+0.7.7b
+-Fix OpenCL bugs in codegen
+-Fix thread-block size
+
+0.7.8b
+-Add support for reduction under multi-dimensional grid.
+
 =========================
 Component Description:
 preprocessor-<version>.py

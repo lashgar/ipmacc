@@ -1,0 +1,2 @@
+#nvprof --print-api-summary ./pathfinder 100000 1000 10
+nvprof --print-api-summary ./pathfinder 131072 100 20

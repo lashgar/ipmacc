@@ -1,0 +1,4 @@
+
+
+-0.1b: transform float to float4 and float3 and measure the precision
+-0.2b: integrate shared memory of OpenACC

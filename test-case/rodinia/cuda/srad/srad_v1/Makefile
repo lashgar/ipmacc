@@ -1,6 +1,7 @@
 include ../../../common/make.config
+include ../../../common/arch.mk
 
-CC := $(CUDA_DIR)/bin/nvcc
+CC := $(CUDA_DIR)/bin/nvcc $(ARCH)
 
 INCLUDE := $(CUDA_DIR)/include -I.
 
@@ -31,7 +32,7 @@ main.o: 	main.cu \
 				srad2_kernel.cu \
 				compress_kernel.cu
 	nvcc	main.cu \
-				-c -O3 -Xptxas -v -arch=sm_13
+				-c -O3 -Xptxas -v $(ARCH)
 
 # delete all object files
 clean:

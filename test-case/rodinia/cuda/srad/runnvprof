@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cd srad_v1
+nvprof --print-gpu-trace ./srad 1000 0.5 502 458

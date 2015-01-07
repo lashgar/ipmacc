@@ -1,0 +1,6 @@
+iter=$2
+inneriter=$1
+nvprof ./hotspot  1024 $inneriter $iter ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 temp.out &> log && log=`cat log | grep calculate_temp | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && echo $log | sed 's/\ /\+/g' | bc
+log=`cat log | grep -e cudaSetupArg -e cudaLaunch  | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && echo $log | sed 's/\ /\+/g' | bc
+
+

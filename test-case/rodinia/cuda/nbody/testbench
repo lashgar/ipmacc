@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#for HSBPTBIN in matrixMul ;
+#do
+ #for size in 512 1024 2048 4096 8192 16384;
+ #do
+ for sizet in 1024 #32 64 128 256 512 ;
+ #for size in 512 #1024 2048 4096 8192 16384;
+ do
+  size=`expr 1024 \* $sizet`
+  #./${HSBPTBIN}_verify $size > /dev/null
+  #if [ "$?" != "0" ] ; then
+  # echo 'test failed> results differ'
+  # sleep 3
+  # #exit
+  #fi
+
+  for rep in {1..30};
+  do
+   echo $size.$rep
+   #echo  nvprof ./${HSBPTBIN} $size $size $inner $iter $INPUT
+   nvprof ./nbody -compare -cuda -numbodies=$size > .testlog.$size.out 2> .perflog.$size.t$rep
+   if [ "$?" != "0" ] ; then
+    echo 'running failed'
+    exit
+   fi
+  done
+ done
+#done

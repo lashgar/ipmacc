@@ -1,0 +1,6 @@
+pyramidHeight: 14
+gridSize: [2097152]
+border:[14]
+blockSize: 256
+blockGrid:[9199]
+targetBlock:[228]

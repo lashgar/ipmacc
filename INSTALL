@@ -54,6 +54,11 @@ Step 3:
     At this step, you should be able to see ipmacc on the command-line:
     $ ipmacc --version
     IPMACC 0.7.5b
+    Also get available accelerators using:
+    $ ipmacc --list-devices CUDA
+    or
+    $ ipmacc --list-devices OCL 
+    There shouldn't be any error up to this point.
 
 Step 4:
     Compile and run samples in test-case/ directory:

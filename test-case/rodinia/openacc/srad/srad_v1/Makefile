@@ -1,7 +1,7 @@
 
 include ../../../common/arch.mk
 
-XX_FLAGS = -O3
+CXX_FLAGS = -O3 -g
 
 LD_FLAGS=-lm
 ACC_LD_FLAGS=`ipmacc --ldflags`

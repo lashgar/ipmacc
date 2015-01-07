@@ -13,6 +13,8 @@ using namespace std;
 /* capacitance fitting factor	*/
 #define FACTOR_CHIP	0.5
 
+//#define double float
+
 /* chip parameters	*/
 double t_chip = 0.0005;
 double chip_height = 0.016;
@@ -30,6 +32,11 @@ void single_iteration(double *result, double *temp, double *power, int row, int 
 {
 	double delta;
 	int r, c;
+    double stepCap=step/Cap;
+    double rRx=1/Rx;
+    double rRy=1/Ry;
+    double rRz=1/Rz;
+    //int iter=0, tot_iter=1;
 
 //	#pragma acc parallel loop present(temp, power, result)
 	#pragma acc kernels present(temp, power, result)
@@ -38,77 +45,85 @@ void single_iteration(double *result, double *temp, double *power, int row, int 
 		#pragma acc loop independent
 		for (c = 0; c < col; c++) {
   			/*	Corner 1	*/
-			if ( (r == 0) && (c == 0) ) {
-				delta = (step / Cap) * (power[0] +
-						(temp[1] - temp[0]) / Rx +
-						(temp[col] - temp[0]) / Ry +
-						(amb_temp - temp[0]) / Rz);
-			}	/*	Corner 2	*/
-			else if ((r == 0) && (c == col-1)) {
-				delta = (step / Cap) * (power[c] +
-						(temp[c-1] - temp[c]) / Rx +
-						(temp[c+col] - temp[c]) / Ry +
-						(amb_temp - temp[c]) / Rz);
-			}	/*	Corner 3	*/
-			else if ((r == row-1) && (c == col-1)) {
-				delta = (step / Cap) * (power[r*col+c] + 
-						(temp[r*col+c-1] - temp[r*col+c]) / Rx + 
-						(temp[(r-1)*col+c] - temp[r*col+c]) / Ry + 
-						(amb_temp - temp[r*col+c]) / Rz);					
-			}	/*	Corner 4	*/
-			else if ((r == row-1) && (c == 0)) {
-				delta = (step / Cap) * (power[r*col] + 
-						(temp[r*col+1] - temp[r*col]) / Rx + 
-						(temp[(r-1)*col] - temp[r*col]) / Ry + 
-						(amb_temp - temp[r*col]) / Rz);
-			}	/*	Edge 1	*/
-			else if (r == 0) {
-				delta = (step / Cap) * (power[c] + 
-						(temp[c+1] + temp[c-1] - 2.0*temp[c]) / Rx + 
-						(temp[col+c] - temp[c]) / Ry + 
-						(amb_temp - temp[c]) / Rz);
-			}	/*	Edge 2	*/
-			else if (c == col-1) {
-				delta = (step / Cap) * (power[r*col+c] + 
-						(temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.0*temp[r*col+c]) / Ry + 
-						(temp[r*col+c-1] - temp[r*col+c]) / Rx + 
-						(amb_temp - temp[r*col+c]) / Rz);
-			}	/*	Edge 3	*/
-			else if (r == row-1) {
-				delta = (step / Cap) * (power[r*col+c] + 
-						(temp[r*col+c+1] + temp[r*col+c-1] - 2.0*temp[r*col+c]) / Rx + 
-						(temp[(r-1)*col+c] - temp[r*col+c]) / Ry + 
-						(amb_temp - temp[r*col+c]) / Rz);
-			}	/*	Edge 4	*/
-			else if (c == 0) {
-				delta = (step / Cap) * (power[r*col] + 
-						(temp[(r+1)*col] + temp[(r-1)*col] - 2.0*temp[r*col]) / Ry + 
-						(temp[r*col+1] - temp[r*col]) / Rx + 
-						(amb_temp - temp[r*col]) / Rz);
-			}	/*	Inside the chip	*/
-			else {
-				delta = (step / Cap) * (power[r*col+c] + 
-						(temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.0*temp[r*col+c]) / Ry + 
-						(temp[r*col+c+1] + temp[r*col+c-1] - 2.0*temp[r*col+c]) / Rx + 
-						(amb_temp - temp[r*col+c]) / Rz);
-			}
+            int S=(r==(row-1))?row-1:r+1;
+            int N=(r==(0))?0:r-1;
+            int W=(c==(0))?0:c-1;
+            int E=(c==(col-1))?col-1:c+1;
+            //for(iter=0; iter<tot_iter; iter++){
+			    	delta = (stepCap) * (power[r*col+c] + 
+			    			(temp[S*col+c] + temp[N*col+c] - 2.0*temp[r*col+c])*rRy + 
+			    			(temp[r*col+E] + temp[r*col+W] - 2.0*temp[r*col+c])*rRx + 
+			    			(amb_temp - temp[r*col+c])*rRz);
+			    //if ( (r == 0) && (c == 0) ) {
+			    //	delta = (stepCap) * (power[0] +
+			    //			(temp[1] - temp[0])*rRx +
+			    //			(temp[col] - temp[0])*rRy +
+			    //			(amb_temp - temp[0])*rRz);
+			    //}	/*	Corner 2	*/
+			    //else if ((r == 0) && (c == col-1)) {
+			    //	delta = (stepCap) * (power[c] +
+			    //			(temp[c-1] - temp[c])*rRx +
+			    //			(temp[c+col] - temp[c])*rRy +
+			    //			(amb_temp - temp[c])*rRz);
+			    //}	/*	Corner 3	*/
+			    //else if ((r == row-1) && (c == col-1)) {
+			    //	delta = (stepCap) * (power[r*col+c] + 
+			    //			(temp[r*col+c-1] - temp[r*col+c])*rRx + 
+			    //			(temp[(r-1)*col+c] - temp[r*col+c])*rRy + 
+			    //			(amb_temp - temp[r*col+c])*rRz);					
+			    //}	/*	Corner 4	*/
+			    //else if ((r == row-1) && (c == 0)) {
+			    //	delta = (stepCap) * (power[r*col] + 
+			    //			(temp[r*col+1] - temp[r*col])*rRx + 
+			    //			(temp[(r-1)*col] - temp[r*col])*rRy + 
+			    //			(amb_temp - temp[r*col])*rRz);
+			    //}	/*	Edge 1	*/
+			    //else if (r == 0) {
+			    //	delta = (stepCap) * (power[c] + 
+			    //			(temp[c+1] + temp[c-1] - 2.0*temp[c])*rRx + 
+			    //			(temp[col+c] - temp[c])*rRy + 
+			    //			(amb_temp - temp[c])*rRz);
+			    //}	/*	Edge 2	*/
+			    //else if (c == col-1) {
+			    //	delta = (stepCap) * (power[r*col+c] + 
+			    //			(temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.0*temp[r*col+c])*rRy + 
+			    //			(temp[r*col+c-1] - temp[r*col+c])*rRx + 
+			    //			(amb_temp - temp[r*col+c])*rRz);
+			    //}	/*	Edge 3	*/
+			    //else if (r == row-1) {
+			    //	delta = (stepCap) * (power[r*col+c] + 
+			    //			(temp[r*col+c+1] + temp[r*col+c-1] - 2.0*temp[r*col+c])*rRx + 
+			    //			(temp[(r-1)*col+c] - temp[r*col+c])*rRy + 
+			    //			(amb_temp - temp[r*col+c])*rRz);
+			    //}	/*	Edge 4	*/
+			    //else if (c == 0) {
+			    //	delta = (stepCap) * (power[r*col] + 
+			    //			(temp[(r+1)*col] + temp[(r-1)*col] - 2.0*temp[r*col])*rRy + 
+			    //			(temp[r*col+1] - temp[r*col])*rRx + 
+			    //			(amb_temp - temp[r*col])*rRz);
+			    //}	/*	Inside the chip	*/
+			    //else {
+			    //	delta = (stepCap) * (power[r*col+c] + 
+			    //			(temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.0*temp[r*col+c])*rRy + 
+			    //			(temp[r*col+c+1] + temp[r*col+c-1] - 2.0*temp[r*col+c])*rRx + 
+			    //			(amb_temp - temp[r*col+c])*rRz);
+			    //}
+            //}
   			
 			/*	Update Temperatures	*/
 			result[r*col+c] =temp[r*col+c]+ delta;
-
-
 		}
 	}
 
 //	#pragma acc parallel loop present(temp, result)
-	#pragma acc kernels present(temp, result)
-	#pragma acc loop independent
-	for (r = 0; r < row; r++) {
-		#pragma acc loop independent
-		for (c = 0; c < col; c++) {
-			temp[r*col+c]=result[r*col+c];
-		}
-	}
+	//#pragma acc kernels present(temp, result)
+	//#pragma acc loop independent
+	//for (r = 0; r < row; r++) {
+	//	#pragma acc loop independent
+	//	for (c = 0; c < col; c++) {
+	//		temp[r*col+c]=result[r*col+c];
+	//	}
+	//}
 }
 
 /* Transient solver driver routine: simply converts the heat 
@@ -140,13 +155,16 @@ void compute_tran_temp(double *result, int num_iterations, double *temp, double 
 	#pragma acc data create(result[0:row*col]) \
 		copyin(power[0:row*col]) copy(temp[0:row*col])
 	{
-    for (int i = 0; i < num_iterations ; i++)
-	{
-		#ifdef VERBOSE
-		fprintf(stdout, "iteration %d\n", i++);
-		#endif
-		single_iteration(result, temp, power, row, col, Cap, Rx, Ry, Rz, step);
-	}
+        for (int i = 0; i < num_iterations ; i++)
+	    {
+	    	#ifdef VERBOSE
+	    	fprintf(stdout, "iteration %d\n", i++);
+	    	#endif
+	    	single_iteration(result, temp, power, row, col, Cap, Rx, Ry, Rz, step);
+            double *tmp=result;
+            result=temp;
+            temp=tmp;
+	    }
 	} /* end pragma acc data */	
 
 	#ifdef VERBOSE
@@ -221,9 +239,9 @@ int main(int argc, char **argv)
 		usage(argc, argv);
 
 	/* allocate memory for the temperature and power arrays	*/
-	temp = (double *) calloc (grid_rows * grid_cols, sizeof(double));
-	power = (double *) calloc (grid_rows * grid_cols, sizeof(double));
-	result = (double *) calloc (grid_rows * grid_cols, sizeof(double));
+	temp = (double *) malloc (grid_rows * grid_cols* sizeof(double));
+	power = (double *) malloc (grid_rows * grid_cols* sizeof(double));
+	result = (double *) malloc (grid_rows * grid_cols* sizeof(double));
 	if(!temp || !power)
 		fatal("unable to allocate memory");
 

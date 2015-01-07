@@ -8,7 +8,9 @@
 #define DEVICE 0
 #define HALO 1 // halo width along one direction when advancing to the next iteration
 
+#ifdef OUTPUT
 #define BENCH_PRINT
+#endif
 
 void run(int argc, char** argv);
 
@@ -50,14 +52,14 @@ init(int argc, char** argv)
                     }
                 }
 #ifdef BENCH_PRINT
-    //    for (int i = 0; i < rows; i++)
-    //    {
-    //        for (int j = 0; j < cols; j++)
-    //        {
-    //            printf("%d ",wall[i][j]) ;
-    //        }
-    //        printf("\n") ;
-    //    }
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < cols; j++)
+        {
+            printf("%d ",wall[i][j]) ;
+        }
+        printf("\n") ;
+    }
 #endif
 }
 
@@ -124,11 +126,12 @@ __global__ void dynproc_kernel(
         prev[tx] = gpuSrc[xidx];
     }
     __syncthreads(); // [Ronny] Added sync to avoid race on prev Aug. 14 2012
-    bool computed;
+    bool computed=false;
     for (int i=0; i<iteration ; i++){ 
         computed = false;
         if( IN_RANGE(tx, i+1, BLOCK_SIZE-i-2) &&  \
-                isValid){
+                isValid)
+        {
             computed = true;
             int left = prev[W];
             int up = prev[tx];

@@ -1,0 +1,1 @@
+nvprof --print-api-summary ./nbody -compare -cuda -n=1024

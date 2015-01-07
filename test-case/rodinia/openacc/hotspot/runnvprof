@@ -1,0 +1,3 @@
+#nvprof ./hotspot_ipmacc_cuda  1024 1024 2  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_cuda.txt
+nvprof --print-gpu-trace ./hotspot_ipmacc_cuda  1024 1024 16  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_cuda.txt
+#nvprof ./hotspot_ipmacc_cuda  1024 1024 16  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 > result.ipmacc_cuda.txt

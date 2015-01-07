@@ -1,0 +1,1 @@
+./needle_ipmacc_ocl 8192 10 > result.opencl.txt

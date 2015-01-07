@@ -1,0 +1,3 @@
+cd srad_v1
+nvprof --print-api-summary ./srad_cuda 1000 0.5 502 458
+mv image_out.pgm output.cuda.pgm

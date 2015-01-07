@@ -1,0 +1,23 @@
+#!/bin/bash
+conf=smc
+for MULTIPLE in 128 256 512 1024 2048 4096;
+do
+ SIZE=`expr 1024 \* $MULTIPLE`
+ ITER=120
+ for INNERITER in 2 12 20; #1 2 3 4 5 6 8 10 12 14;
+ do
+  exectime="0.0"
+  launch="0.0"
+  for rep in {1..20};
+  do
+   tmp=`cat .prof.$conf.$SIZE.$ITER.$INNERITER.$rep | grep dynproc_kernel | awk '{print $2}'`
+   exectime=$exectime"+"`python -c "print '$tmp'.replace('ns','').replace('us','*1000').replace('ms','*1000000')" | bc`
+   exectime=`echo $exectime | bc`
+   log=`cat .prof.$conf.$SIZE.$ITER.$INNERITER.$rep | grep -e cudaConfigureCall -e cudaSetupArg -e cudaLaunch  | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'`
+   launch="$launch+"`echo $log | sed 's/\ /\+/g' | bc`
+  done
+  exectime=`python -c "print str(float($exectime)/20.0)"`
+  launch=`python -c "print str(float($launch)/20.0)"`
+  echo $ITER,$SIZE,$INNERITER,$exectime,$launch
+ done
+done

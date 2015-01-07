@@ -15,6 +15,13 @@ v2_cuda:
 v2_opencl:
 	cd srad_v2; 	make opencl
 
+cuda:
+	cd srad_v1; 	make cuda
+	cd srad_v2; 	make cuda
+
+opencl:
+	make opencl -C srad_v1
+
 clean: v1_clean v2_clean
 
 v1_clean:

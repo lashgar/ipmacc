@@ -33,11 +33,11 @@
 
 
 /* chip parameters	*/
-const static float t_chip = 0.0005;
-const static float chip_height = 0.016;
-const static float chip_width = 0.016;
+const static double t_chip = 0.0005;
+const static double chip_height = 0.016;
+const static double chip_width = 0.016;
 /* ambient temperature, assuming no package at all	*/
-const static float amb_temp = 80.0;
+const static double amb_temp = 80.0;
 
 // OpenCL globals
 cl_context context;
@@ -45,9 +45,9 @@ cl_command_queue command_queue;
 cl_device_id device;
 cl_kernel kernel;
 
-void writeoutput(float *, int, int, char *);
-void readinput(float *, int, int, char *);
-int compute_tran_temp(cl_mem, cl_mem[2], int, int, int, int, int, int, int, int, float *, float *);
+void writeoutput(double *, int, int, char *);
+void readinput(double *, int, int, char *);
+int compute_tran_temp(cl_mem, cl_mem[2], int, int, int, int, int, int, int, int, double *, double *);
 void usage(int, char **);
 void run(int, char **);
 

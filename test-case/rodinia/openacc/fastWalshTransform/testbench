@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#for HSBPTBIN in matMul_baseline matMul ;
+#do
+ for size in 27 28 21 22 23 24 25 26 ;
+ do
+  ./fastWalshTransform cuda openacc --log2Data=$size &> /dev/null
+  if [ "$?" != "0" ] ; then
+   echo 'test failed> results differ'
+   sleep 3
+   #exit
+  fi
+
+  #mv .testlog.$size.$iter.out .testlog.$HSBPTBIN.$size.$iter.out
+  for rep in {1..30};
+  do
+   echo $size.$rep
+   nvprof ./fastWalshTransform openacc --log2Data=$size > .testlog.$size.out 2> .perflog.$size.t$rep
+   #mv .perflog.$size.t$rep .perflog.$HSBPTBIN.$size.t$rep
+   if [ "$?" != "0" ] ; then
+    echo 'running failed'
+    exit
+   fi
+  done
+ done
+#done

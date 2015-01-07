@@ -1,9 +1,24 @@
 #!/bin/bash
 
-VERSION=0.7.5b
+VERSION=0.7.8b
 function usage()
 {
-    echo "usage: ipmacc c-file <compile flags> "
+    echo "usage: ipmacc <input file> <compile flags> "
+    echo " <input file> is single c/c++ file with OpenACC notation."
+    echo " <compile flags> are compile flags supported by g++ "
+    echo "   (or nvcc if the target accelerator is CUDA)."
+    echo ""
+    echo "other useful inlines:"
+    echo " ipmacc --help"
+    echo "   see this message."
+    echo " ipmacc --list-devices OCL"
+    echo "   list available OpenCL devices."
+    echo " ipmacc --list-devices CUDA"
+    echo "   list available CUDA devices."
+    echo " ipmacc --cflags"
+    echo "   get compile flags for ipmacc OpenACC headers."
+    echo " ipmacc --ldflags"
+    echo "   get link flags for linking to ipmacc runtime library."
 }
 function version()
 {
@@ -39,7 +54,33 @@ if [ "$VERBOSE" == "1" ] ; then
  echo ' CFLAG: '$CFLAG
 fi
 
-# 4. find the arguments and pass proper args to nvcc directly
+# 4. destination of code generation 
+TARGETARCH=
+if [ "$ta" == "nvcuda" ] ; then
+    if [ "$CUDASUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
+    fi
+    TARGETARCH="nvcuda"
+elif [ "$ta" == "nvopencl" ] ; then
+    TARGETARCH="nvopencl"
+    if [ "$OPENCLSUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvopencl while the environemnt is not setup for OpenCL'
+    fi
+else
+    #fallback
+    if [ "$VERBOSE" == "1" ] ; then
+     echo "falling back to CUDA target"
+    fi
+    TARGETARCH="nvcuda"
+    if [ "$CUDASUPPORT" != "1" ] ; then
+        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
+    fi
+fi
+
+
+
+
+# 5. find the arguments and pass proper args to nvcc directly
 ARGS=(${@})
 NARG=${#ARGS[@]}
 #echo $ARGS $NARG
@@ -58,13 +99,20 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
 
     # pars new arg
     if [ "${ARGS[i]}" == "--cflags" ] ; then
-        echo $CFLAG
+        if [ $TARGETARCH == "nvcuda" ] ; then
+            echo -D__NVCUDA__ $CFLAG
+        elif [ $TARGETARCH == "nvopencl" ] ; then
+            echo -D__NVOPENCL__ $CFLAG
+        fi
         exit 1
     elif [ "${ARGS[i]}" == "--ldflags" ] ; then
         echo $LDFLAG
         exit 1
     elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--help" ] ; then
         usage
+        exit 1
+    elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--list-devices" ] ; then
+        $path/src/listdevices ${ARGS[i+1]}
         exit 1
     elif [ "${ARGS[i]}" == "--version" ] ; then
     #elif [ "${ARGS[i]}" == "-v" ] || [ "${ARGS[i]}" == "--version" ] ; then
@@ -93,30 +141,6 @@ elif [ ! -f "$INFILE" ] ; then
 fi
 
 
-# destination of code generation 
-TARGETARCH=
-if [ "$ta" == "nvcuda" ] ; then
-    if [ "$CUDASUPPORT" != "1" ] ; then
-        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
-    fi
-    TARGETARCH="nvcuda"
-elif [ "$ta" == "nvopencl" ] ; then
-    TARGETARCH="nvopencl"
-    if [ "$OPENCLSUPPORT" != "1" ] ; then
-        echo 'warning: targeting for nvopencl while the environemnt is not setup for OpenCL'
-    fi
-else
-    #fallback
-    if [ "$VERBOSE" == "1" ] ; then
-     echo "falling back to CUDA target"
-    fi
-    TARGETARCH="nvcuda"
-    if [ "$CUDASUPPORT" != "1" ] ; then
-        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
-    fi
-fi
-
-
 
 # Path to nvcc
 NVCC=${CUDAHOME}/bin/nvcc
@@ -138,7 +162,7 @@ ln -s $path/src/utils_clause.py $path/parser/
 rm $path/preprocessor.py $path/preprocessor.pyc -f
 ln -s $path/src/preprocessor-0.1.7b.py $path/preprocessor.py
 rm $path/scanner.py -f
-ln -s $path/src/scanner-0.2.6b.py $path/scanner.py
+ln -s $path/src/scanner-0.2.7b.py $path/scanner.py
 rm $path/codegen.py -f
 ln -s $path/src/codegen-${VERSION}.py $path/codegen.py
 
@@ -180,7 +204,7 @@ if [ "$?" == "0" ] ; then
              echo "$NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
             fi
             #echo "$NVCC $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
-            $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__
+            $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
             if [ "$?" != "0" ] ; then
                 echo "[failed] nvcc failed to generate the binary"
             fi

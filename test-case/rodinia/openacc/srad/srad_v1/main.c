@@ -29,7 +29,7 @@
 #include "graphics.c"
 #include "resize.c"
 #include "timer.c"
-
+#include <assert.h>
 //====================================================================================================100
 //====================================================================================================100
 //	MAIN FUNCTION
@@ -207,6 +207,7 @@ int main(int argc, char *argv []){
 		if (i==0) iN[0] = 0;												// changes IMAGE top row index from -1 to 0
 		if (i==Nr-1) iS[Nr-1] = Nr-1;										// changes IMAGE bottom row index from Nr to Nr-1 
 	}
+
 #pragma acc kernels create(jW[0:Nc], jE[0:Nc])
 #pragma acc loop independent
 	for (j=0; j<Nc; j++) {
@@ -215,7 +216,7 @@ int main(int argc, char *argv []){
 
 		// W/E boundary conditions, fix surrounding indices outside boundary of IMAGE
 		if (j==0) jW[0] = 0;												// changes IMAGE leftmost column index from -1 to 0
-		if (j==Nr-1) jE[Nc-1] = Nc-1;										// changes IMAGE rightmost column index from Nc to Nc-1
+		if (j==(Nc-1)) jE[Nc-1] = Nc-1;										// changes IMAGE rightmost column index from Nc to Nc-1
 	}
 
 	time5 = get_time();
@@ -250,9 +251,9 @@ int main(int argc, char *argv []){
 			sum=0; 
 			sum2=0;
 #pragma acc kernels  present(image)
-//#pragma acc loop vector independent
-#pragma acc loop vector reduction(+:sum,+:sum2) independent
+#pragma acc loop vector independent reduction(+:sum,+:sum2) 
 			for (i=r1; i<=r2; i++) {		// do for the range of rows in ROI
+#pragma acc loop vector independent
 				for (j=c1; j<=c2; j++) {	// do for the range of columns in ROI
 					tmp   = image[i + Nr*j];	// get coresponding value in IMAGE
 					sum  += tmp ;			// take corresponding value and add to sum
@@ -267,24 +268,25 @@ int main(int argc, char *argv []){
 #pragma acc kernels present(image, c, iN, iS, jW, jE)
 #pragma acc loop independent private(k,Jc,G2,L,num,den,qsqr)
 			for (j=0; j<Nc; j++) {		// do for the range of columns in IMAGE
+                #pragma acc loop independent
 				for (i=0; i<Nr; i++) {		// do for the range of rows in IMAGE 
-
+                    fp dN_local, dS_local, dW_local, dE_local;
 					// current index/pixel
 					k = i + Nr*j;	// get position of current element
 					Jc = image[k];	// get value of the current element
 
 					// directional derivates (every element of IMAGE)
-					dN[k] = image[iN[i] + Nr*j] - Jc;	// north direction derivative
-					dS[k] = image[iS[i] + Nr*j] - Jc;	// south direction derivative
-					dW[k] = image[i + Nr*jW[j]] - Jc;	// west direction derivative
-					dE[k] = image[i + Nr*jE[j]] - Jc;	// east direction derivative
+					dN_local = image[iN[i] + Nr*j] - Jc;	// north direction derivative
+					dS_local = image[iS[i] + Nr*j] - Jc;	// south direction derivative
+					dW_local = image[i + Nr*jW[j]] - Jc;	// west direction derivative
+					dE_local = image[i + Nr*jE[j]] - Jc;	// east direction derivative
 
 					// normalized discrete gradient mag squared (equ 52,53)
-					G2 = (dN[k]*dN[k] + dS[k]*dS[k]		// gradient (based on derivatives)
-							+ dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
+					G2 = (dN_local*dN_local + dS_local*dS_local		// gradient (based on derivatives)
+							+ dW_local*dW_local + dE_local*dE_local) / (Jc*Jc);
 
 					// normalized discrete laplacian (equ 54)
-					L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;	// laplacian (based on derivatives)
+					L = (dN_local + dS_local + dW_local + dE_local) / Jc;	// laplacian (based on derivatives)
 
 					// ICOV (equ 31/35)
 					num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;		// num (based on gradient and laplacian)
@@ -301,6 +303,12 @@ int main(int argc, char *argv []){
 					else if (c[k] > 1)				// if diffusion coefficient > 1
 					{c[k] = 1;}					// ... set to 1
 
+                    dN[k]=dN_local; 
+                    dS[k]=dS_local; 
+                    dW[k]=dW_local; 
+                    dE[k]=dE_local; 
+
+
 				}
 
 			}
@@ -309,6 +317,7 @@ int main(int argc, char *argv []){
 #pragma acc kernels present(c, jE, dN, dS, dW, dE, image, iS)
 #pragma acc loop independent private(k,cN, cS, cW, cE, D)
 			for (j=0; j<Nc; j++) {						// do for the range of columns in IMAGE
+                #pragma acc loop independent
 				for (i=0; i<Nr; i++) {					// do for the range of rows in IMAGE
 
 					// current index
@@ -324,7 +333,6 @@ int main(int argc, char *argv []){
 					D = cN*dN[k] + cS*dS[k] + cW*dW[k] + cE*dE[k];	// divergence
 
 					// image update (equ 61) (every element of IMAGE)
-
 
 
 					image[k] = image[k] + 0.25*lambda*D;		// updates image (based on input time step and divergence)

@@ -1,0 +1,19 @@
+==3718== NVPROF is profiling process 3718, command: ./hotspot 1024 2 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out
+==3718== Profiling application: ./hotspot 1024 2 2 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out
+pyramidHeight: 2
+gridSize: [1024, 1024]
+border:[2, 2]
+blockGrid:[86, 86]
+targetBlock:[12, 12]
+Start computing the transient temperature
+Ending simulation
+==3718== Profiling result:
+   Start  Duration            Grid Size      Block Size     Regs*    SSMem*    DSMem*      Size  Throughput           Device   Context    Stream  Name
+364.42ms  2.2054ms                    -               -         -         -         -  8.3886MB  3.8037GB/s   Tesla K20c (0)         1         7  [CUDA memcpy HtoD]
+366.94ms  2.0041ms                    -               -         -         -         -  8.3886MB  4.1858GB/s   Tesla K20c (0)         1         7  [CUDA memcpy HtoD]
+368.95ms  615.69us            (86 86 1)       (16 16 1)        35  6.1440KB        0B         -           -   Tesla K20c (0)         1         7  calculate_temp(int, double*, double*, double*, int, int, int, int, double, double, double, double, double, double) [197]
+369.57ms  3.4128ms                    -               -         -         -         -  8.3886MB  2.4580GB/s   Tesla K20c (0)         1         7  [CUDA memcpy DtoH]
+
+Regs: Number of registers used per CUDA thread. This number includes registers used internally by the CUDA driver and/or tools and can be more than what the compiler shows.
+SSMem: Static shared memory allocated per CUDA block.
+DSMem: Dynamic shared memory allocated per CUDA block.

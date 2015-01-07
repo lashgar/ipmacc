@@ -1,0 +1,29 @@
+==7707== NVPROF is profiling process 7707, command: ./matrixMul -wA=1024 -hA=1024 -wB=1024 -hB=1024
+==7707== Profiling application: ./matrixMul -wA=1024 -hA=1024 -wB=1024 -hB=1024
+==7707== Profiling result:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 74.87%  8.3835ms         1  8.3835ms  8.3835ms  8.3835ms  void matrixMulCUDA<int=32>(float*, float*, float*, int, int)
+ 17.36%  1.9440ms         2  972.02us  966.45us  977.58us  [CUDA memcpy HtoD]
+  7.76%  869.42us         1  869.42us  869.42us  869.42us  [CUDA memcpy DtoH]
+
+==7707== API calls:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 60.30%  198.59ms         3  66.197ms  156.66us  198.27ms  cudaMalloc
+ 35.53%  117.02ms         1  117.02ms  117.02ms  117.02ms  cudaDeviceReset
+  2.55%  8.3876ms         1  8.3876ms  8.3876ms  8.3876ms  cudaEventSynchronize
+  1.09%  3.5778ms         3  1.1926ms  1.0850ms  1.2506ms  cudaMemcpy
+  0.26%  868.88us       166  5.2340us     404ns  260.06us  cuDeviceGetAttribute
+  0.14%  447.90us         3  149.30us  119.16us  203.52us  cudaFree
+  0.05%  169.79us         1  169.79us  169.79us  169.79us  cudaDeviceSynchronize
+  0.03%  90.114us         2  45.057us  44.178us  45.936us  cuDeviceTotalMem
+  0.02%  70.912us         2  35.456us  33.937us  36.975us  cuDeviceGetName
+  0.01%  37.312us         1  37.312us  37.312us  37.312us  cudaLaunch
+  0.01%  36.674us         1  36.674us  36.674us  36.674us  cudaGetDeviceProperties
+  0.01%  22.566us         1  22.566us  22.566us  22.566us  cudaGetDevice
+  0.00%  15.417us         2  7.7080us  6.1250us  9.2920us  cudaEventRecord
+  0.00%  11.148us         2  5.5740us  1.9300us  9.2180us  cudaEventCreate
+  0.00%  5.7020us         1  5.7020us  5.7020us  5.7020us  cudaEventElapsedTime
+  0.00%  3.6050us         5     721ns     407ns  1.4080us  cudaSetupArgument
+  0.00%  2.4150us         2  1.2070us     602ns  1.8130us  cuDeviceGetCount
+  0.00%  2.3140us         4     578ns     483ns     709ns  cuDeviceGet
+  0.00%  2.0010us         1  2.0010us  2.0010us  2.0010us  cudaConfigureCall

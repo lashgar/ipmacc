@@ -1,0 +1,2 @@
+#nvprof --print-gpu-trace ./pathfinder_cuda   100000 1000 > output.cuda.txt
+nvprof --print-gpu-trace ./pathfinder_cuda  131072 100 > output.cuda.txt

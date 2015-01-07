@@ -1,14 +1,14 @@
 // statistical kernel
-__global__ void reduce(	long d_Ne,											// number of elements in array
-										int d_no,											// number of sums to reduce
-										int d_mul,											// increment
-										fp *d_sums,										// pointer to partial sums variable (DEVICE GLOBAL MEMORY)
-										fp *d_sums2){
+__global__ void reduce(	long d_Ne,  // number of elements in array
+						int d_no,   // number of sums to reduce
+						int d_mul,  // increment
+						fp *d_sums,	// pointer to partial sums variable (DEVICE GLOBAL MEMORY)
+						fp *d_sums2){
 
 	// indexes
-    int bx = blockIdx.x;													// get current horizontal block index
-	int tx = threadIdx.x;													// get current horizontal thread index
-	int ei = (bx*NUMBER_THREADS)+tx;										// unique thread id, more threads than actual elements !!!
+    int bx = blockIdx.x;			// get current horizontal block index
+	int tx = threadIdx.x;			// get current horizontal thread index
+	int ei = (bx*NUMBER_THREADS)+tx;// unique thread id, more threads than actual elements !!!
 	int nf = NUMBER_THREADS-(gridDim.x*NUMBER_THREADS-d_no);				// number of elements assigned to last block
 	int df = 0;																// divisibility factor for the last block
 

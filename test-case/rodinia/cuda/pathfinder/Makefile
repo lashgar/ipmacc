@@ -1,6 +1,7 @@
 include ../../common/make.config
+include ../../common/arch.mk
 
-CC := $(CUDA_DIR)/bin/nvcc
+CC := $(CUDA_DIR)/bin/nvcc $(ARCH)  #-DOUTPUT
 INCLUDE := $(CUDA_DIR)/include
 
 SRC = pathfinder.cu
@@ -20,4 +21,4 @@ debugenum:
 	$(CC) -g -deviceemu $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
 
 clean:
-	rm -f pathfinder
+	rm -f pathfinder *txt *csv .prof* .test*

@@ -1,0 +1,46 @@
+Run "nbody -benchmark [-numbodies=<numBodies>]" to measure perfomance.
+	-fullscreen       (run n-body simulation in fullscreen mode)
+	-fp64             (use double precision floating point values for simulation)
+	-hostmem          (stores simulation data in host memory)
+	-benchmark        (run benchmark to measure performance) 
+	-numbodies=<N>    (number of bodies (>= 1) to run in simulation) 
+	-device=<d>       (where d=0,1,2.... for the CUDA device to use)
+	-numdevices=<i>   (where i=(number of CUDA devices > 0) to use for simulation)
+	-compare          (compares simulation results running once on the default GPU and once on the CPU)
+	-cpu              (run n-body simulation on the CPU)
+	-tipsy=<file.bin> (load a tipsy model file for simulation)
+
+> Windowed mode
+> Simulation data stored in video memory
+> Single precision floating point simulation
+> 1 Devices used for simulation
+number of bodies = 131072
+IPMACC: memory allocation m_force
+CUDA:          1572864 bytes [allocated] on device (ptr: 0x701d00000)
+IPMACC: memory allocation m_pos
+CUDA:          2097152 bytes [allocated] on device (ptr: 0x701e80000)
+IPMACC: memory copyin m_force
+CUDA:          1572864 bytes [allocated] on device (ptr: 0x702080000)
+CUDA:          1572864 bytes [copyin]    to device (ptr: 0x702080000)
+IPMACC: memory copyin m_pos
+CUDA:          2097152 bytes [allocated] on device (ptr: 0x702200000)
+CUDA:          2097152 bytes [copyin]    to device (ptr: 0x702200000)
+IPMACC: memory getting device pointer for m_force
+IPMACC: memory getting device pointer for m_pos
+IPMACC: Launching kernel 0 > gridDim: 513	blockDim: 256
+IPMACC: Synchronizing the region with host
+IPMACC: memory allocation m_pos
+Looking up address on device (hostptr: 0x7fdb151b4010 devptr: 0x702200000)
+IPMACC: memory allocation m_force
+Looking up address on device (hostptr: 0x7fdb14e2a010 devptr: 0x702080000)
+IPMACC: memory allocation m_vel
+Looking up address on device (hostptr: 0x7fdb14fb3010 devptr: (nil))
+CUDA:          1572864 bytes [allocated] on device (ptr: 0x702400000)
+IPMACC: memory copyin m_force
+CUDA:          1572864 bytes [copyin]    to device (ptr: 0x702080000)
+IPMACC: memory copyin m_vel
+CUDA:          1572864 bytes [copyin]    to device (ptr: 0x702400000)
+IPMACC: Launching kernel 1 > gridDim: 513	blockDim: 256
+IPMACC: memory copyout m_pos
+CUDA:          2097152 bytes [copyout]   from device (ptr: 0x702200000)
+IPMACC: Synchronizing the region with host

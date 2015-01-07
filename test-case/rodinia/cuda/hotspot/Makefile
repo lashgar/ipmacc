@@ -1,11 +1,12 @@
 include ../../common/make.config
+include ../../common/arch.mk
 
-ARCH= -arch=sm_20
-CC := $(CUDA_DIR)/bin/nvcc $(ARCH)
+#ARCH= -arch=sm_20
+CC := $(CUDA_DIR)/bin/nvcc -O2 $(ARCH) -DDUMPOUT
 
 INCLUDE := $(CUDA_DIR)/include
 
-SRC = hotspot.cu
+SRC = hotspot.cu 
 
 EXE = hotspot
 
@@ -16,10 +17,10 @@ enum: $(SRC)
 	$(CC) -deviceemu $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
 
 debug: $(SRC)
-	$(CC) -g $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
+	$(CC) $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
 
 debugenum: $(SRC)
-	$(CC) -g -deviceemu $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
+	$(CC) -deviceemu $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
 
 clean: $(SRC)
-	rm -f $(EXE) $(EXE).linkinfo result.txt
+	rm -f $(EXE) $(EXE).linkinfo result.txt .perf* .testlog*

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#export INPUT="../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
+#export INPUT="../../data/hotspot/temp_4096 ../../data/hotspot/power_4096"
+
+#bin=matMul
+#bin=matMul_baseline
+
+echo chipSize,kerneltime,launchtime,copyto,copyfr
+#for iter in 12 ; # 3 6 9 ;
+#do
+ #for size in 4 5 6 7 8 12 14 16 32 64 128 256 320 1024 2048 4096;
+ for size in 512 1024 2048 4096;
+ do
+   exectime="0.0"
+   launch="0.0"
+   copyto="0.0"
+   copyfr="0.0"
+   for rep in {1..30} ;
+   do
+    tmp=`cat .perflog.$size.t$rep | grep  matrixMulCUDA | awk '{print $2}'`
+    exectime=$exectime"+"`python -c "print '$tmp'.replace('ns','').replace('us','*1000').replace('ms','*1000000')" | bc`
+    exectime=`echo $exectime | bc`
+    tmp=`cat .perflog.$size.t$rep | grep  "CUDA memcpy HtoD" | awk '{print $2}'`
+    copyto=$copyto"+"`python -c "print '$tmp'.replace('ns','').replace('us','*1000').replace('ms','*1000000')" | bc`
+    copyto=`echo $copyto | bc`
+    tmp=`cat .perflog.$size.t$rep | grep  "CUDA memcpy DtoH" | awk '{print $2}'`
+    copyfr=$copyfr"+"`python -c "print '$tmp'.replace('ns','').replace('us','*1000').replace('ms','*1000000')" | bc`
+    copyfr=`echo $copyfr | bc`
+    log=`cat .perflog.$size.t$rep | grep -e cudaConfigureCall -e cudaSetupArg -e cudaLaunch  | awk '{print $2}' | sed 's/ns//g' | sed 's/us/\*1000/g' | sed 's/ms/\*1000000/g' | sed 's/s/\*1000000000/g'` && launch="$launch+"`echo $log | sed 's/\ /\+/g' | bc`
+   done
+   exectime=`python -c "print str(float($exectime)/30.0)"`
+   launch=`python -c "print str(float($launch)/30.0)"`
+   copyto=`python -c "print str(float($copyto)/30.0)"`
+   copyfr=`python -c "print str(float($copyfr)/30.0)"`
+   echo $size,$exectime,$launch,$copyto,$copyfr
+ done
+#done
+

@@ -176,6 +176,7 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
 												input_hidden_cuda, 
 												input_prev_weights_cuda
 												);
+  cudaDeviceSynchronize();
 
   cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(input_weights_one_dim, input_hidden_cuda, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyDeviceToHost);
