@@ -1,6 +1,60 @@
+// DISCLAIMER: THIS FILE IS DERIVED FROM openacc.h INCLUDED IN PGI COMPILER.
+
 
 // for size_t
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <unistd.h>
+#include <math.h>
+#include <string.h>
+
+#define MSR_RAPL_POWER_UNIT		0x606
+
+/* Package RAPL Domain */
+#define MSR_PKG_RAPL_POWER_LIMIT	0x610
+#define MSR_PKG_ENERGY_STATUS		0x611
+#define MSR_PKG_PERF_STATUS		0x613
+#define MSR_PKG_POWER_INFO		0x614
+
+/* PP0 RAPL Domain */
+#define MSR_PP0_POWER_LIMIT		0x638
+#define MSR_PP0_ENERGY_STATUS		0x639
+#define MSR_PP0_POLICY			0x63A
+#define MSR_PP0_PERF_STATUS		0x63B
+
+/* PP1 RAPL Domain, may reflect to uncore devices */
+#define MSR_PP1_POWER_LIMIT		0x640
+#define MSR_PP1_ENERGY_STATUS		0x641
+#define MSR_PP1_POLICY			0x642
+
+/* DRAM RAPL Domain */
+#define MSR_DRAM_POWER_LIMIT		0x618
+#define MSR_DRAM_ENERGY_STATUS		0x619
+#define MSR_DRAM_PERF_STATUS		0x61B
+#define MSR_DRAM_POWER_INFO		0x61C
+
+/* RAPL UNIT BITMASK */
+#define POWER_UNIT_OFFSET	0
+#define POWER_UNIT_MASK		0x0F
+
+#define ENERGY_UNIT_OFFSET	0x08
+#define ENERGY_UNIT_MASK	0x1F00
+
+#define TIME_UNIT_OFFSET	0x10
+#define TIME_UNIT_MASK		0xF000
+
+#define CPU_SANDYBRIDGE     42
+#define CPU_SANDYBRIDGE_EP  45
+#define CPU_IVYBRIDGE       58
+#define CPU_IVYBRIDGE_EP    62
+
+
+
 
 
 #ifndef __IPMACC_HEADER__
@@ -12,7 +66,8 @@ typedef enum{
     acc_device_host = 2,
     acc_device_not_host = 3,
     acc_device_nvcuda = 4,
-    acc_device_nvocl = 5
+    acc_device_nvocl = 5,
+    acc_device_intelocl = 6
 } acc_device_t;
 
 #ifndef __PGI_ULLONG
@@ -74,11 +129,21 @@ extern "C" void acc_list_devices_spec( acc_device_t devtype );
 extern "C" void acc_copyout_and_keep ( void*hostptr, size_t bytes);
 extern "C" void* acc_present( void *hostptr);
 extern "C" void ipmacc_prompt(char *s);
+extern "C" int open_msr(int core) ;
+extern "C" long long read_msr(int fd, int which) ;
+extern "C" int detect_cpu(void) ;
+extern "C" int getEnergy( double *packageEnergy, double *coreEnergy, int core);
+extern "C" void acc_get_mem_info(size_t *free, size_t *total);
 #else
 extern void acc_list_devices_spec( acc_device_t devtype );
 extern void acc_copyout_and_keep ( void*hostptr, size_t bytes);
 extern void* acc_present( void *hostptr);
 extern void ipmacc_prompt(char *s);
+extern int open_msr(int core) ;
+extern long long read_msr(int fd, int which) ;
+extern int detect_cpu(void) ;
+extern int getEnergy( double *packageEnergy, double *coreEnergy, int core);
+extern void acc_get_mem_info(size_t *free, size_t *total);
 #endif
 
 /* PGI Additions */
@@ -104,6 +169,21 @@ extern int acc_on_device( acc_device_t devtype );
 /////////////////////
 // INTERNAL IPMACC //
 // //////////////////
+/* IPM ACC Include files */
+/* TRAINING */
+#ifdef __cplusplus
+extern "C" void* acc_training_kernel_add(const char *kernelSource, char *compileFlags, char *kernelName, int kernelId, int nargs);
+extern "C" void* acc_training_decide_command_queue(int kernelId);
+extern "C" void* acc_training_kernel_start(int kernelId);
+extern "C" void* acc_training_kernel_end();
+#else
+extern void* acc_training_kernel_add(const char *kernelSource, char *compileFlags, char *kernelName, int kernelId, int nargs);
+extern void* acc_training_decide_command_queue(int kernelId);
+extern void* acc_training_kernel_start(int kernelId);
+extern void* acc_training_kernel_end();
+#endif
+
+
 /*
 #ifdef __cplusplus
 extern "C" void __ipmacc_opencl_prekernel(const char *kernelSource);

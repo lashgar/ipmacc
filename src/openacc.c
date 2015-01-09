@@ -840,6 +840,39 @@ void* acc_pcopyin ( void* hostptr , size_t bytes )
 	return acc_present_or_copyin( hostptr, bytes);
 }
 
+void acc_get_mem_info(size_t *free, size_t *total)
+{
+	if(__ipmacc_devicetype==acc_device_nvcuda){
+#ifdef __NVCUDA__
+		cudaError_t err=cudaMemGetInfo(free,total);
+		if(err!=cudaSuccess){
+			printf("failed to read device memory info! error-code (%d)\n", err);
+            exit(-1);
+		}
+        //else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr);
+#endif 
+	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+#ifdef __NVOPENCL__
+        cl_ulong global_mem_size=0;
+        clGetDeviceInfo(__ipmacc_cldevs[0], CL_DEVICE_GLOBAL_MEM_SIZE,
+            sizeof(cl_ulong), &global_mem_size, NULL);
+        total[0]=global_mem_size;
+        free[0]=-1;
+        printf("IPMACC: warning: cannot read the amount of free memory on this device!\n");
+		if(__ipmacc_clerr!=CL_SUCCESS){
+			printf("failed to read device memory info! error-code %d\n", __ipmacc_clerr);
+            exit(-1);
+		}
+        //else{ \
+			if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [allocated] on device (ptr: %p)\n",bytes,devptr); \
+		}
+#endif
+	}else{
+		fprintf(stderr,"Unimplemented device type!\n");
+		exit(-1);
+	}
+
+}
 
 
 /////////////////////
