@@ -10,6 +10,7 @@ cd $ROOTDIR
 # Parser
 # pycparser
 rm $ROOTDIR/parser/utils_clause.pyc $ROOTDIR/parser/utils_clause.py -f
+make -C $ROOTDIR/parser/ clean
 # srcML
 cd $ROOTDIR/srcML/src/
 make clean > /dev/null
