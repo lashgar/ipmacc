@@ -11,9 +11,10 @@ export CUDAHOME=/usr/local/cuda/
 # OpenCL environment
 # comment the following line to disable OpenCL integration in libopenacc, else set OPENCLLIB and OPENCLINC properly
 # Notice: OpenCL 1.2 is the minimum requirement. otherwise, set OPENCLSUPPORT to 0.
-export OPENCLSUPPORT=0
+export OPENCLSUPPORT=1
 export OPENCLLIB=/usr/lib64/
-export OPENCLINC=/opt/intel/opencl/include/
+export OPENCLINC=/usr/local/cuda/include/
+#export OPENCLINC=/opt/intel/opencl/include/
 
 # no modification is needed for the following lines
 export LD_LIBRARY_PATH=$IPMACCROOT/lib:$LD_LIBRARY_PATH

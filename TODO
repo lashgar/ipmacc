@@ -14,6 +14,7 @@ TODO:
 - BUGFIX: '\n' character in for statement cause XML crash.
 - BUGFIX: two terminating condition in the for loop may lead to XML crash.
 - OpenACC syntax parser may disallow valid cases. Fix the parser state machine. (related file: parser/oaccparser.y)
+- Add support for parallel directive
 
 DONE:
 - Replacing pycparser XML generator with srcML generator (faster and lower-level)

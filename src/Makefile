@@ -37,5 +37,5 @@ listdevices: listdevices.c
 	$(CC) listdevices.c -o listdevices -fPIC -g `ipmacc --cflags` `ipmacc --ldflags`
 
 clean:
-	rm *.a *.o *.so *.pyc -f
+	rm *.a *.o *.so *.pyc listdevices -f
 
