@@ -5,10 +5,10 @@
 
 ROOT=$IPMACCROOT/test-case/rodinia/
 # CONFIG
-COMPILE=0 # compile openacc-over-opencl and OpenCL versions (1) or not (0)
-VERIFY=0 # print the running command of CUDA and OpenACC for each benchmark
+COMPILE=1 # compile openacc-over-opencl and OpenCL versions (1) or not (0)
+VERIFY=1 # print the running command of CUDA and OpenACC for each benchmark
 RUN=1  # whether to run (1) or not (0)
-ITER=30 #number of iterations to run each benchmark
+ITER=3 #number of iterations to run each benchmark
 DEBUG=0 #1 enable/ 0 disable
 
 

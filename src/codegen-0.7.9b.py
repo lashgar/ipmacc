@@ -50,6 +50,8 @@ GENDEBUGCODE=False
 #GENMULTIDIMTB=True
 GENMULTIDIMTB=False #True
 DEBUGSTL=False #debug std stl support
+DEBUGENTEREXIT=True 
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -549,7 +551,7 @@ class codegen(object):
                 return True
         return False
 
-    def oacc_data_clauseparser(self,clause,type,inout,present,dID):
+    def oacc_data_clauseparser(self, clause, type, inout, present, dID, isenter, isexit):
         # parse openacc data clause and return correponding type (copyin, copyout, copy, pcopyin, pcopyout, pcopy)
         code=''
         regex = re.compile(r'([A-Za-z0-9_]+)([\ ]*)(\((.+?)\))*')
@@ -577,6 +579,8 @@ class codegen(object):
                         tcode=tcode+'dim'+str(dim)+'="'+dims[dim]+'" '
                     tcode+='clause="'+type+'" '
                     tcode+='dataid="'+dID+'" '
+                    tcode+='isenterdirective="'+('true' if isenter else 'false')+'" '
+                    tcode+='isexitdirective="'+('true' if isexit else 'false')+'" '
                     # end tag
                     #tcode=tcode+'></copy>\n'
                     #tcode=tcode+'\n'
@@ -591,26 +595,28 @@ class codegen(object):
             vname.append(i[1])
         return ' '.join(vname)
             
-    def oacc_clauseparser_data(self, clauses, dID):
+    def oacc_clauseparser_data(self, clauses, dID, isenter, isexit):
+        # isenter: true if it comes from pragma acc enter directive
+        # isexit : true if it comes from pragma acc exit  directive
         expressionIn=''
         expressionAlloc=''
         expressionOut=''
         expressionAll=''
         # copy-in
         for it in ['copyin', 'copy']:
-            expressionIn=expressionIn+self.oacc_data_clauseparser(clauses,it,'true','false', dID)
+            expressionIn=expressionIn+self.oacc_data_clauseparser(clauses,it,'true','false', dID, isenter, isexit)
         for it in ['pcopy', 'present_or_copy', 'pcopyin', 'present_or_copyin']:
-            expressionIn=expressionIn+self.oacc_data_clauseparser(clauses,it,'true','true', dID)
+            expressionIn=expressionIn+self.oacc_data_clauseparser(clauses,it,'true','true', dID, isenter, isexit)
         # allocate-only
         for it in ['create']:
-            expressionAlloc=expressionAlloc+self.oacc_data_clauseparser(clauses,it,'create','true', dID)
+            expressionAlloc=expressionAlloc+self.oacc_data_clauseparser(clauses,it,'create','true', dID, isenter, isexit)
         # copy-out
         for it in ['copyout', 'copy']:
-            expressionOut=expressionOut+self.oacc_data_clauseparser(clauses,it,'false','false', dID)
+            expressionOut=expressionOut+self.oacc_data_clauseparser(clauses,it,'false','false', dID, isenter, isexit)
         for it in ['pcopy', 'present_or_copy', 'pcopyout', 'present_or_copyout']:
-            expressionOut=expressionOut+self.oacc_data_clauseparser(clauses,it,'false','true', dID)
+            expressionOut=expressionOut+self.oacc_data_clauseparser(clauses,it,'false','true', dID, isenter, isexit)
         for it in ['copy', 'pcopy', 'present_or_copy', 'copyout', 'pcopyout', 'present_or_copyout', 'copyin', 'pcopyin', 'present_or_copyin', 'create', 'present', 'present_or_create']:
-            expressionAll=expressionAll+self.oacc_data_clauseparser(clauses,it,'false','false',dID)
+            expressionAll=expressionAll+self.oacc_data_clauseparser(clauses,it,'false','false',dID, isenter, isexit)
         return [expressionIn, expressionAlloc, expressionOut, expressionAll]
 
     def oacc_clauseparser_data_ispresent(self, clause):
@@ -2690,7 +2696,7 @@ class codegen(object):
             expressionOut=''
             expressionAll=''
             copyoutId=-1
-            [expressionIn, expressionAlloc, expressionOut, expressionAll] = self.oacc_clauseparser_data(str(root.attrib.get('clause')),str(self.oacc_copyId))
+            [expressionIn, expressionAlloc, expressionOut, expressionAll] = self.oacc_clauseparser_data(str(root.attrib.get('clause')),str(self.oacc_copyId), False, False)
             if DEBUGVAR:
                 print 'Kernels data clause: <'+expressionIn+'\n'+expressionAlloc+'\n'+expressionOut+'>' # expressionIn format: varname="a" in="true" present="true" dim0="0:SIZE"
                 print 'all data clauses: <'+expressionAll+'>'
@@ -2769,14 +2775,32 @@ class codegen(object):
             # case 2: algorithm
             self.code=self.code+'//got the clause: '+root.attrib.get('clause')+'\n'
             outputOfAlgorithm=self.codegen_generate_algorithm(root.attrib.get('clause'))
+        elif root.tag == 'pragma' and (root.attrib.get('directive')=='enter' or root.attrib.get('directive')=='exit'):
+            # case 3: 
+            self.code=self.code+'//got an '+root.attrib.get('directive')+' clause: '+root.attrib.get('clause')+'\n'
+            # parse data clauses and
+            [expressionIn, expressionAlloc, expressionOut, expressionAll] = self.oacc_clauseparser_data(str(root.attrib.get('clause')),str(self.oacc_copyId), root.attrib.get('directive')=='enter', root.attrib.get('directive')=='exit')
+            if DEBUGENTEREXIT>0:
+                print expressionIn+'\n'+expressionAlloc+'\n'+expressionOut # expressionIn format: varname="a" in="true" present="true" dim0="0:SIZE"
+                print 'all data clauses: '+expressionAll
+            # dump pragma copyin allocation/transfer before region
+# HERE
+            copyoutId=self.util_copyIdAppend(expressionIn, expressionAlloc, expressionOut, depth, expressionAll)
+            scope_associated_copy_ids+=[copyoutId]
+            self.code=self.code+('\t'*depth)+self.prefix_datacpout+str(copyoutId)+'();'
+# TO HERE
+            #   - manual variables (explicit copies)
+            #temp_scopeManual=self.varname_extractor(expressionAll)
+            #if temp_scopeManual!='':
+            #    self.oacc_scopeManualPtr=self.oacc_scopeManualPtr+temp_scopeManual+' '
         elif root.getchildren()==[]:
-            # case 3: no descendent is found
+            # case 4: no descendent is found
             if root.tag == 'for':
                 # for is special case, handle it specially
                 self.code=self.code+str('\t'*depth)+'for('+str(root.attrib.get('initial'))+';'+str(root.attrib.get('boundary'))+';'+str(root.attrib.get('increment'))+')'
             self.code=self.code+str(root.text)
         else:
-            # case 4: go through descendents recursively
+            # case 5: go through descendents recursively
             expressionIn=''
             expressionAlloc=''
             expressionOut=''
@@ -2788,41 +2812,21 @@ class codegen(object):
                 self.code=self.code+str('\t'*depth)+'for('+str(root.attrib.get('initial'))+';'+str(root.attrib.get('boundary'))+';'+str(root.attrib.get('increment'))+')'
             elif (root.tag=='pragma' and root.attrib.get('directive')=='data'):
                 # parse data clauses and
-                [expressionIn, expressionAlloc, expressionOut, expressionAll] = self.oacc_clauseparser_data(str(root.attrib.get('clause')),str(self.oacc_copyId))
+                [expressionIn, expressionAlloc, expressionOut, expressionAll] = self.oacc_clauseparser_data(str(root.attrib.get('clause')),str(self.oacc_copyId), False, False)
                 if DEBUGCP>0:
                     print expressionIn+'\n'+expressionAlloc+'\n'+expressionOut # expressionIn format: varname="a" in="true" present="true" dim0="0:SIZE"
                     print 'all data clauses: '+expressionAll
                 # dump pragma copyin allocation/transfer before region
 # HERE
                 copyoutId=self.util_copyIdAppend(expressionIn, expressionAlloc, expressionOut, depth, expressionAll)
-                #print 'data: appending '+str(copyoutId)
                 scope_associated_copy_ids+=[copyoutId]
-                #if expressionIn!='':
-                #    self.code=self.code+('\t'*depth)+self.prefix_dataalloc+str(self.oacc_copyId)+'();'
-                #    self.code=self.code+('\t'*depth)+self.prefix_datacp+str(self.oacc_copyId)+'();'
-                #    self.oacc_copys.append([self.oacc_kernelId,expressionIn])
-                #    self.oacc_copyId=self.oacc_copyId+1
-                ## dump pragma create allocation before region
-                #if expressionAlloc!='':
-                #    self.code=self.code+('\t'*depth)+self.prefix_dataalloc+str(self.oacc_copyId)+'();'
-                #    self.code=self.code+('\t'*depth)+self.prefix_datacp+str(self.oacc_copyId)+'();'
-                #    self.oacc_copys.append([self.oacc_kernelId,expressionAlloc])
-                #    self.oacc_copyId=self.oacc_copyId+1
-                ## dump pragma copyout allocation before region
-                #if expressionOut!='':
-                #    self.code=self.code+('\t'*depth)+self.prefix_dataalloc+str(self.oacc_copyId)+'();'
-                #    copyoutId=self.oacc_copyId
-                #    self.oacc_copys.append([self.oacc_kernelId,expressionOut])
-                #    self.oacc_copyId=self.oacc_copyId+1
 # TO HERE
                 #   - automatic variables [deviceptr] (update deviceptr variable of this scope, if anything is defined)
                 temp_scopeAutoma=self.oacc_clauseparser_deviceptr(str(root.attrib.get('clause')))
                 if temp_scopeAutoma!='':
                     self.oacc_scopeAutomaPtr=self.oacc_scopeAutomaPtr+temp_scopeAutoma+' '
                 #   - manual variables (explicit copies)
-                #temp_scopeManual=self.varname_extractor(expressionIn+'\n'+expressionOut+'\n'+expressionAlloc)
                 temp_scopeManual=self.varname_extractor(expressionAll)
-                # print temp_scopeManual
                 if temp_scopeManual!='':
                     self.oacc_scopeManualPtr=self.oacc_scopeManualPtr+temp_scopeManual+' '
             for child in root:
@@ -3220,6 +3224,8 @@ class codegen(object):
                 clause=''
                 dataid=''
                 pseudotp=''
+                isexit=False
+                isenter=False
                 if DEBUGCP>1:
                     print 'Copy tuple > '+j
                 for (a, b, c, d, e) in regex.findall(j):
@@ -3245,6 +3251,10 @@ class codegen(object):
                         dataid=d
                     elif a=='pseudotp':
                         pseudotp=d
+                    elif a=='isenterdirective':
+                        isenter= True if d=='true' else False
+                    elif a=='isexitdirective':
+                        isexit= True if d=='true' else False
                 # handle dynamic allocation here
                 if size.find('dynamic')!=-1:
                     if size.count('dynamic')!=len(dim) and not self.oacc_data_dynamicAllowed(clause):
@@ -3265,17 +3275,11 @@ class codegen(object):
                         break
                 scalar_copy=(type.count('*')==0) and pseudotp==''
                 ispresent=self.oacc_clauseparser_data_ispresent(clause)
-                if varmapper_allocated_found==False:
+                if varmapper_allocated_found==False and not isexit: # no allocation is needed for those coming from 'pragma exit'
                     # generate declaration
                     # TODO vardeclare+=self.codegen_devPtrDeclare(type,dname,scalar_copy)+'/* '+dataid+' */\n'
-                    # vardeclare+='short '+dname+self.suffix_present+'='+('0')+';\n' # for now we assume are variables are present
                     # generate accelerator allocation
                     if present=='true':
-                        # these lines
-                        # codeM+='if(!'+dname+self.suffix_present+'){\n'
-                        # codeM+=dname+self.suffix_present+'++;\n'
-                        # have been replaced with #FIXME
-                        #codeM+=dname+'=('+type+')acc_deviceptr((void*)'+('&'if scalar_copy else '')+varname+');\n'
                         codeM+=self.codegen_accDevicePtr(dname,size,varname,type,scalar_copy)
                         codeM+='if('+dname+'==NULL){\n'
                         codeM=codeM+'ipmacc_prompt((char*)"IPMACC: memory allocation '+varname+'\\n");\n'
@@ -3284,11 +3288,8 @@ class codegen(object):
                         print 'unexpected reach! '
                         exit(-1)
                     elif clause!='present':
-                        # this line is removed
-                        # codeM+='if(!'+dname+self.suffix_present+'){\n'
                         codeM=codeM+'ipmacc_prompt((char*)"IPMACC: memory allocation '+varname+'\\n");\n'
                         codeM+=self.codegen_memAlloc(dname,size,varname,type,scalar_copy, ispresent, pseudotp)
-                        # this line too codeM+='}\n'
                     self.varmapper_allocated.append((parentFunc,dname,dataid))
                 # generate memory copy code
                 if clause=='copyin' or clause=='copy':

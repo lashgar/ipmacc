@@ -36,4 +36,4 @@ main.o: 	main.cu \
 
 # delete all object files
 clean:
-	rm *.o srad
+	rm *.o srad -f

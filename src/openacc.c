@@ -5,7 +5,8 @@
 // INTERNAL DEVICE-HOST MEMORY MAPPING //
 /////////////////////////////////////////
 typedef struct openacc_ipmacc_varmapper_s{
-	void *src, *des;
+	void *src; // host pointer
+    void *des; // accelerator pointer
 	size_t size;
 	struct openacc_ipmacc_varmapper_s *next;
 }openacc_ipmacc_varmapper_t;
@@ -52,7 +53,36 @@ void* openacc_ipmacc_reverse_get(void *des)
 	}
 	return NULL ;
 }
+void* openacc_ipmacc_unmap_memory(void *hostptr)
+{
+    // remove the host-accelerator entry in the list
+    // and return the accelerator pointer
+    // returns NULL if the hostptr is not in the list
+	openacc_ipmacc_varmapper_t * temp = openacc_ipmacc_varmapper_head;
+    openacc_ipmacc_varmapper_t * prev = temp;
+	while(temp != NULL)
+	{
+		if(temp->src == hostptr)
+		{
+            // pointer found!
+            // remove it:
+            void *deviceptr = temp->des;
+            if(prev==temp){
+                // removing the head
+                openacc_ipmacc_varmapper_head=temp->next;
+            }else{
+                prev->next=temp->next;
+            }
+            temp->next=NULL;
+            free(temp);
+            return deviceptr;
+		}
+        prev = temp;
+		temp = temp->next;
+	}
+	return NULL ;
 
+}
 
 ////////////////////////
 // EXTERNAL INTERFACE //
@@ -177,7 +207,15 @@ void acc_set_device_num( int devnum, acc_device_t devtype ){
 	}
 }
 int acc_get_device_num( acc_device_t devtype ){
-	return __ipmacc_devicenum;
+	if(devtype==acc_device_nvcuda){
+		//CUDA on NV
+#ifdef __NVCUDA__
+        return __ipmacc_devicenum;
+#endif 
+	}else{
+		fprintf(stderr,"Unimplemented device type!\n");
+		exit(-1);
+	}
 }
 // int acc_async_test( acc_device_t devtype );
 // int acc_async_test_all();
@@ -490,25 +528,53 @@ void acc_shutdown( acc_device_t devtype ){
 
 
 // int acc_on_device( acc_device_t devtype );
-void* acc_malloc(size_t size){
+void* acc_malloc(size_t bytes){
+    // allocate space on device and return the pointer
+    // no need to associate the pointer with a host pointer
 	if(__ipmacc_devicetype==acc_device_nvcuda){
 		//CUDA on NV
-		void *ptr=NULL;
 #ifdef __NVCUDA__
-		cudaMalloc((void**)&ptr,size);
-#endif 
+		void *ptr=NULL;
+        cudaError_t err=cudaSuccess;
+		err=cudaMalloc((void**)&ptr,bytes);
+		if(err!=cudaSuccess){
+			printf("failed to allocate memory %16llu bytes on CUDA device by acc_malloc: error-code (%d)\n", bytes, err);
+            exit(-1);
+		}else if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [allocated] on device by acc_malloc (ptr: %p)\n",bytes,ptr);
 		return ptr;
+#endif 
+	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+#ifdef __NVOPENCL__
+		void *ptr=(void*)clCreateBuffer(__ipmacc_clctx, CL_MEM_READ_WRITE, bytes, NULL, &__ipmacc_clerr);
+		if(__ipmacc_clerr!=CL_SUCCESS){
+			printf("failed to allocate memory %16llu bytes on OpenCL device by acc_malloc: %d\n", bytes, __ipmacc_clerr);
+            exit(-1);
+		}else{
+			if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [allocated] on device by acc_malloc (ptr: %p)\n",bytes,ptr);
+		}
+        return ptr;
+#endif
 	}else{
 		fprintf(stderr,"Unimplemented device type!\n");
 		exit(-1);
 	}
 }
-void acc_free(void *ptr){
+void acc_free(void *d_ptr){
+    // free the device memory.
+    // d_ptr should be allocated by acc_malloc
 	if(__ipmacc_devicetype==acc_device_nvcuda){
 		//CUDA on NV
 #ifdef __NVCUDA__
-		cudaFree(ptr);
+		cudaError_t err = cudaFree(d_ptr);
+		if(err!=cudaSuccess){
+			printf("failed to release memory pointer (%p) on CUDA device by acc_free: error-code (%d)\n", d_ptr, err);
+            exit(-1);
+		}
 #endif 
+	//}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){\
+    // could not find proper API in OpenCL \
+#ifdef __NVOPENCL__\
+#endif
 	}else{
 		fprintf(stderr,"Unimplemented device type!\n");
 		exit(-1);
@@ -736,7 +802,7 @@ void acc_copyout_and_keep ( void * hostptr, size_t bytes)
 		printf("Data is not found on the device!\n");
 		exit(-1);
 	}
-	//copyin
+	//copyout
 #ifdef DEBUG_LIB
 	assert(devptr!=NULL);
 	printf("ipmacc: copyout devpointer %p\n",devptr);
@@ -768,7 +834,32 @@ void acc_copyout_and_keep ( void * hostptr, size_t bytes)
 }
 void acc_delete ( void*hostptr, size_t bytes)
 {
-	// free memory
+    // first assert it exist on accelerator
+	// then free the accelerator memory associated with this hostptr
+    void *deviceptr = openacc_ipmacc_unmap_memory(hostptr);
+    if(deviceptr==NULL){
+        fprintf(stderr,"OpenACC Runtime Error in acc_delete\n");
+        fprintf(stderr,"No memory is associated with the given pointer on the accelerator memory! [hostptr: %p]\n",hostptr);
+        fprintf(stderr,"aborting\n");
+        exit(-1);
+    }
+	if(__ipmacc_devicetype==acc_device_nvcuda){
+#ifdef __NVCUDA__
+		cudaError_t err = cudaFree(deviceptr);
+		if(err!=cudaSuccess){
+			printf("failed to release memory pointer (%p) on CUDA device by acc_free: error-code (%d)\n", deviceptr, err);
+            exit(-1);
+		}
+#endif 
+    //}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){\
+    // no OpenCL API found to allow releasing the memory \
+#ifdef __NVOPENCL__ \
+#endif
+	}else{
+		fprintf(stderr,"Unimplemented device type!\n");
+		exit(-1);
+    }
+	//return openacc_ipmacc_get(hostptr);
 }   
 void acc_copyout ( void* hostptr, size_t bytes )
 {
@@ -871,8 +962,119 @@ void acc_get_mem_info(size_t *free, size_t *total)
 		fprintf(stderr,"Unimplemented device type!\n");
 		exit(-1);
 	}
+}
+void acc_map_data( void *hostptr, void *deviceptr, size_t bytes)
+{
+    // halt if the hostptr is mapped to another deviceptr
+    void *dptr = acc_deviceptr(hostptr  );
+    void *hptr = acc_deviceptr(deviceptr);
+    if(deviceptr==NULL || hostptr==NULL){
+        fprintf(stderr,"OpenACC Runtime Error in acc_map_data\n");
+        fprintf(stderr,"\teither host or accelerator pointer is NULL\n");
+        fprintf(stderr,"aborting\n");
+        exit(-1);
+    }else if(dptr==deviceptr && hptr==hostptr){
+        printf("warning: acc_map_data: pointers are already mapped!\n\tno further action is performed!\n");
+    }else if(hptr==hostptr){
+        fprintf(stderr,"OpenACC Runtime Error in acc_map_data \n");
+        fprintf(stderr,"Given host pointer is already associated with an accelerator pointer! remap not allowed by OpenACC! [hostptr: %p]\n",hostptr);
+        fprintf(stderr,"aborting\n");
+        exit(-1);
+    }else if(dptr==deviceptr){
+        printf("warning: acc_map_data: device pointer is already mapped!\n\tadding second map and use it as the default!\n");
+        openacc_ipmacc_insert(hostptr, deviceptr, bytes);
+    }else{
+        // normal append: adding a new mapping to list
+        openacc_ipmacc_insert(hostptr, deviceptr, bytes);
+    }
 
 }
+void acc_unmap_data( void *hostptr )
+{
+    // The acc_unmap_data routine is similar to an acc_delete
+    // except the device memory is not deallocated.
+    void *deviceptr = openacc_ipmacc_unmap_memory(hostptr);
+    if(deviceptr==NULL){
+        fprintf(stderr,"OpenACC Runtime Error in acc_unmap_data \n");
+        fprintf(stderr,"No memory is associated with the given pointer on the accelerator memory! [hostptr: %p]\n",hostptr);
+        fprintf(stderr,"aborting\n");
+        exit(-1);
+    }
+}
+void acc_memcpy_to_device( void* devptr, void* hostptr, size_t bytes )
+{
+    // assume hostptr and devptr are properly allocated and match in bytes.
+#ifdef DEBUG_LIB
+	assert(devptr!=NULL);
+	printf("ipmacc: copyin devpointer %p\n",devptr);
+#endif
+	if(__ipmacc_devicetype==acc_device_nvcuda){
+#ifdef __NVCUDA__
+		if (getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [copyin]    to device (ptr: %p)\n",bytes,devptr);
+		cudaError_t err = cudaMemcpy(devptr, hostptr, bytes, cudaMemcpyHostToDevice); 
+		if(err!=cudaSuccess){
+			printf("OpenACC Runtime Error! acc_memcpy_to_device: Cannot copyin to device: #%d\n",err);
+			exit(-1);
+		}
+#endif 
+	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+#ifdef __NVOPENCL__
+		if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [copyin]    from device (ptr: %p)\n",bytes,devptr);
+		cl_command_queue temp_queue=NULL;
+		if(getenv("IPMACC_DYNAMIC_DEVICE_PART")==NULL){
+			temp_queue=__ipmacc_command_queue;
+		}else{
+			temp_queue=__ipmacc_clpartitions_command_queues[0];
+		}
+		cl_int err=clEnqueueWriteBuffer(temp_queue, (cl_mem)devptr, CL_TRUE, 0, bytes, hostptr, 0, NULL, NULL);
+		if(err!=CL_SUCCESS){
+			printf("OpenACC Runtime Error! acc_memcpy_to_device: Cannot write buffer to device: #%d\n",err);
+			exit(-1);
+		}
+#endif
+	}else{
+		fprintf(stderr,"Unimplemented device type!\n");
+		exit(-1);
+	}
+}
+void acc_memcpy_from_device( void* hostptr, void* devptr, size_t bytes )
+{
+    // assume hostptr and devptr are properly allocated and match in bytes.
+#ifdef DEBUG_LIB
+	assert(devptr!=NULL);
+	printf("ipmacc: copyout devpointer %p\n",devptr);
+#endif
+	if(__ipmacc_devicetype==acc_device_nvcuda){
+#ifdef __NVCUDA__
+		if (getenv("IPMACCLIB_VERBOSE")) printf("CUDA: %16llu bytes [copyout]   from device (ptr: %p)\n",bytes,devptr);
+		cudaError_t err=cudaMemcpy(hostptr, devptr, bytes, cudaMemcpyDeviceToHost);
+		if(err!=cudaSuccess){
+			printf("OpenACC Runtime Error! acc_memcpy_from_device: Cannot copyout from device: #%d\n",err);
+			exit(-1);
+		}
+#endif 
+	}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+#ifdef __NVOPENCL__
+		if (getenv("IPMACCLIB_VERBOSE")) printf("OpenCL: %16llu bytes [copyout]   from device (ptr: %p)\n",bytes);
+		cl_command_queue temp_queue=NULL;
+		if(getenv("IPMACC_DYNAMIC_DEVICE_PART")==NULL){
+			temp_queue=__ipmacc_command_queue;
+		}else{
+			temp_queue=__ipmacc_clpartitions_command_queues[0];
+		}
+		cl_int err=clEnqueueReadBuffer(temp_queue, (cl_mem)devptr, CL_TRUE, 0, bytes, hostptr, 0, NULL, NULL);
+		if(err!=CL_SUCCESS){
+			printf("OpenACC Runtime error! acc_memcpy_from_device: Cannot read buffer from device: #%d\n",err);
+			exit(-1);
+		}
+#endif
+	}else{
+		fprintf(stderr,"Unimplemented device type!\n");
+		exit(-1);
+	}
+}
+
+
 
 
 /////////////////////

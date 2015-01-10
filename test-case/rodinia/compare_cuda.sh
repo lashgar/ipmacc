@@ -2,10 +2,10 @@
 
 ROOT=$IPMACCROOT/test-case/rodinia/
 # CONFIG
-COMPILE=0
-VERIFY=0 # print the running command of CUDA and OpenACC for each benchmark
+COMPILE=1
+VERIFY=1 # print the running command of CUDA and OpenACC for each benchmark
 RUN=1
-ITER=30
+ITER=3
 DEBUG=0
 
 ###########

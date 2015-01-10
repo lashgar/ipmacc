@@ -81,6 +81,7 @@ CODE:
          'C'                {if(DEBUGMODE) printf(">32\n"); }
        | 'A' 'a'            {if(DEBUGMODE) printf(">33\n"); }
        | 'C' CODE 'C'       {if(DEBUGMODE) printf(">34\n"); }
+       | 'C' 'E' CODE       {if(DEBUGMODE) printf(">34\n"); }
        //| 'C' F 'C'       {if(DEBUGMODE) printf(">34\n"); }
        | error              { printf("unexpected content within C/C++ code region\n"); return -1; }
 

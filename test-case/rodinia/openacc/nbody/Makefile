@@ -170,11 +170,11 @@ ALL_CCFLAGS += -ftz=true -rdc=true -DOPENACC
 ################################################################################
 
 # Target rules
-cuda: all
+cuda: nbody
 
 all: build
 
-build: nbody opencl
+build: nbody nbody_ocl
 
 bodysystemcuda.o:bodysystemcuda.cu
 	$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
@@ -193,21 +193,21 @@ nbody.o:nbody.cpp
 
 bodysystemcpu_impl.o: bodysystemcpu_impl.cpp
 	#$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
-	ipmacc $< -c $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -Xptxas -v #-rdc=true 
+	ipmacc $< -c $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -Xptxas -v -I /usr/local/cuda/include/ #-rdc=true 
 	#ipmacc $< -c $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -Xptxas -v #-rdc=true 
 
 # OpenACC-over-OpenCL
 opencl: bodysystemcuda.o nbody_ocl.o render_particles.o bodysystemcpu_impl_ocl.o
-	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
+	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o nbody_ocl $+ $(LIBRARIES)
 	#mkdir -p ./bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 	#cp $@ ./bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 
-nbody_ocl.o:nbody.cpp
+nbody_ocl.o: nbody.cpp
 	$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $< `ta=nvopencl ipmacc --cflags`
 
 bodysystemcpu_impl_ocl.o: bodysystemcpu_impl.cpp
 	#$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
-	ta=nvopencl ipmacc $< -c $(INCLUDES) -DOPENACC -o $@ 
+	ta=nvopencl ipmacc $< -c $(INCLUDES) -DOPENACC -o $@ -lm -I /usr/local/cuda/include/
 
 run: build
 	./nbody

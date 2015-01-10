@@ -56,6 +56,13 @@ Preprocesses the input C code to tag the code into <c>, <for>, and <pragma> labe
 0.2.6b
 -Skip iteratation step detection for serial loops
 
+0.2.7b
+-Support algorithm directive
+
+0.2.8b
+-Support enter and exit directive
+
+
 ====================
 Component Description:
 codegen-<version>.py

@@ -137,6 +137,16 @@ def sequentialParser(root):
                 if not lookup(avail_clauses,clause):
                     error(root.attrib.get('directive'),clause,avail_clauses)
 
+            elif root.attrib.get('directive')=='enter':
+                avail_clauses=['data', 'copyin', 'create', 'present_or_create', 'present_or_copyin']
+                if not lookup(avail_clauses,clause):
+                    error(root.attrib.get('directive'),clause,avail_clauses)
+
+            elif root.attrib.get('directive')=='exit':
+                avail_clauses=['data', 'copyout']
+                if not lookup(avail_clauses,clause):
+                    error(root.attrib.get('directive'),clause,avail_clauses)
+
     for child in root:
         sequentialParser(child)
 

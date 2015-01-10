@@ -23,4 +23,4 @@ debugenum: $(SRC)
 	$(CC) -deviceemu $(SRC) -o $(EXE) -I$(INCLUDE) -L$(CUDA_LIB_DIR) 
 
 clean: $(SRC)
-	rm -f $(EXE) $(EXE).linkinfo result.txt .perf* .testlog*
+	rm -f $(EXE) $(EXE).linkinfo result.txt .perf* .testlog* output.out

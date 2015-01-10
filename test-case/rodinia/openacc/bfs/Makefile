@@ -9,7 +9,7 @@ CC_FLAGS = -O2 $(DUMPOUT)
 
 ACC = ipmacc
 ACC_FLAGS = $(ARCH) -O2 $(DUMPOUT)
-ACL_FLAGS = -O2 $(DUMPOUT) -pg
+ACL_FLAGS = -O2 $(DUMPOUT)
 
 cpu: 
 	$(CC)  bfs_IPMACC.cpp -o bfs_g++    $(CC_FLAGS) 

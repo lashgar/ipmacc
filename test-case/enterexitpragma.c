@@ -37,24 +37,26 @@ int main()
     // Compute vector Add
     float sum=0, maX;
     int k;
+    
+#pragma acc enter data copyin(a,b) create(c)
+
     for(k=0; k<3; k++){
         printf("Calculation on GPU ... ");
         tic = clock();
         sum=0;
         maX=-1;
-#pragma acc data copy(a,b,c)
-        {
-                    #pragma acc kernels
-                    #pragma acc loop independent 
-                    for (i = 0; i < SIZE; ++i) {
-                        float x=0;
-                        x = a[i] + b[i] ;
-                        c[i] = x;
-                    }
+        #pragma acc kernels present(a,b,c)
+        #pragma acc loop independent 
+        for (i = 0; i < SIZE; ++i) {
+            float x=0;
+            x = a[i] + b[i] ;
+            c[i] = x;
         }
         toc = clock();
         printf(" %6.4f ms\n",(toc-tic)/(float)1000);
     }
+
+#pragma acc exit data copyout(c)
 
     // ****************
     // double-check the OpenACC result sequentially on the host

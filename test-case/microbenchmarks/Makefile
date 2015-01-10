@@ -2,7 +2,7 @@ CC = g++
 CPP= cpp
 ACC= ipmacc
 ARRAYOBJS = arraybench_$(IDA).o  
-ARCH= -arch=sm_20
+ARCH= -arch=sm_35
 
 
 ACC_FLAGS =  $(ARCH)

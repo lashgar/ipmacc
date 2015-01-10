@@ -30,3 +30,5 @@ DONE:
 - Improve compilation speed
 - Support for user-defined data types
 - Launch nested loops over multi-dimensional thread-blocks and kernel grids
+- Implementing '#pragma acc enter data'
+- Implementing '#pragma acc exit data'

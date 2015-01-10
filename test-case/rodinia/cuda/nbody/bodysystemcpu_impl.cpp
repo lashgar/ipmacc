@@ -1,6 +1,8 @@
 
 //#include <math_functions.h>
 
+
+#ifndef __CUDACC__
 typedef struct {
     float x;
     float y;
@@ -12,7 +14,7 @@ typedef struct {
     float z;
     float w;
 } float4;
-
+#endif
 
 
 

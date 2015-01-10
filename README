@@ -17,8 +17,8 @@ Getting Started:
 - After the installation, the best way to start is to compile and run the samples in the test-case/ directory. Example:
 $ ipmacc test-case/vectorAdd.c -o vectorAdd
 $ ./vectorAdd
-- There are microbenchmarks to evaluate the overhead of memory allocation, memory copies, and kernel launches under test-case/micro-
-    benchmarks/ directory. Also there are wide set of benchmarks under test-case/rodinia/
+- There are microbenchmarks to evaluate the overhead of memory allocation, memory copies, and kernel launches under
+    test-case/microbenchmarks/ directory. Also there are wide set of benchmarks under test-case/rodinia/
 
 
 ====================

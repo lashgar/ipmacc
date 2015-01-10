@@ -83,4 +83,4 @@ clean:
 		./kernel/*.o \
 		./util/opencl/*.o \
 		./util/graphics/*.o \
-		./util/timer/*.o
+		./util/timer/*.o -f
