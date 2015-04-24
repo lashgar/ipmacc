@@ -274,6 +274,9 @@ Generating a CUDA code corresponding to the given XML file.
 0.8.0b
 -BUGFIX: in cache/smc directive.
 
+0.8.1b
+-Supporting NVIDIA Kepler Read Only Cache. Enabled by passing `--enable readonlycache -arch=sm_35' to ipmacc.
+
 =========================
 Component Description:
 preprocessor-<version>.py
