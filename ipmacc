@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.7.9b
+VERSION=0.8.1b
 function usage()
 {
     echo "usage: ipmacc <input file> <compile flags> "
@@ -19,7 +19,10 @@ function usage()
     echo "   get compile flags for ipmacc OpenACC headers."
     echo " ipmacc --ldflags"
     echo "   get link flags for linking to ipmacc runtime library."
+    echo " ipmacc --enable <optimizations>"
+    echo "   enables particular optimizations. available are: readonlycache"
 }
+
 function version()
 {
     echo "IPMACC $VERSION"
@@ -85,6 +88,7 @@ ARGS=(${@})
 NARG=${#ARGS[@]}
 #echo $ARGS $NARG
 NVCCARGS=
+OPTIMIZATION= #optimization swtiches
 for (( i = 0 ; i < $NARG ; i++ )) ; do
     # check for pending args
     if [ "$tapending" == "1" ] ; then
@@ -94,6 +98,10 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
     elif [ "$accfilepending" == "1" ] ; then
         INFILE=${ARGS[i]}
         accfilepending="0"
+        continue
+    elif [ "$optimizationpending" == "1" ] ; then
+        OPTIMIZATION=${ARGS[i]}
+        optimizationpending="0"
         continue
     fi
 
@@ -122,6 +130,8 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         tapending="1"
     elif [ "${ARGS[i]}" == "--accfile" ] ; then
         accfilepending="1"
+    elif [ "${ARGS[i]}" == "--enable" ] ; then
+        optimizationpending="1"
     elif [ "$i" != "0" ] ; then
         # append this arg
         NVCCARGS="${NVCCARGS} ${ARGS[i]}"
@@ -195,7 +205,7 @@ if [ "$?" == "0" ] ; then
     if [ "$VERBOSE" == "1" ] ; then
      echo -en "\n========CODE GENERATOR LOGS=========\n"
     fi
-    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS"
+    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             # 5. Call NVCC to compile the CUDA

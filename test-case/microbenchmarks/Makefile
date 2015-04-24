@@ -7,7 +7,7 @@ ARCH= -arch=sm_35
 
 ACC_FLAGS =  $(ARCH)
 ACL_FLAGS = 
-ACC_TARGET=nvcuda
+ACC_TARGET=nvopencl
 
 all:
 	$(MAKE) IDA=243 prog
@@ -37,5 +37,3 @@ arraybench_$(IDA): $(ARRAYOBJS) arraybench.c
 
 clean: 
 	rm *.o arraybench_*
-
-

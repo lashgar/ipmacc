@@ -15,6 +15,8 @@ TODO:
 - BUGFIX: two terminating condition in the for loop may lead to XML crash.
 - OpenACC syntax parser may disallow valid cases. Fix the parser state machine. (related file: parser/oaccparser.y)
 - Add support for parallel directive
+- Add `name' clause to kernels directive, allowing easy debugging.
+- IMPROVEMENT: __smc_select_* procedures must be optimized. nvcc alone cannot highly optimize the code. these are generated in case of `cache' directive.
 
 DONE:
 - Replacing pycparser XML generator with srcML generator (faster and lower-level)
@@ -32,3 +34,4 @@ DONE:
 - Launch nested loops over multi-dimensional thread-blocks and kernel grids
 - Implementing '#pragma acc enter data'
 - Implementing '#pragma acc exit data'
+- [Apr 21, 2015] Supporting NVIDIA Kepler's Read Only Cache. Enabled by '--enable readonlycache' compiler flag.

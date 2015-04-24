@@ -29,8 +29,8 @@
 #include "arraybench.h"
 #include <sys/time.h>
 
-double btest[IDA];
-double atest[IDA];
+double *btest;//[IDA];
+double *atest;//[IDA];
 int nthreads, delaylength, innerreps; 
 double times[OUTERREPS+1], reftime, refsd; 
 
@@ -41,6 +41,8 @@ timeval tim;
 
 int main (int argv, char **argc)
 {
+    btest=(double*)malloc(sizeof(double)*IDA);
+    atest=(double*)malloc(sizeof(double)*IDA);
 #ifdef __NVCUDA__
 	acc_init( acc_device_nvcuda );
 #endif 
@@ -665,7 +667,7 @@ void stats (double *mtp, double *sdp, double *hm)
 {
 
 	double meantime, totaltime, sumsq, mintime, maxtime, sd, cutoff; 
-	double reciprocal, harmonic_mean ;
+	double reciprocal = 0.0, harmonic_mean ;
 	int i, nr; 
 
 	mintime = 1.0e10;

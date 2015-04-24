@@ -3,10 +3,11 @@ set of translators to execute OpenACC for C applications over CUDA or OpenCL run
 for C API to CUDA and OpenCL. Then, it compiles the CUDA/OpenCL code with the system compiler allowing the execution of
 application over CUDA or OpenCL -capable devices.
 
-IPMACC support data, kernels, and loop directive. It also allows user-defiend data types and function calls within accelerator
-regions. IPMACC is more a translator, outputing the CUDA/OpenCL code which is equivalent to the input OpenACC code. It allows
-further optimization by CUDA developer. Also IPMACC can be used as a framework for extending OpenACC framework and evaluating
-new directive/clauses. Please refer to Limitation section of this document to overview supported directives and API calls.
+IPMACC supports data, kernels, loop, enter, and exit directives. It also allows user-defiend data types and function calls within
+accelerator regions. We believe IPMACC is more of translator than a compiler, outputing the CUDA/OpenCL code which is equivalent
+to the input OpenACC code. It allows further optimization by CUDA developer. Also IPMACC can be used as a framework for extending
+OpenACC framework and evaluating new directive/clauses. Please refer to Limitation section of this document to overview supported
+directives and API calls.
 
 ====================
 Getting Started:
@@ -23,14 +24,13 @@ $ ./vectorAdd
 
 ====================
 Compile Flags:
-- The compilation flags all are passed directly to the system compiler. This is NVIDIA C Compiler (nvcc) in case of CUDA target.
-    In other cases, this is g++. Examples are:
-    -o output
-        the name of destination binary file
-    -c object.o
-        the name of destination compiled file
-    -ptx
-        generate intermediate device assembly code for the region
+- IPMACC has few limited compile switch. See the available switches with the following commands:
+$ ipmacc --help
+- In a case that there is a switch which IPMACC does not understands, IPMACC passes the switch to the system compiler. Hence,
+    technically, IPMACC accepts all switches of the system compiler. The system compiler is `nvcc' in case of CUDA target and
+    `gcc' in case of OpenCL target. Examples:
+    * In case of CUDA backend, which is the default, the following command generates a binary for Kepler GPUs:
+      $ ipmacc acc_source.cpp -arch=sm_35 -o binary
 
 ====================
 Executing the generated binary
@@ -81,6 +81,10 @@ arXiv:1412.1127 [cs.PL], December 2, 2014.
 [2] Ebad Salehi, Ahmad Lashgar, and Amirali Baniasadi,
 "Compiler-Enhanced Memory Bandwidth Usage Reduction in OpenACC", 
 In proceedings of the 30th ACM/SIGAPP Symposium On Applied Computing (SAC2015), Salamanca, Spain, April 13 - 17, 2015.
+[3] Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi
+"IPMACC: Translating OpenACC API to OpenCL",
+To be appeared in The 3rd International Workshop on OpenCL (IWOCL),
+Stanford University, California, USA, May 11-13, 2015.
 
 =================
     

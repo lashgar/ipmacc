@@ -44,3 +44,5 @@ smccuda:
 
 clean:
 	rm *.o *.cuda *.ocl a.out *_ipmacc.c *_ipmacc.cu *_ipmacc.cpp -f
+	make clean -C rodinia/
+	make clean -C microbenchmarks/

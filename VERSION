@@ -254,21 +254,25 @@ Generating a CUDA code corresponding to the given XML file.
 -Optimizing smc implementation: applying same optimization as 2D to 1D arrays.
 
 0.7.4b
--Implement vector clause for loop directive
+-Implements vector clause for loop directive
 
 0.7.5b
 -Launching a number of thread blocks exactly matching the number of loop iteration. No longer submitting one extra thread-block to cover boundaries.
 
 0.7.6b
--Add support for algorithm directive.
--Add limited support for std vector.
+-Adds support for algorithm directive.
+-Adds limited support for std vector.
 
 0.7.7b
--Fix OpenCL bugs in codegen
--Fix thread-block size
+-Fixes few OpenCL bugs in codegen
+-Fixes thread block size
 
 0.7.8b
--Add support for reduction under multi-dimensional grid.
+-Adds support for reduction under multi-dimensional grid.
+
+0.7.9b
+0.8.0b
+-BUGFIX: in cache/smc directive.
 
 =========================
 Component Description:

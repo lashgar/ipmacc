@@ -18,7 +18,7 @@ Requirements:
 - In case of CUDA backend, CUDA Toolkit (>=4.2)
     Download and install from NVIDIA website: http://developer.nvidia.com/cuda-toolkit
 - In case of OpenCL backend, OpenCL platform (>=1.0)
-- GCC/G++ 4.4 or latter
+- GCC/G++ 4.4 or later
 - For srcML:
     on RedHat-like systems:
         $ yum install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel boost boost-devel java
