@@ -3,6 +3,9 @@
 VERSION=0.8.1b
 function usage()
 {
+    echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
+    echo "    IPMACC comes with ABSOLUTELY NO WARRANTY; for details see LICENSE."
+    echo " "
     echo "usage: ipmacc <input file> <compile flags> "
     echo " <input file> is single c/c++ file with OpenACC notation."
     echo " <compile flags> are compile flags supported by g++ "
