@@ -58,7 +58,9 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 
 # Publications:
 **[1]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Open Source OpenACC to CUDA/OpenCL Translator"**, arXiv:1412.1127 [cs.PL], December 2, 2014.
+
 **[2]** Ebad Salehi, Ahmad Lashgar, and Amirali Baniasadi, **"Compiler-Enhanced Memory Bandwidth Usage Reduction in OpenACC"**, In proceedings of the 30th ACM/SIGAPP Symposium On Applied Computing (SAC2015), Salamanca, Spain, April 13 - 17, 2015.
+
 **[3]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Translating OpenACC API to OpenCL"**, To be appeared in The 3rd International Workshop on OpenCL (IWOCL), Stanford University, California, USA, May 11-13, 2015.
 
 # References:
