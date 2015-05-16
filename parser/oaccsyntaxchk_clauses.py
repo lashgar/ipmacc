@@ -147,6 +147,11 @@ def sequentialParser(root):
                 if not lookup(avail_clauses,clause):
                     error(root.attrib.get('directive'),clause,avail_clauses)
 
+            elif root.attrib.get('directive')=='atomic':
+                avail_clauses=['capture'] # 'read', 'write', 'update', 
+                if not lookup(avail_clauses,clause):
+                    error(root.attrib.get('directive'),clause,avail_clauses)
+
     for child in root:
         sequentialParser(child)
 

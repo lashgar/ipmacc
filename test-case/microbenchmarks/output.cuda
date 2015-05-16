@@ -1,118 +1,117 @@
  *******************************************************
-243: COPYIN time =      13.436 microseconds +/-      1.537
-243: COPYOUT time =      17.565 microseconds +/-      7.776
-243: CREATETEST time =       4.821 microseconds +/-      5.381
+243: COPYIN time =       7.711 microseconds +/-     85.982
+243: COPYOUT time =      14.936 microseconds +/-      1.568
+243: CREATETEST time =       7.358 microseconds +/-      3.625
 
-243: REDUCTION(+) time =      49.902 microseconds +/-     14.502
-243: REDUCTION(max) time =      53.387 microseconds +/-     13.560
+243: REDUCTION(+) time =      55.802 microseconds +/-      6.658
+243: REDUCTION(max) time =      58.378 microseconds +/-      7.477
 
-243: Kernel#1 time =      15.478 microseconds +/-      1.174
-243: Kernel#2 time =      16.136 microseconds +/-      3.660
-243: Kernel#4 time =      16.983 microseconds +/-      8.012
-243: Kernel#8 time =      18.637 microseconds +/-      5.110
-243: Kernel#16 time =      21.000 microseconds +/-      1.437
+243: Kernel#1 time =      17.668 microseconds +/-      1.550
+243: Kernel#2 time =      18.159 microseconds +/-      1.077
+243: Kernel#4 time =      18.966 microseconds +/-      0.829
+243: Kernel#8 time =      20.698 microseconds +/-      1.537
+243: Kernel#16 time =      24.973 microseconds +/-      7.015
  *******************************************************
-729: COPYIN time =      16.758 microseconds +/-      1.040
-729: COPYOUT time =      21.342 microseconds +/-      2.210
-729: CREATETEST time =       5.666 microseconds +/-     11.866
+729: COPYIN time =       9.092 microseconds +/-     96.723
+729: COPYOUT time =      17.137 microseconds +/-      2.868
+729: CREATETEST time =       7.476 microseconds +/-      2.756
 
-729: REDUCTION(+) time =      51.464 microseconds +/-     10.398
-729: REDUCTION(max) time =      53.655 microseconds +/-     11.669
+729: REDUCTION(+) time =      57.747 microseconds +/-      8.954
+729: REDUCTION(max) time =      57.717 microseconds +/-      5.676
 
-729: Kernel#1 time =      17.639 microseconds +/-      1.562
-729: Kernel#2 time =      18.323 microseconds +/-     20.288
-729: Kernel#4 time =      18.252 microseconds +/-      2.447
-729: Kernel#8 time =      21.996 microseconds +/-     18.510
-729: Kernel#16 time =      23.149 microseconds +/-      2.789
+729: Kernel#1 time =      17.553 microseconds +/-      1.247
+729: Kernel#2 time =      17.983 microseconds +/-      1.087
+729: Kernel#4 time =      19.192 microseconds +/-      0.794
+729: Kernel#8 time =      20.804 microseconds +/-      2.154
+729: Kernel#16 time =      23.211 microseconds +/-      1.131
  *******************************************************
-2187: COPYIN time =      24.509 microseconds +/-      1.254
-2187: COPYOUT time =      26.265 microseconds +/-      4.111
-2187: CREATETEST time =       6.008 microseconds +/-     31.250
+2187: COPYIN time =      16.397 microseconds +/-    156.479
+2187: COPYOUT time =      20.139 microseconds +/-      2.315
+2187: CREATETEST time =       7.595 microseconds +/-      2.174
 
-2187: REDUCTION(+) time =      51.823 microseconds +/-     35.523
-2187: REDUCTION(max) time =      54.376 microseconds +/-     34.586
+2187: REDUCTION(+) time =      53.701 microseconds +/-      5.830
+2187: REDUCTION(max) time =      57.633 microseconds +/-      5.247
 
-2187: Kernel#1 time =      16.571 microseconds +/-      1.389
-2187: Kernel#2 time =      18.172 microseconds +/-      1.418
-2187: Kernel#4 time =      18.177 microseconds +/-     29.595
-2187: Kernel#8 time =      20.822 microseconds +/-      2.656
-2187: Kernel#16 time =      23.866 microseconds +/-     26.990
+2187: Kernel#1 time =      18.060 microseconds +/-      1.030
+2187: Kernel#2 time =      18.509 microseconds +/-      1.086
+2187: Kernel#4 time =      19.514 microseconds +/-      1.773
+2187: Kernel#8 time =      21.262 microseconds +/-      1.894
+2187: Kernel#16 time =      24.984 microseconds +/-    101.095
  *******************************************************
-6561: COPYIN time =      45.919 microseconds +/-      1.030
-6561: COPYOUT time =      40.043 microseconds +/-      3.164
-6561: CREATETEST time =       6.016 microseconds +/-     73.199
+6561: COPYIN time =      29.138 microseconds +/-      2.671
+6561: COPYOUT time =      33.930 microseconds +/-      3.139
+6561: CREATETEST time =       7.868 microseconds +/-     74.381
 
-6561: REDUCTION(+) time =      48.536 microseconds +/-      5.858
-6561: REDUCTION(max) time =      51.261 microseconds +/-      6.385
+6561: REDUCTION(+) time =      54.319 microseconds +/-      6.021
+6561: REDUCTION(max) time =      58.181 microseconds +/-      6.829
 
-6561: Kernel#1 time =      16.556 microseconds +/-      1.819
-6561: Kernel#2 time =      17.335 microseconds +/-      1.046
-6561: Kernel#4 time =      18.511 microseconds +/-      3.754
-6561: Kernel#8 time =      19.892 microseconds +/-      5.248
-6561: Kernel#16 time =      22.864 microseconds +/-      4.687
+6561: Kernel#1 time =      17.561 microseconds +/-      0.981
+6561: Kernel#2 time =      18.232 microseconds +/-      1.882
+6561: Kernel#4 time =      19.136 microseconds +/-      1.046
+6561: Kernel#8 time =      20.920 microseconds +/-      1.658
+6561: Kernel#16 time =      23.343 microseconds +/-      1.813
  *******************************************************
-19683: COPYIN time =      62.045 microseconds +/-      8.810
-19683: COPYOUT time =      82.057 microseconds +/-      8.888
-19683: CREATETEST time =       7.269 microseconds +/-    125.451
+19683: COPYIN time =      56.577 microseconds +/-      2.298
+19683: COPYOUT time =      77.669 microseconds +/-      3.176
+19683: CREATETEST time =       9.275 microseconds +/-    119.148
 
-19683: REDUCTION(+) time =      54.163 microseconds +/-      7.303
-19683: REDUCTION(max) time =      57.027 microseconds +/-      9.412
+19683: REDUCTION(+) time =      59.529 microseconds +/-      4.835
+19683: REDUCTION(max) time =      60.913 microseconds +/-      4.634
 
-19683: Kernel#1 time =      17.074 microseconds +/-      5.045
-19683: Kernel#2 time =      17.289 microseconds +/-      1.624
-19683: Kernel#4 time =      18.251 microseconds +/-      1.331
-19683: Kernel#8 time =      19.957 microseconds +/-      4.595
-19683: Kernel#16 time =      23.237 microseconds +/-      2.519
+19683: Kernel#1 time =      17.832 microseconds +/-      1.136
+19683: Kernel#2 time =      17.368 microseconds +/-      2.509
+19683: Kernel#4 time =      18.178 microseconds +/-      1.959
+19683: Kernel#8 time =      19.562 microseconds +/-      1.819
+19683: Kernel#16 time =      22.718 microseconds +/-      4.129
  *******************************************************
-59049: COPYIN time =     165.852 microseconds +/-     11.083
-59049: COPYOUT time =     220.534 microseconds +/-     10.078
-59049: CREATETEST time =      13.534 microseconds +/-    147.821
+59049: COPYIN time =     151.897 microseconds +/-      9.347
+59049: COPYOUT time =     199.700 microseconds +/-      6.336
+59049: CREATETEST time =      17.023 microseconds +/-    150.291
 
-59049: REDUCTION(+) time =      68.095 microseconds +/-      8.659
-59049: REDUCTION(max) time =      72.048 microseconds +/-     14.692
+59049: REDUCTION(+) time =      71.637 microseconds +/-      7.544
+59049: REDUCTION(max) time =      71.552 microseconds +/-      7.414
 
-59049: Kernel#1 time =      15.420 microseconds +/-      1.400
-59049: Kernel#2 time =      16.278 microseconds +/-      6.307
-59049: Kernel#4 time =      16.990 microseconds +/-      1.568
-59049: Kernel#8 time =      18.606 microseconds +/-      6.708
-59049: Kernel#16 time =      21.274 microseconds +/-      4.696
+59049: Kernel#1 time =      17.933 microseconds +/-      1.083
+59049: Kernel#2 time =      18.593 microseconds +/-      2.287
+59049: Kernel#4 time =      19.489 microseconds +/-      1.775
+59049: Kernel#8 time =      21.258 microseconds +/-      2.044
+59049: Kernel#16 time =      23.832 microseconds +/-      1.298
  *******************************************************
-177147: COPYIN time =     398.271 microseconds +/-     27.912
-177147: COPYOUT time =     508.534 microseconds +/-     40.411
-177147: CREATETEST time =     164.455 microseconds +/-     10.631
+177147: COPYIN time =     388.528 microseconds +/-     30.035
+177147: COPYOUT time =     508.238 microseconds +/-      4.957
+177147: CREATETEST time =     160.915 microseconds +/-     11.895
 
-177147: REDUCTION(+) time =     112.734 microseconds +/-      6.446
-177147: REDUCTION(max) time =     117.525 microseconds +/-      8.600
+177147: REDUCTION(+) time =     105.622 microseconds +/-      6.598
+177147: REDUCTION(max) time =     109.848 microseconds +/-      7.473
 
-177147: Kernel#1 time =      17.213 microseconds +/-      1.646
-177147: Kernel#2 time =      17.814 microseconds +/-      4.292
-177147: Kernel#4 time =      18.649 microseconds +/-      5.013
-177147: Kernel#8 time =      20.574 microseconds +/-      3.849
-177147: Kernel#16 time =      23.626 microseconds +/-      4.493
+177147: Kernel#1 time =      18.432 microseconds +/-     44.654
+177147: Kernel#2 time =      18.478 microseconds +/-      2.033
+177147: Kernel#4 time =      19.432 microseconds +/-      3.169
+177147: Kernel#8 time =      21.238 microseconds +/-     20.837
+177147: Kernel#16 time =      23.796 microseconds +/-      1.713
  *******************************************************
-531441: COPYIN time =    1002.610 microseconds +/-    178.622
-531441: COPYOUT time =    1282.390 microseconds +/-   5200.012
-531441: CREATETEST time =     171.889 microseconds +/-   3120.995
+531441: COPYIN time =     979.920 microseconds +/-     10.652
+531441: COPYOUT time =    1191.318 microseconds +/-      5.861
+531441: CREATETEST time =     166.802 microseconds +/-     51.236
 
-531441: REDUCTION(+) time =     245.597 microseconds +/-   3064.415
-531441: REDUCTION(max) time =     249.763 microseconds +/-   3203.259
+531441: REDUCTION(+) time =     213.152 microseconds +/-      9.223
+531441: REDUCTION(max) time =     224.809 microseconds +/-     59.427
 
-531441: Kernel#1 time =      16.924 microseconds +/-      1.328
-531441: Kernel#2 time =      17.791 microseconds +/-     15.150
-531441: Kernel#4 time =      18.681 microseconds +/-     16.436
-531441: Kernel#8 time =      20.900 microseconds +/-    627.397
-531441: Kernel#16 time =      23.671 microseconds +/-     25.377
+531441: Kernel#1 time =      17.041 microseconds +/-      2.210
+531441: Kernel#2 time =      17.170 microseconds +/-      1.418
+531441: Kernel#4 time =      18.216 microseconds +/-      1.585
+531441: Kernel#8 time =      20.081 microseconds +/-      2.571
+531441: Kernel#16 time =      23.608 microseconds +/-      1.231
  *******************************************************
-1594323: COPYIN time =    3766.261 microseconds +/-   7515.742
-1594323: COPYOUT time =    3420.719 microseconds +/-    345.258
-1594323: CREATETEST time =     173.211 microseconds +/-     14.573
+1594323: COPYIN time =    2863.526 microseconds +/-     88.107
+1594323: COPYOUT time =    3233.302 microseconds +/-    166.379
+1594323: CREATETEST time =     180.045 microseconds +/-     64.578
 
-1594323: REDUCTION(+) time =     982.077 microseconds +/-     84.433
-1594323: REDUCTION(max) time =     652.657 microseconds +/-    115.616
+1594323: REDUCTION(+) time =     531.291 microseconds +/-     82.021
+1594323: REDUCTION(max) time =     555.150 microseconds +/-     83.570
 
-1594323: Kernel#1 time =      17.323 microseconds +/-      2.974
-1594323: Kernel#2 time =      17.787 microseconds +/-      5.372
-1594323: Kernel#4 time =      18.447 microseconds +/-      4.691
-1594323: Kernel#8 time =      20.754 microseconds +/-      6.314
-1594323: Kernel#16 time =      23.839 microseconds +/-      6.860
-
+1594323: Kernel#1 time =      16.955 microseconds +/-      1.883
+1594323: Kernel#2 time =      18.118 microseconds +/-      1.508
+1594323: Kernel#4 time =      19.338 microseconds +/-      0.947
+1594323: Kernel#8 time =      20.622 microseconds +/-      1.572
+1594323: Kernel#16 time =      23.473 microseconds +/-      2.390

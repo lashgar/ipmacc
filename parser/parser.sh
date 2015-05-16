@@ -15,18 +15,22 @@ if [ ! -e $path/oaccparser ] ; then
     make
 fi
 
-# analyze OpenACC directive and clause.
+# analyze individual OpenACC directive and clause.
 # report unsupported statements
-python $path/pragmadecomposer.py -f $1
+python $path/oaccsyntaxchk_clauses.py -f $1
 if [ "$?" == "255" ] ; then
     echo "parser exits due to previous errors"
     exit 255
 fi
 
 # analyze the OpenACC enhanced C code
-#python $path/codeanalyzer.py -f $1 
-python $path/codeanalyzer.py -f $1 | $path/oaccparser
-#echo $?
+# stall for unsupported directive nest
+## NEW VERSION
+python $path/oaccsyntaxchk_directives.py -f $1
+## OLD VERSION
+##python $path/codeanalyzer.py -f $1 
+#python $path/codeanalyzer.py -f $1 | $path/oaccparser
+##echo $?
 if [ "$?" == "255" ] ; then
     echo "error: improper use of OpenACC in the C code"
     exit 255

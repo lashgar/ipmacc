@@ -25,6 +25,8 @@ def sequentialParser(root):
         nextchar('M')
     elif root.tag=='pragma' and (root.attrib.get('directive')=='enter' or root.attrib.get('directive')=='exit'):
         nextchar('E')
+    elif root.tag=='pragma' and root.attrib.get('directive')=='atomic':
+        nextchar('T')
     elif root.tag=='pragma' and root.attrib.get('directive')=='parallel':
         nextchar('A')
         error('`parallel` not yet supported')
@@ -46,6 +48,8 @@ def sequentialParser(root):
         nextchar('l')
     elif root.tag=='pragma' and root.attrib.get('directive')=='cache':
         nextchar('m')
+    elif root.tag=='pragma' and root.attrib.get('directive')=='atomic':
+        nextchar('t')
     elif root.tag=='pragma' and root.attrib.get('directive')=='parallel':
         nextchar('a')
     elif root.tag=='for':

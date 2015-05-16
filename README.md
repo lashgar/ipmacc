@@ -1,9 +1,10 @@
-IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. The framework includes set of translators to execute OpenACC for C applications over CUDA or OpenCL runtime. First, the framework translates OpenACC for C API to CUDA and OpenCL. Then, it compiles the CUDA/OpenCL code with the system compiler allowing the execution of application over CUDA or OpenCL -capable devices.
+IPMACC translates and executes OpenACC for C applications over CUDA or OpenCL runtime. First, the framework translates OpenACC for C API to CUDA and OpenCL. Then, it compiles the CUDA/OpenCL code with the system compiler allowing the execution of application over CUDA or OpenCL -capable devices.
 
-IPMACC supports data, kernels, loop, enter, and exit directives. It also allows user-defiend data types and function calls within accelerator regions. We believe IPMACC is more of translator than a compiler, outputing the CUDA/OpenCL code which is equivalent to the input OpenACC code. It allows further optimization by CUDA developer. Also IPMACC can be used as a framework for extending OpenACC framework and evaluating new directive/clauses. Please refer to Limitation section of this document to overview supported directives and API calls.
+IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also allows user-defiend data types and function calls within accelerator regions. We believe IPMACC is more of translator than a compiler, outputing the CUDA/OpenCL code which is equivalent to the input OpenACC code. It allows further optimization by CUDA developer. We believe there can be performed many optimizations in translations, and this is what we are looking forward to. Also IPMACC can be used as a framework for extending OpenACC framework and evaluating new directive/clauses. Please refer to Limitation section of this document to overview supported directives and API calls.
 
 # Getting Started:
 * Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
+* Refer to TODO document to see latest changes and the roadmap.
 * Refer to INSTALL file for performing the installation.
 * Refer to docs/ipmacc-performance.pdf to see the performance comparison of OpenACC applications compiled by our implementation to native CUDA implementation.
 * After the installation, the best way to start is to compile and run the samples in the test-case/ directory. Example:
@@ -55,6 +56,12 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 * Ahmad Lashgar, University of Victoria
 * Alireza Majidi, Texas A&M University
 * Ebad Salehi, University of Victoria
+
+# About IPMACC:
+IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. We had an old outdated website on IPM page here http://hpc.ipm.ac.ir/ipmacc/doc.html. Follow our latest updates on https://github.com/lashgar/ipmacc
+
+# Questions:
+If you had any question or thinking of any issue, create a new issue thread here https://github.com/lashgar/ipmacc/issues or send an email to lashgar@uvic.ca
 
 # Publications:
 **[1]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Open Source OpenACC to CUDA/OpenCL Translator"**, arXiv:1412.1127 [cs.PL], December 2, 2014.

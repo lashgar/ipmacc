@@ -62,6 +62,8 @@ Preprocesses the input C code to tag the code into <c>, <for>, and <pragma> labe
 0.2.8b
 -Support enter and exit directive
 
+0.2.9b
+-Support atomic directive
 
 ====================
 Component Description:
@@ -276,6 +278,9 @@ Generating a CUDA code corresponding to the given XML file.
 
 0.8.1b
 -Supporting NVIDIA Kepler Read Only Cache. Enabled by passing `--enable readonlycache -arch=sm_35' to ipmacc.
+
+0.8.2b
+-Support atomic directive
 
 =========================
 Component Description:

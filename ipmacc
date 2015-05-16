@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.8.1b
+VERSION=0.8.2b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
@@ -175,7 +175,7 @@ ln -s $path/src/utils_clause.py $path/parser/
 rm $path/preprocessor.py $path/preprocessor.pyc -f
 ln -s $path/src/preprocessor-0.1.7b.py $path/preprocessor.py
 rm $path/scanner.py -f
-ln -s $path/src/scanner-0.2.8b.py $path/scanner.py
+ln -s $path/src/scanner-0.2.9b.py $path/scanner.py
 rm $path/codegen.py -f
 ln -s $path/src/codegen-${VERSION}.py $path/codegen.py
 

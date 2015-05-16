@@ -17,8 +17,10 @@ TODO:
 - Add support for parallel directive
 - Add `name' clause to kernels directive, allowing easy debugging.
 - IMPROVEMENT: __smc_select_* procedures must be optimized. nvcc alone cannot highly optimize the code. these are generated in case of `cache' directive.
+- Support Intel ISPC backend.
+- An issue with atomic pragmas on OpenCL; adding '#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable' should be added to OpenCL kernels.
 
-DONE:
+CHANGES:
 - Replacing pycparser XML generator with srcML generator (faster and lower-level)
 - Support serial loops
 - Fully-support dynamic allocation
@@ -35,3 +37,5 @@ DONE:
 - Implementing '#pragma acc enter data'
 - Implementing '#pragma acc exit data'
 - [Apr 21, 2015] Supporting NVIDIA Kepler's Read Only Cache. Enabled by '--enable readonlycache' compiler flag.
+- [May 16, 2015] early support for `atomic capture` added. Sample added in test-case/atomictest.c. For cuda-backend, pass `arch=sm_13` flag to ipmacc.
+
