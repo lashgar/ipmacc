@@ -1,0 +1,50 @@
+#!/bin/bash
+
+IPMACC=/home/$USER/ipmacc-ufmg/ipmacc
+
+# Runs a benchmark with the specified parameters.
+# Parameters:
+#  - $1: directory
+#  - $2: limit (upper or lower bound indicating the size of the matrices)
+#  - $3: step (by how much we increment the variable until we reach the limit)
+function exec_bench() {
+    echo "Running $1..."
+    cd $1;
+    benchmark_cpu=${1}*_cpu.c
+    benchmark_gpu=${1}*_gpu.c
+    filename_cpu=`echo $benchmark_cpu| cut -d'.' -f 1`
+    filename_gpu=`echo $benchmark_gpu| cut -d'.' -f 1`
+
+    # Compile the OpenACC program with ipmacc
+    $IPMACC $benchmark_gpu -o $filename_gpu
+
+    # Compile the program with gcc
+    gcc -O3 $benchmark_cpu -o $filename_cpu -lm
+
+    # Run the benchmarks
+    echo "Running $1 on the CPU..."
+    for ((i=1;i<=$2;i=i+$3));
+    do
+        # Runs the program on the CPU
+        ./$filename_cpu $i
+    done
+
+    echo "Running $1 on the GPU..."
+    for ((i=1;i<=$2;i=i+$3));
+    do
+        # Runs the program on the GPU
+        ./$filename_gpu $i
+    done
+
+    cd ..;
+}
+
+exec_bench mat-mul 4096 400;
+exec_bench mat-sum 4096 400;
+exec_bench cholesky 4096 400;
+exec_bench str-matching 200000 4000;
+exec_bench k-nearest 5000 400;
+exec_bench colinear-list 3000 300;
+exec_bench search-vector 200000 400;
+exec_bench vector-product 200000 400;
+

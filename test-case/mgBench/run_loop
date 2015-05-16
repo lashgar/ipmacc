@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: ./run <number of iterations>"
+    exit;
+fi
+
+IPMACC=/home/$USER/ipmacc-ufmg/ipmacc
+
+for d in */ ; do
+    benchmark_cpu=${d}*_cpu.c
+    benchmark_gpu=${d}*_gpu.c
+    filename_cpu=`echo $benchmark_cpu| cut -d'_' -f 1`
+    filename_gpu=`echo $benchmark_gpu| cut -d'_' -f 1`
+    echo "Running $filename_cpu..."
+
+    # Compile the OpenACC program with ipmacc
+    $IPMACC  $benchmark_gpu -o ${filename_gpu}_gpu
+
+    # Compile the program with gcc
+    gcc -O3 $benchmark_cpu -o ${filename_cpu}_cpu -lm
+
+    # Run the program in the CPU
+    ${filename_cpu}_cpu $1
+
+    # Run the program in the GPU
+    ${filename_cpu}_gpu $1
+
+    # Compare the outputs
+    DIFF=$(diff -q ${d}result_cpu.txt ${d}result_gpu.txt)
+    if [ "$DIFF" != "" ]
+    then
+        echo "The result in the CPU differs from the result in the GPU..."
+        echo $DIFF > ${d}diff_output.txt
+    fi
+    
+    mv result_* $d;
+    mv time_* $d;
+done
+
