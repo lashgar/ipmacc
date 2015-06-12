@@ -1,5 +1,3 @@
-// DISCLAIMER: THIS FILE IS DERIVED FROM openacc.h INCLUDED IN PGI COMPILER.
-
 
 // for size_t
 #include <stdio.h>
@@ -12,6 +10,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 #define MSR_RAPL_POWER_UNIT		0x606
 
@@ -55,8 +55,6 @@
 
 
 
-
-
 #ifndef __IPMACC_HEADER__
 #define __IPMACC_HEADER__
 
@@ -70,6 +68,7 @@ typedef enum{
     acc_device_intelocl = 6
 } acc_device_t;
 
+/*
 #ifndef __PGI_ULLONG
 #ifdef TARGET_WIN_X8664
 #define __PGI_ULLONG unsigned long long
@@ -77,7 +76,7 @@ typedef enum{
 #define __PGI_ULLONG unsigned long
 #endif
 #endif
-
+*/
 
 #ifdef __cplusplus
 extern "C" int  acc_get_num_devices( acc_device_t devtype );
@@ -158,6 +157,9 @@ extern "C" int getEnergy( double *packageEnergy, double *coreEnergy, int core);
 extern "C" void acc_get_mem_info(size_t *free, size_t *total);
 extern "C" void* acc_pcreate ( void*, size_t );
 extern "C" void* acc_pcopyin ( void*, size_t );
+extern "C" void acc_profiler_start();
+extern "C" void acc_profiler_end(int code);
+extern "C" void acc_profiler_dump();
 #else
 extern void acc_list_devices_spec( acc_device_t devtype );
 extern void acc_copyout_and_keep ( void*hostptr, size_t bytes);
@@ -170,9 +172,13 @@ extern int getEnergy( double *packageEnergy, double *coreEnergy, int core);
 extern void acc_get_mem_info(size_t *free, size_t *total);
 extern void* acc_pcreate ( void*, size_t );
 extern void* acc_pcopyin ( void*, size_t );
+extern void acc_profiler_start();
+extern void acc_profiler_end(int code);
+extern void acc_profiler_dump();
 #endif
 
 /* PGI Additions */
+/*
 extern void acc_updatein( void* hostptr, __PGI_ULLONG bytes );
 extern void acc_update_device( void* hostptr, __PGI_ULLONG bytes );
 extern void acc_updateout( void* hostptr, __PGI_ULLONG bytes );
@@ -181,6 +187,8 @@ extern void acc_update_host( void* hostptr, __PGI_ULLONG bytes );
 #define pgi_async_noval	1
 #define acc_async_sync	0
 #define acc_async_noval	1
+*/
+
 
 // unimplemented functions
 extern int acc_async_test( acc_device_t devtype );

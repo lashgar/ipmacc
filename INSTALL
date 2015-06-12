@@ -92,7 +92,7 @@ Step 6:
     $ cd test-case/rodinia/
     $ bash ./compare_cuda.sh
     Executing above instructions compares the memory and kernel time of OpenACC-over-CUDA and CUDA versions.
-    Similarily, compare OpenACC-over-OpenCL and OpenCL versions.
+    Similarily, compare OpenACC-over-OpenCL and OpenCL versions:
     $ bash ./compare_opencl.sh  
     
     Notice: these files rely on NVIDIA CUDA and NVIDIA OpenCL runtime.
@@ -100,12 +100,12 @@ Step 6:
 
 ====================
 Usage:
-$ <ipmacc-flags> ipmacc <c-file> <compile-flags>
-    <ipmacc-flags>
+$ [ipmacc-flags] ipmacc <c-file> [compile-flags]
+    [ipmacc-flags]
         ta=<target> target: nvopencl or nvcuda
     <c-file>
         input OpenACC C/CPP file
-    <compile-flags>
+    [compile-flags]
         nvcc/g++ flags
 
 IPMACC translates OpenACC API (function calls or directives) in the input C-file to OpenCL/CUDA source. In case no compilation flag is passed, and if the compilation succeeds, two files will be generated:

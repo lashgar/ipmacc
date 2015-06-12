@@ -37,5 +37,4 @@ CHANGES:
 - Implementing '#pragma acc enter data'
 - Implementing '#pragma acc exit data'
 - [Apr 21, 2015] Supporting NVIDIA Kepler's Read Only Cache. Enabled by '--enable readonlycache' compiler flag.
-- [May 16, 2015] early support for `atomic capture` added. Sample added in test-case/atomictest.c. For cuda-backend, pass `arch=sm_13` flag to ipmacc.
-
+- [May 16, 2015] early support for `atomic capture` added. Sample added in test-case/atomictest.c. For cuda-backend, pass `arch=sm_13` flag to ipmacc. mgBench added to test-case/mgBench/.

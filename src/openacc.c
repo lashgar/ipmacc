@@ -1496,3 +1496,64 @@ int getEnergy( double *packageEnergy, double *coreEnergy, int core){
 
 
 #endif // OPENCL Support
+
+// PROFILER CODE
+#define SILENT
+
+struct timeval __ipmacc_internal_start, __ipmacc_internal_end;
+double __ipmacc_internal_total_time[3] = {0.0, 0.0, 0.0};
+                                        // launch, execution, memory
+
+void acc_profiler_start(){
+    gettimeofday(&__ipmacc_internal_start, NULL);
+}
+
+void acc_profiler_end(int code){
+    gettimeofday(&__ipmacc_internal_end, NULL);
+    double delta = ((__ipmacc_internal_end.tv_sec  - __ipmacc_internal_start.tv_sec) * 1000000u +
+         __ipmacc_internal_end.tv_usec - __ipmacc_internal_start.tv_usec) / 1.e6;
+    __ipmacc_internal_total_time[code]+=delta;
+    #ifndef SILENT
+    printf("<%s> %18.10fs\n",code==0?"Launch":(code==1?"Kernel":"Memory"),delta);
+    #endif
+}
+
+static char *rand_string(char *str, size_t size)
+{
+    const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK";
+    if (size) {
+        --size;
+        size_t n=0;
+        for (n = 0; n < size; n++) {
+            int key = rand() % (int) (sizeof charset - 1);
+            str[n] = charset[key];
+        }
+        str[size] = '\0';
+    }
+    return str;
+}
+void acc_profiler_dump(){
+    fprintf(stderr,"<%s> %18.10fs\n","kernel launch",   __ipmacc_internal_total_time[0]);
+    fprintf(stderr,"<%s> %18.10fs\n","kernel execution",__ipmacc_internal_total_time[1]);
+    fprintf(stderr,"<%s> %18.10fs\n","memory transfer", __ipmacc_internal_total_time[2]);
+    struct timeval temp;
+    gettimeofday(&temp, NULL);
+    //char *prefix="profiler.";
+    char *suffix=".txt";
+    //char buffer[20]={"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"};
+    char fname[30] = "profiler.";
+    char randname[10];
+    srand (time(NULL));
+    rand_string(randname,10);
+    //itoa((int)(__ipmacc_internal_end.tv_sec),buffer,10);
+    //strcpy(fname,prefix);
+    strcat(fname,randname);
+    strcat(fname,suffix);
+    printf("%s\n",fname);
+    FILE *f=fopen(fname,"w");
+    fprintf(f,"%18.10f %18.10f %18.10f\n",
+        __ipmacc_internal_total_time[0],
+        __ipmacc_internal_total_time[1],
+        __ipmacc_internal_total_time[2]);
+    fclose(f);
+}

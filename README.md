@@ -5,7 +5,7 @@ IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also
 # Getting Started:
 * Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
 * Refer to TODO document to see latest changes and the roadmap.
-* Refer to INSTALL file for performing the installation.
+* Refer to INSTALL file for installation.
 * Refer to docs/ipmacc-performance.pdf to see the performance comparison of OpenACC applications compiled by our implementation to native CUDA implementation.
 * After the installation, the best way to start is to compile and run the samples in the test-case/ directory. Example:
 ```
@@ -58,7 +58,7 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 * Ebad Salehi, University of Victoria
 
 # About IPMACC:
-IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. We had an old outdated website on IPM page here http://hpc.ipm.ac.ir/ipmacc/doc.html. Follow our latest updates on https://github.com/lashgar/ipmacc
+IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. We had an old outdated website on IPM page here http://hpc.ipm.ac.ir/ipmacc/. Follow our latest updates on https://github.com/lashgar/ipmacc
 
 # Questions:
 If you had any question or thinking of any issue, create a new issue thread here https://github.com/lashgar/ipmacc/issues or send an email to lashgar@uvic.ca

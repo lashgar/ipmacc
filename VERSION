@@ -282,6 +282,13 @@ Generating a CUDA code corresponding to the given XML file.
 0.8.2b
 -Support atomic directive
 
+0.8.3b
+-Adding support for a research directive
+
+0.8.4b
+-Adding profiling support to code generator.
+-BUGFIX: in atomic directive
+
 =========================
 Component Description:
 preprocessor-<version>.py
