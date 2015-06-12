@@ -28,7 +28,7 @@ USEPYCPARSER=False # True: pycparser (depreciated!), False: srcML
 USEAPI=True # use API instead of hard-code for performing OpenCL kernel compilation
 WARNING=False
 WARNINGSMC=False # warning in cache of smc pragma
-PROFILER=True
+PROFILER=False
 
 # Debugging level control
 DEBUG=0 #general
