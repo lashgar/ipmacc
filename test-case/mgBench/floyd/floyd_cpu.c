@@ -19,13 +19,13 @@
 #include <limits.h>
 #include <time.h>
 
-#define SIZE 1510
-
-int matrix[SIZE * SIZE];
-int matrix_dist[SIZE * SIZE];
+int SIZE;
 
 FILE *fil;
 FILE *out;
+
+int *matrix;
+int *matrix_dist;
 
 /// initialize the cartesian map
 void init(int s)
@@ -46,6 +46,7 @@ void init(int s)
         {
             m = (((j*1021)*71 % (s * s))+1);
             matrix[i*s+j] = m;
+            if(i==j){matrix[i*s+j] = 0; }
         }
     }
 }
@@ -70,24 +71,24 @@ void Knearest_CPU(int s)
 	/// opportunity of parallelism here
 	float start, finish, elapsed;
 	start = (float) clock() / (CLOCKS_PER_SEC * 1000);
-	for(k=0;k<s;k++)
+	for(i=0;i<s;i++)
 	{
-		for(i=0;i<s;i++)
-		{
+	    for(k=0;k<s;k++)
+	    {
 			for(j=0;j<s;j++)
 			{
-				if(matrix_dist[i*s+k]==99999999){continue;}
-				if(matrix_dist[k*s+j]==99999999){continue;}
-				if(matrix_dist[i*s+j]>matrix_dist[i*s+k]+matrix_dist[k*s+j])
-				{ 
-	   			      matrix_dist[i*s+j] = matrix_dist[i*s+k] + matrix_dist[k*s+j];
-				}
+				    if(matrix_dist[k*s+i]!=99999999 &&
+                    matrix_dist[i*s+j]!=99999999 &&
+                    matrix_dist[k*s+j]>matrix_dist[k*s+i]+matrix_dist[i*s+j])
+                    { 
+                         matrix_dist[k*s+j] = matrix_dist[k*s+i] + matrix_dist[i*s+j];
+                    }
 			}
 		}
 	}
 	finish = (float) clock() / (CLOCKS_PER_SEC * 1000);
 	elapsed = finish - start;
-	fprintf(fil,"%.6lf,",elapsed);
+	fprintf(fil,"%.9lf,",elapsed);
 }
 
 /// print the distances calculated
@@ -109,21 +110,24 @@ int main(int argc, char *argv[])
 {
     int i;
     int points, var;
-    points = atoi(argv[1]);
-    var = SIZE/points;
+    SIZE = atoi(argv[1]);
 
-    fil = fopen("time_cpu.csv","w+");
+    fil = fopen("time_cpu.csv","a+");
     out = fopen("result_cpu.txt","w+");
 
-    fprintf(fil,"SIZE,K-nearest CPU,\n");
-    for(i=2;i<SIZE;i+=var)
-    {
-        init(i);
-        fprintf(fil,"%d,",i);
-        Knearest_CPU(i);
-        //print_distances(i);
-	    fprintf(fil,"\n");
-    }
+    //fprintf(fil,"SIZE,K-nearest CPU,\n");
+    
+    matrix = (int*) malloc(sizeof(int) * SIZE * SIZE);
+    matrix_dist = (int*) malloc(sizeof(int) * SIZE * SIZE);
+    
+    init(SIZE);
+    fprintf(fil,"%d,",SIZE);
+    Knearest_CPU(SIZE);
+    print_distances(SIZE);
+    fprintf(fil,"\n");
+    
+    free(matrix);
+    free(matrix_dist);
     
     fclose(fil);
     fclose(out);

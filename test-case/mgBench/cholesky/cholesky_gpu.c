@@ -110,8 +110,8 @@ void cholesky_GPU(int s)
             }
         }
     }
-    acc_free(a);
-	acc_free(b);
+    acc_free(acc_deviceptr(a));
+	acc_free(acc_deviceptr(b));
     
     finish = (float) clock() / (CLOCKS_PER_SEC * 1000);
     elapsed = finish - start;

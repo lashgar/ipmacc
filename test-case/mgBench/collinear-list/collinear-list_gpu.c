@@ -104,8 +104,8 @@ int colinear_list_points_GPU(int N)
 			}
 		}
 	}
-	acc_free(points);
-	acc_free(parallel_lines);
+	acc_free(acc_deviceptr(points));
+	acc_free(acc_deviceptr(parallel_lines));
 	
 	finish = (float) clock() / (CLOCKS_PER_SEC * 1000);
 	elapsed = finish - start;

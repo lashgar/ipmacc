@@ -145,9 +145,9 @@ void k_nearest_gpu(int s,int t)
        }
    }
    
-   acc_free(pivots);
-   acc_free(the_points);
-   acc_free(selected);
+   acc_free(acc_deviceptr(pivots));
+   acc_free(acc_deviceptr(the_points));
+   acc_free(acc_deviceptr(selected));
    
    finish = (float) clock() / (CLOCKS_PER_SEC*1000);
    elapsed = finish - start;
@@ -168,6 +168,7 @@ int main(int argc, char *argv[])
     if(argc!=2)
 	{
 	    printf("Error, you need to run in this format:\n./executable_name size\n");
+	    return 1;
 	}
 	SIZE = atoi(argv[1]);
     

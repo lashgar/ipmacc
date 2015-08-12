@@ -20,10 +20,10 @@
 #include <limits.h>
 #include <time.h>
 
-#define SIZE 1510
+int SIZE;
 
-int matrix[SIZE * SIZE];
-int matrix_dist[SIZE * SIZE];
+int *matrix;
+int *matrix_dist;
 
 FILE *fil;
 FILE *out;
@@ -47,6 +47,7 @@ void init(int s)
         {
             m = (((j*1021)*71 % (s * s))+1);
             matrix[i*s+j] = m;
+            if(i==j){matrix[i*s+j] = 0; }
         }
     }
 }
@@ -73,9 +74,9 @@ void Knearest_GPU(int s)
     start = (float) clock() / (CLOCKS_PER_SEC * 1000);
     #pragma acc data copy(matrix_dist[0:s])
     {
-        for(k=0;k<s;k++)
+        for(i=0;i<s;i++)
         {
-            for(i=0;i<s;i++)
+            for(k=0;k<s;k++)
             {
                 #pragma acc kernels
                 {
@@ -83,11 +84,11 @@ void Knearest_GPU(int s)
                     {
                         for(j=0;j<s;j++)
                         {
-                            if(matrix_dist[i*s+k]!=99999999 &&
-                            matrix_dist[k*s+j]!=99999999 &&
-                            matrix_dist[i*s+j]>matrix_dist[i*s+k]+matrix_dist[k*s+j])
+                            if(matrix_dist[k*s+i]!=99999999 &&
+                            matrix_dist[i*s+j]!=99999999 &&
+                            matrix_dist[k*s+j]>matrix_dist[k*s+i]+matrix_dist[i*s+j])
                             { 
-                                  matrix_dist[i*s+j] = matrix_dist[i*s+k] + matrix_dist[k*s+j];
+                                 matrix_dist[k*s+j] = matrix_dist[k*s+i] + matrix_dist[i*s+j];
                             }
                         }
                     }
@@ -95,10 +96,10 @@ void Knearest_GPU(int s)
             }
         }
     }
-    acc_free(matrix_dist);
+    acc_free( acc_deviceptr(matrix_dist) );
     finish = (float) clock() / (CLOCKS_PER_SEC * 1000);
     elapsed = finish - start;
-    fprintf(fil,"%.6lf,",elapsed);
+    fprintf(fil,"%.9lf,",elapsed);
 }
 
 /// print the distances calculated
@@ -120,22 +121,29 @@ int main(int argc, char *argv[])
 {
     int i;
     int points, var;
-    points = atoi(argv[1]);
-    var = SIZE/points;
+    if(argc!=2)
+    {
+        return 1;
+    }
+    SIZE = atoi(argv[1]);
 
-    fil = fopen("time_gpu.csv","w+");
+    fil = fopen("time_gpu.csv","a+");
     out = fopen("result_gpu.txt","w+");
 
-    fprintf(fil,"SIZE,K-nearest GPU\n");
-    for(i=(var-1);i<SIZE;i+=var)
-    {
-        init(i);
-        fprintf(fil,"%d,",i);
-        Knearest_GPU(i);
-        //print_distances(i);
-	    fprintf(fil,"\n");
-    }
-    
+    //fprintf(fil,"SIZE,K-nearest GPU\n");
+
+    matrix = (int*) malloc(sizeof(int) * SIZE * SIZE);
+    matrix_dist = (int*) malloc(sizeof(int) * SIZE * SIZE);
+
+    init(SIZE);
+    fprintf(fil,"%d,",SIZE);
+    Knearest_GPU(SIZE);
+    print_distances(SIZE);
+    fprintf(fil,"\n");
+
+    free(matrix);
+    free(matrix_dist);
+
     fclose(fil);
     fclose(out);
     return 0;

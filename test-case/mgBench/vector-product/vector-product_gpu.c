@@ -84,9 +84,9 @@ void product_GPU(int s)
 		}
 	}
 	
-	acc_free(a);
-    acc_free(b);
-    acc_free(c);
+	acc_free(acc_deviceptr(a));
+    acc_free(acc_deviceptr(b));
+    acc_free(acc_deviceptr(c));
 
 	finish = (double) clock() / (CLOCKS_PER_SEC * 1000);
 	elapsed = finish - start;

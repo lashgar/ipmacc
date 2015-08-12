@@ -89,9 +89,9 @@ int string_matching_GPU(int size_1, int size_2)
     		}
     	}
     }
-    acc_free(frase);
-    acc_free(palavra);
-    acc_free(vector);
+    acc_free(acc_deviceptr(frase));
+    acc_free(acc_deviceptr(palavra));
+    acc_free(acc_deviceptr(vector));
     
     for(i=0;i<parallel_size;i++)
     {

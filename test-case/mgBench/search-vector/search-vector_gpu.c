@@ -74,7 +74,7 @@ int search_GPU(int s)
 		}
 	}
 	
-	acc_free(a);
+	acc_free(acc_deviceptr(a));
 
 	finish = (double) clock() / (CLOCKS_PER_SEC*1000);
     elapsed = finish - start;
