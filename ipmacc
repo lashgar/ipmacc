@@ -74,12 +74,19 @@ elif [ "$ta" == "nvopencl" ] ; then
     fi
 else
     #fallback
-    if [ "$VERBOSE" == "1" ] ; then
-     echo "falling back to CUDA target"
-    fi
-    TARGETARCH="nvcuda"
     if [ "$CUDASUPPORT" != "1" ] ; then
-        echo 'warning: targeting for nvcuda while the environemnt is not setup for CUDA'
+        if [ "$VERBOSE" == "1" ] ; then
+         echo "falling back to CUDA target"
+        fi
+        TARGETARCH="nvcuda"
+    elif [ "$OPENCLSUPPORT" != "1" ] ; then
+        if [ "$VERBOSE" == "1" ] ; then
+         echo "falling back to OpenCL target"
+        fi
+        TARGETARCH="nvopencl"
+    else
+        echo 'fatal error! unable to find an enabled backend. enable CUDASUPPORT or OPENCLSUPPORT in setup_environment file.'
+        exit
     fi
 fi
 
