@@ -289,6 +289,9 @@ Generating a CUDA code corresponding to the given XML file.
 -Adding profiling support to code generator.
 -BUGFIX: in atomic directive
 
+0.8.5b
+-Adding support for Intel ISPC backend.
+
 =========================
 Component Description:
 preprocessor-<version>.py
