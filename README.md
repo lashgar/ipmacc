@@ -1,6 +1,6 @@
-IPMACC translates and executes OpenACC for C applications over CUDA or OpenCL runtime. First, the framework translates OpenACC for C API to CUDA and OpenCL. Then, it compiles the CUDA/OpenCL code with the system compiler allowing the execution of application over CUDA or OpenCL -capable devices.
+IPMACC translates and executes OpenACC for C applications over CUDA, OpenCL, and Intel ISPC. First, the framework translates OpenACC for C API to CUDA/OpenCL/ISPC source. Then, it compiles the CUDA/OpenCL/ISPC code with the system compiler allowing the execution of application over CUDA or OpenCL -capable devices or SIMD of the CPU (using ISPC).
 
-IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also allows user-defiend data types and function calls within accelerator regions. We believe IPMACC is more of translator than a compiler, outputing the CUDA/OpenCL code which is equivalent to the input OpenACC code. It allows further optimization by CUDA developer. We believe there can be performed many optimizations in translations, and this is what we are looking forward to. Also IPMACC can be used as a framework for extending OpenACC framework and evaluating new directive/clauses. Please refer to Limitation section of this document to overview supported directives and API calls.
+IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also allows user-defiend data types and function calls within accelerator regions. We believe IPMACC is more of translator than a compiler, outputing the CUDA/OpenCL/ISPC code which is equivalent to the input OpenACC code. It allows further optimization by expert developer. We believe there can be performed many optimizations in translations, and this is what we are looking forward to. Also IPMACC can be used as a framework for extending OpenACC framework and evaluating new directive/clauses. Please refer to Limitation section of this document to overview supported directives and API calls.
 
 # Getting Started:
 * Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
@@ -16,11 +16,11 @@ IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also
 
 
 # Usage:
-* IPMACC is a command-line tool reading single source and generating the destination CUDA/OpenCL source (and also the object or binary). It has few limited compile switch. See the available switches with the following commands:
+* IPMACC is a command-line tool reading single source and generating the destination source code (and also the object or binary). It has few limited compile switch. See the available switches with the following commands:
 
 `$ ipmacc --help`
 
-* In a case that there is a switch which IPMACC does not understands, IPMACC passes the switch to the system compiler. Hence, technically, IPMACC accepts all switches of the system compiler. The system compiler is `nvcc` in case of CUDA target and `gcc` in case of OpenCL target. Examples:
+* In a case that there is a switch which IPMACC does not understands, IPMACC passes the switch to the system compiler. Hence, technically, IPMACC accepts all switches of the system compiler. The system compiler is `nvcc` in case of CUDA, `gcc` in case of OpenCL, and `gcc`/`ispc` in case of ISPC target. Examples:
     * In case of CUDA backend, which is the default, the following command generates a binary for Kepler GPUs:
       `$ ipmacc acc_source.cpp -arch=sm_35 -o binary`
 
@@ -66,9 +66,9 @@ If you had any question or thinking of any issue, create a new issue thread here
 # Publications:
 **[1]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Open Source OpenACC to CUDA/OpenCL Translator"**, arXiv:1412.1127 [cs.PL], December 2, 2014.
 
-**[2]** Ebad Salehi, Ahmad Lashgar, and Amirali Baniasadi, **"Compiler-Enhanced Memory Bandwidth Usage Reduction in OpenACC"**, In proceedings of the 30th ACM/SIGAPP Symposium On Applied Computing (SAC2015), Salamanca, Spain, April 13 - 17, 2015.
+**[2]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Translating OpenACC API to OpenCL"**, To be appeared in The 3rd International Workshop on OpenCL (IWOCL), Stanford University, California, USA, May 11-13, 2015.
 
-**[3]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Translating OpenACC API to OpenCL"**, To be appeared in The 3rd International Workshop on OpenCL (IWOCL), Stanford University, California, USA, May 11-13, 2015.
+**[3]** Ahmad Lashgar and Amirali Baniasadi, **"Employing Software-Managed Caches in OpenACC: Opportunities and Benefits"**, To appear in ACM Transactions on Modeling and Performance Evaluation of Computing Systems (ToMPECS), Accepted on June 28, 2015.
 
 # References:
 **[1]** Mark Hariss. Available: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
