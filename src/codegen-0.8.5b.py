@@ -389,7 +389,7 @@ class codegen(object):
             self.code=srcml_prefix_functions(self.code, self.oacc_kernelsParent)
         elif self.target_platform=='OPENCL':
             nop=True
-        if self.target_platform=='ISPC':
+        elif self.target_platform=='ISPC':
             self.code=srcml_prefix_functions(self.code, self.oacc_kernelsParent)
         else:
             print 'error: unimplemented platform #'+str(getframeinfo(currentframe()).lineno)
@@ -860,6 +860,8 @@ class codegen(object):
         code=''
         if self.target_platform=='CUDA' or self.target_platform=='OPENCL':
             code+='acc_present((void*)'+host+');\n'
+        elif self.target_platform=='ISPC':
+            code+='// skipping acc_present on ISPC\n'
         else:
             print 'error: unimplemented platform #' +str(getframeinfo(currentframe()).lineno)
             exit(-1)
@@ -2494,8 +2496,8 @@ class codegen(object):
         kerId_str=str(kerId)
         # prepare non-standard types
         type_decls=''
-        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
-        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
+        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
+        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
         #print 'kernel#'+kerId_str+': '+','.join(intT)
         for [nm, fwdcl, fudcl, oclfudcl] in self.active_types_decl:
             for intTe in intT:
@@ -3240,8 +3242,9 @@ class codegen(object):
         #self.ispc_kerneldecl+=kerDec
         [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kerId)
         if nctadim>1:
-            print 'fatal error: internal compiler error: multiple loops are parallelized under ispc!'+str(getframeinfo(currentframe()).lineno)
-            exit(-1)
+            print 'warning: multiple loops are parallelized under ispc, only the must inner is considered for vector parallelization!'+str(getframeinfo(currentframe()).lineno)
+            #print kerDec
+            #exit(-1)
 
         # no need to adjust gang-size, proceed with implicit or compile-time configuration
 
@@ -3260,18 +3263,27 @@ class codegen(object):
         func_proto=self.getFuncProto_opencl()
         # prepare the declaration of function called in the regions
         func_decl =self.getFuncDecls_opencl()
-        if func_proto+func_decl!='':
-            print 'function call in the region is not supported on ispc backend.\nexiting with failure.\n'+str(getframeinfo(currentframe()).lineno)
-            exit(-1)
+        #if func_proto+func_decl!='':
+        #    print 'function call in the region is not supported on ispc backend.\nexiting with failure.\n'+str(getframeinfo(currentframe()).lineno)
+        #    print 'function declaration:'
+        #    print func_decl
+        #    print 'function prototype:'
+        #    print func_proto
+        #    exit(-1)
         #cleanKerDec=statmnts+kerDec
         kerId_str=str(kerId)
         # prepare non-standard types
         type_decls=''
-        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
-        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
+        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
+        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
         #print 'kernel#'+kerId_str+': '+','.join(intT)
+        #for intVe, intTe in zip(intV, intT):
+        #    print intVe, intTe
+        #print '========='
+        #print cleanKerDec+'\n'+func_decl
+        #exit(-1)
         for [nm, fwdcl, fudcl, oclfudcl] in self.active_types_decl:
-            print 'warning: arbitrary type is not implemented for ISPC.'
+            #print 'warning: arbitrary type is not implemented for ISPC.'
             for intTe in intT:
                 if intTe.find(nm)!=-1:
                     if DEBUGFWDCL: print 'type is active in this kernel: '+nm
@@ -3367,10 +3379,8 @@ class codegen(object):
         self.code=self.code.replace(self.prefix_kernel+str(kerId)+'();',atomicCodePreKernel+kernelInvoc+atomicCodePostKernel)
         self.code_kernels.append('\n{\n'+atomicCodePreKernel+kernelInvoc+atomicCodePostKernel+'\n}\n')
         #print self.code
-
     def includeHeaders_ispc(self):
         self.code_include+='// no header for ISPC\n'
-
     def getFuncProto_ispc(self):
         code=''
         for [fname, prototype, declbody] in self.active_calls_decl:
@@ -3378,12 +3388,13 @@ class codegen(object):
         for [fname, prototype, declbody] in self.active_calls_decl:
             code=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'(', code)
         return code
-    
     def generate_kernel_file_ispc(self):
         ispcfile='.'.join(self.foname.split('.')[0:-1])+'.ispc'
         print '\twarning: Storing ispc kernels in '+ispcfile
         f=open(ispcfile, 'w')
-        f.write(self.ispc_kerneldecl)
+        #code=re.sub('\\b'+'int'+'[\\ \\t\\n\\r]*','int32 ', self.ispc_kerneldecl)
+        code=self.ispc_kerneldecl
+        f.write(code)
         f.close()
 
     # Marking for final replacement
@@ -5307,7 +5318,7 @@ class codegen(object):
                         code+='} // closed for reduction-end\n'
                     # terminate if statement
                     code=code+'\n'
-                elif self.target_platform=='ISPC' and root.attrib['lastlevel']=='true':
+                elif self.target_platform=='ISPC' and root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
                     dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
                     iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
                     code+='\nfor('
@@ -5330,7 +5341,7 @@ class codegen(object):
             elif root.tag=='c':
                 code=code+root.text.strip()+'\n'
         except Exception as e:
-            print 'exception! dumping the code:\n'+self.code+code
+            print 'exception! dumping the code: #'+str(getframeinfo(currentframe()).lineno)+'\n'+self.code+code
             print e
             exit(-1)
         return code

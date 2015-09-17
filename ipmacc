@@ -62,7 +62,60 @@ if [ "$VERBOSE" == "1" ] ; then
  echo ' CFLAG: '$CFLAG
 fi
 
-# 4. destination of code generation 
+
+
+# 4. find the arguments and pass proper args to nvcc directly
+ARGS=(${@})
+NARG=${#ARGS[@]}
+#echo $ARGS $NARG
+NVCCARGS=
+OPTIMIZATION= #optimization swtiches
+
+LISTANDEXIT=
+LISTANDEXITPAR=
+for (( i = 0 ; i < $NARG ; i++ )) ; do
+    # check for pending args
+    if [ "$pendingta" == "1" ] ; then
+        ta=${ARGS[i]}
+        pendingta="0"
+        continue
+    elif [ "$pendingaccfile" == "1" ] ; then
+        INFILE=${ARGS[i]}
+        pendingaccfile="0"
+        continue
+    elif [ "$pendingoptimization" == "1" ] ; then
+        OPTIMIZATION=${ARGS[i]}
+        pendingoptimization="0"
+        continue
+    fi
+
+    # parse new arg
+    if [ "${ARGS[i]}" == "--cflags" ] ; then
+        LISTANDEXIT=cflags
+    elif [ "${ARGS[i]}" == "--ldflags" ] ; then
+        LISTANDEXIT=ldflags
+    elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--help" ] ; then
+        LISTANDEXIT=help
+    elif [ "${ARGS[i]}" == "--list-devices" ] ; then
+        LISTANDEXIT=devices
+        LISTANDEXITPAR=${ARGS[i+1]}
+    elif [ "${ARGS[i]}" == "--list-backends" ] ; then
+        LISTANDEXIT=backends
+    elif [ "${ARGS[i]}" == "--version" ] ; then
+        LISTANDEXIT=version
+    elif [ "${ARGS[i]}" == "--ta" ] ; then
+        pendingta="1"
+    elif [ "${ARGS[i]}" == "--accfile" ] ; then
+        pendingaccfile="1"
+    elif [ "${ARGS[i]}" == "--enable" ] ; then
+        pendingoptimization="1"
+    elif [ "$i" != "0" ] ; then
+        # append this arg
+        NVCCARGS="${NVCCARGS} ${ARGS[i]}"
+    fi
+done;
+
+# 5. destination of code generation 
 TARGETARCH=
 if [ "$ta" == "nvcuda" ] ; then
     if [ "$CUDASUPPORT" != "1" ] ; then
@@ -97,38 +150,14 @@ else
         fi
         TARGETARCH="intelispc"
     else
-        echo 'fatal error! unable to find an enabled backend. enable CUDASUPPORT or OPENCLSUPPORT in setup_environment file.'
+        echo 'fatal error! unable to find an enabled backend. enable CUDASUPPORT, OPENCLSUPPORT, or ISPCSUPPORT in setup_environment file.'
         exit
     fi
 fi
 
-
-
-
-# 5. find the arguments and pass proper args to nvcc directly
-ARGS=(${@})
-NARG=${#ARGS[@]}
-#echo $ARGS $NARG
-NVCCARGS=
-OPTIMIZATION= #optimization swtiches
-for (( i = 0 ; i < $NARG ; i++ )) ; do
-    # check for pending args
-    if [ "$pendingta" == "1" ] ; then
-        ta=${ARGS[i]}
-        pendingta="0"
-        continue
-    elif [ "$pendingaccfile" == "1" ] ; then
-        INFILE=${ARGS[i]}
-        pendingaccfile="0"
-        continue
-    elif [ "$pendingoptimization" == "1" ] ; then
-        OPTIMIZATION=${ARGS[i]}
-        pendingoptimization="0"
-        continue
-    fi
-
-    # parse new arg
-    if [ "${ARGS[i]}" == "--cflags" ] ; then
+# Skip if this is only for listing.
+if [ "$LISTANDEXIT" != "" ] ; then
+    if [ "$LISTANDEXIT" == "cflags" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             echo -D__NVCUDA__ $CFLAG
         elif [ $TARGETARCH == "nvopencl" ] ; then
@@ -137,16 +166,14 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
             echo -D__INTELISPC__ $CFLAG
         fi
         exit 1
-    elif [ "${ARGS[i]}" == "--ldflags" ] ; then
+    elif [ "$LISTANDEXIT" == "ldflags" ] ; then
         echo $LDFLAG
-        exit 1
-    elif [ "${ARGS[i]}" == "-h" ] || [ "${ARGS[i]}" == "--help" ] ; then
+    elif [ "$LISTANDEXIT" == "help" ] ; then
         usage
         exit 1
-    elif [ "${ARGS[i]}" == "--list-devices" ] ; then
-        $path/src/listdevices ${ARGS[i+1]}
-        exit 1
-    elif [ "${ARGS[i]}" == "--list-backends" ] ; then
+    elif [ "$LISTANDEXIT" == "devices" ] ; then
+        $path/src/listdevices $LISTANDEXITPAR
+    elif [ "$LISTANDEXIT" == "backends" ] ; then
         if [ "$CUDASUPPORT" == "1" ] ; then
             echo 'CUDA backend   [Enabled ]'
         else
@@ -162,23 +189,13 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         else
             echo 'ISPC backend   [Disabled]'
         fi
-        exit 1
-    elif [ "${ARGS[i]}" == "--version" ] ; then
-    #elif [ "${ARGS[i]}" == "-v" ] || [ "${ARGS[i]}" == "--version" ] ; then
+    elif [ "$LISTANDEXIT" == "version" ] ; then
         version
-        exit 1
-    elif [ "${ARGS[i]}" == "--ta" ] ; then
-        pendingta="1"
-    elif [ "${ARGS[i]}" == "--accfile" ] ; then
-        pendingaccfile="1"
-    elif [ "${ARGS[i]}" == "--enable" ] ; then
-        pendingoptimization="1"
-    elif [ "$i" != "0" ] ; then
-        # append this arg
-        NVCCARGS="${NVCCARGS} ${ARGS[i]}"
     fi
-done;
+    exit 1
+fi
 
+# File naming
 if [ "$INFILE" == "" ] ; then
     INFILE=$1
 fi
@@ -291,6 +308,7 @@ if [ "$?" == "0" ] ; then
             $ISPC $ISPCFLAG $ISPCKERNEL -D__INTELISPC__ -o $ISPCKERNELOBJ
             if [ "$?" != "0" ] ; then
                 echo "[failed] ispc failed to generate the object code"
+                exit 255
             fi
             # 5. CC to compile the compile host and link
             if [ "$VERBOSE" == "1" ] ; then
