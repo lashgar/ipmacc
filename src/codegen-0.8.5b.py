@@ -3060,7 +3060,6 @@ class codegen(object):
             print 'unimplemented atomic clause: '+atomicClause
             exit(-1)
 
-
     # ispc platform
     def constructKernel_ispc(self, args, decl, kernelB, kernelId, privinfo, reduinfo, ctasize, forDims, template, smcinfo):
         [nctadim, ctadimx, ctadimy, ctadimz]=ctasize
