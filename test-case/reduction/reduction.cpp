@@ -50,6 +50,7 @@ int main(){
 		}
 		cout<<"cpu result:"<<sum2<<endl;
 		cout<<"gpu result:"<<sum<<endl;
+        assert(sum2==sum);
 		cout<<"array size:"<<arr_size<<endl;
 		arr_size++;	
 		assert(sum == sum2);

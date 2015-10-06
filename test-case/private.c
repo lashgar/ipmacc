@@ -44,7 +44,7 @@ int main()
         {
             #pragma acc kernels copyout(maX)
             {
-                #pragma acc loop independent reduction(max:maX,+:sum) 
+                #pragma acc loop independent private(maX,sum)
                 for (i = 0; i < SIZE; ++i)
                 {
                     float x=0;

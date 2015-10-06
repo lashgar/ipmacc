@@ -315,7 +315,8 @@ if [ "$?" == "0" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
              echo "$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS"
             fi
-            $CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
+            $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+            #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
             fi

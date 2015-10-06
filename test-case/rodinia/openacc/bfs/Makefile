@@ -20,5 +20,8 @@ cuda:
 opencl:
 	ta=nvopencl $(ACC) bfs_IPMACC.cpp -o bfs_opencl $(ACL_FLAGS) 
 
+ispc:
+	ta=intelispc $(ACC) bfs_IPMACC.cpp -o bfs_ispc $(ACL_FLAGS) 
+
 clean:
 	rm -f bfs_cuda bfs_g++ bfs_opencl result*txt  *_ipmacc.c* *.txt *.log

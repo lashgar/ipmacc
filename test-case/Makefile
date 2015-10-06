@@ -43,6 +43,6 @@ smccuda:
 	$(CC) smc_readonly_micbench.c -I /share/users/alashgar/NVIDIA_GPU_Computing_SDK/C/common/inc/ -L/share/users/alashgar/NVIDIA_GPU_Computing_SDK/C/lib -lcutil -o smc_readonly.cuda
 
 clean:
-	rm *.o *.cuda *.ocl a.out *_ipmacc.c *_ipmacc.cu *_ipmacc.cpp -f
+	rm *.o *.cuda *.ocl a.out *_ipmacc.c *_ipmacc.cu *_ipmacc.cpp *_ipmacc.ispc -f
 	make clean -C rodinia/
 	make clean -C microbenchmarks/

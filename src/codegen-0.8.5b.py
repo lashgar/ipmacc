@@ -778,6 +778,7 @@ class codegen(object):
         elif self.target_platform=='OPENCL':
             return self.reduceVariable_opencl(var, type, op, ctasize, nesteddepth)
         else:
+            return self.reduceVariable_ispc(var, type, op, ctasize, nesteddepth)
             print 'error: unimplemented platform #' +str(getframeinfo(currentframe()).lineno)
             exit(-1)
     def codegen_constructKernel(self, args, decl, kernelB, kernelId, privinfo, reduinfo, ctasize, forDims, smcinfo):
@@ -925,7 +926,7 @@ class codegen(object):
         elif self.target_platform=='OPENCL':
             return self.getFuncProto_opencl()
         elif self.target_platform=='ISPC':
-            print 'warning: function call is not implemented for ispc. #'+str(getframeinfo(currentframe()).lineno)
+            #print 'warning: function call is not implemented for ispc. #'+str(getframeinfo(currentframe()).lineno)
             return self.getFuncProto_ispc()
         else:
             print 'error: unimplemented platform #' +str(getframeinfo(currentframe()).lineno)
@@ -3091,7 +3092,7 @@ class codegen(object):
             readOnlyNotSupported = True #FIXME fix this to add ispc support
         # fetch __ipmacc_scalar into register
         for sc in args:
-            print 'warning: scalar is not implemented for ISPC.'
+            # print 'warning: scalar is not implemented for ISPC.'
             if sc.find('__ipmacc_scalar')!=-1:
                 vname=sc.split(' ')[-1]
                 type=sc.replace(vname,'').replace('*','')
@@ -3124,27 +3125,27 @@ class codegen(object):
             reduinfo.reverse()
             # 2) 2) allocate shared memory reduction array
             #types=list(set(types))
-            for [v, i, o, a, t, depth] in reduinfo:
-            #for t in types:
-                #code=code+'__local '+t+' '+self.prefix_kernel_reduction_shmem+t+'['+ctasize+'];\n'
-                neutralvalue=self.get_neutralValueForOperation(o)
-                if not(ctadimx.isdigit() and ctadimy.isdigit() and ctadimz.isdigit()):
-                    print 'error: thread block dimension should be fixed for reduction!\n\tuse vector clause over loop directives to fix it.'
-                    exit(-1)
-                if depth=='0':
-                    code=code+'__local '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+'*'.join([ctadimx,ctadimy,ctadimz])+'];\n'
-                    code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(0)+get_local_id(1)*get_local_size(0)+get_local_id(2)*(get_local_size(0)*get_local_size(1))]='+neutralvalue+';\n'
-                    code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
-                elif depth=='1':
-                    code=code+'__shared__ '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+ctadimz+']['+'*'.join([ctadimx,ctadimy])+'];\n'
-                    code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(2)][get_local_id(0)+get_local_id(1)*get_local_size(0)]='+neutralvalue+';\n'
-                    code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
-                elif depth=='2':
-                    code=code+'__shared__ '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+'*'.join([ctadimy,ctadimz])+']['+ctadimx+'];\n'
-                    code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(1)+get_local_id(2)*get_local_size(1)][get_local_id(0)]='+neutralvalue+';\n'
-                    code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
-                else:
-                    print 'unsupported reduction configuration!'
+            #for [v, i, o, a, t, depth] in reduinfo:
+            ##for t in types:
+            #    #code=code+'__local '+t+' '+self.prefix_kernel_reduction_shmem+t+'['+ctasize+'];\n'
+            #    neutralvalue=self.get_neutralValueForOperation(o)
+            #    if not(ctadimx.isdigit() and ctadimy.isdigit() and ctadimz.isdigit()):
+            #        print 'error: thread block dimension should be fixed for reduction!\n\tuse vector clause over loop directives to fix it.'
+            #        exit(-1)
+            #    if depth=='0':
+            #        code=code+'__local '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+'*'.join([ctadimx,ctadimy,ctadimz])+'];\n'
+            #        code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(0)+get_local_id(1)*get_local_size(0)+get_local_id(2)*(get_local_size(0)*get_local_size(1))]='+neutralvalue+';\n'
+            #        code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
+            #    elif depth=='1':
+            #        code=code+'__shared__ '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+ctadimz+']['+'*'.join([ctadimx,ctadimy])+'];\n'
+            #        code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(2)][get_local_id(0)+get_local_id(1)*get_local_size(0)]='+neutralvalue+';\n'
+            #        code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
+            #    elif depth=='2':
+            #        code=code+'__shared__ '+t+' '+self.prefix_kernel_reduction_shmem+v+'['+'*'.join([ctadimy,ctadimz])+']['+ctadimx+'];\n'
+            #        code+=self.prefix_kernel_reduction_shmem+v+'[get_local_id(1)+get_local_id(2)*get_local_size(1)][get_local_id(0)]='+neutralvalue+';\n'
+            #        code+='barrier(CLK_LOCAL_MEM_FENCE);\n'
+            #    else:
+            #        print 'unsupported reduction configuration!'
 
             rfreelist=list(set(rfreelist))
             # 2) 3) free remaining fcalls
@@ -3248,6 +3249,7 @@ class codegen(object):
         # no need to adjust gang-size, proceed with implicit or compile-time configuration
 
         # remove undefined declaration from __kernel in three steps: 1) append kernel to code, 2) parse it using cpp, 3) extract the kernel back
+        #print self.code+'\n'+kerDec
         cleanKerDec=''
         for [tp,incstm] in self.code_getAssignments(self.var_parseForYacc(self.code+'\n'+kerDec),['fcn']):
             #if incstm.strip()[0:8]=='__kernel':
@@ -3395,6 +3397,34 @@ class codegen(object):
         code=self.ispc_kerneldecl
         f.write(code)
         f.close()
+
+    def reduceVariable_ispc(self, var, type, op, ctasize, nesteddepth):
+        arrname=self.prefix_kernel_reduction_shmem+var
+        iterator=self.prefix_kernel_reduction_iterator
+        code ='\n/* reduction on '+var+' */\n'
+        code +='{\n'
+
+        #if nesteddepth=='0':
+        #    print nesteddepth
+        #else:
+        #    print 'unsupported reduction configuration!'
+        #    exit(-1)
+        des=var+'__ipmacc_reductionarray_internal[0]'
+        src=var
+        if op=='min':
+            code+=des+'=reduce_min('+src+');\n'
+        elif op=='max':
+            code+=des+'=reduce_max('+src+');\n'
+        elif op=='+':
+            code+=des+'=reduce_add('+src+');\n'
+        else:
+            print 'unsupported reduction operation!'
+            exit(-1)
+        code+='}\n'
+        code+='}// the end of '+var+' scope\n'
+        #print code
+        return code
+
 
     # Marking for final replacement
     def mark_implicitcopy(self,inout,kid):
@@ -5317,18 +5347,39 @@ class codegen(object):
                         code+='} // closed for reduction-end\n'
                     # terminate if statement
                     code=code+'\n'
-                elif self.target_platform=='ISPC' and root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
-                    dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
-                    iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
-                    code+='\nfor('
-                    code+=root.attrib.get('declared')+' ' #append iterator type if it is carried
-                    code+=root.attrib.get('iterator')+'='+iteratorVal+'\n'
-                    code+=root.attrib.get('boundary')+';\n'
-                    code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
+                elif self.target_platform=='ISPC':
+                    # private/reduction
+                    if root.attrib.get('private')!='' or root.attrib.get('reduction')!='':
+                        # generate private/reduction declaration
+                        separator=(',' if (root.attrib.get('private')!='' and root.attrib.get('reduction')!='') else '')
+                        variables=root.attrib.get('private')+separator+root.attrib.get('reduction')
+                        code+='{ //opened for private and reduction\n'
+                        code=code+'/*private:'+variables+'*/\n'
+                        code=code+self.prefix_kernel_privred_region+str(len(self.oacc_loopPrivatizin))+'();'+'\n'
+                        self.oacc_loopPrivatizin.append([id,variables])
+                    #if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
+                    if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
+                        dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
+                        iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
+                        code+='\nfor('
+                        code+=root.attrib.get('declared')+' ' #append iterator type if it is carried
+                        code+=root.attrib.get('iterator')+'='+iteratorVal+'\n'
+                        code+=root.attrib.get('boundary')+';\n'
+                        code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
+                    else:
+                        code=code+self.code_gen_reversiFor(root.attrib.get('initial'),root.attrib.get('boundary'),root.attrib.get('increment'))+'\n'
                     # go through childs
                     for ch in root:
                         code=code+self.var_kernel_genPlainCode(id, ch, nesting+1)
                     code=code+'\n'
+                    if root.attrib.get('reduction')!='':
+                        # generate reduction operations
+                        variables=root.attrib.get('reduction')+':'+str(nesting)
+                        code=code+'/*reduction:'+variables+'*/\n'
+                        code=code+self.prefix_kernel_reduction_region+str(len(self.oacc_loopReductions))+'();\n'
+                        self.oacc_loopReductions.append([id,variables])
+                    if root.attrib.get('private')!='' or root.attrib.get('reduction')!='':
+                        code+='} // closed for reduction-end\n'
                 else:
                     # generate `for` statement
                     code=code+self.code_gen_reversiFor(root.attrib.get('initial'),root.attrib.get('boundary'),root.attrib.get('increment'))+'\n'

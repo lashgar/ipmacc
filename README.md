@@ -51,6 +51,7 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
     * Default reduction type is two-level tree reduction [1]. Alternatively for CUDA, atomic reduction is implemented and it is supported only on recent hardwares (compute capability >= 1.3). Proper flag should be passed to underlying NVCC; add `-arch=sm_13` compile flag.
 * To gurantee proper device allocation and release, it is necessary to use acc_init() early in the code to avoid potentially runtime errors. This is essential for the OpenCL target devices.
 * IPMACC can parallel the iterations of loops with the following increment steps: +, -, ++, --, *, /
+* ISPC backend support is experimental right now. Only one loop can be executed in parallel (over SIMD). Planning to execute the second parallel loop over ISPC tasks. Also min, max, and sum reduction operations are only supported.
 
 # Contributors:
 * Ahmad Lashgar, University of Victoria
@@ -72,3 +73,6 @@ If you had any question or thinking of any issue, create a new issue thread here
 
 # References:
 **[1]** Mark Hariss. Available: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
+
+**[2]** Matt Pharr and William R. Mark. **"ispc: A SPMD Compiler for High-Performance CPU Programming"**, In Proceedings Innovative Parallel Computing (InPar), San Jose, CA, May 2012.
+
