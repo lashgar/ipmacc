@@ -18,6 +18,7 @@ endif
 
 all: libopenacc listdevices
 	./listdevices CUDA
+	./listdevices OCL
 
 libopenacc: openacc.o openacc_container.o 
 	@echo 'CFLAG : '$(CFLAG)

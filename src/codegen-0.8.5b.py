@@ -2545,7 +2545,7 @@ class codegen(object):
         cleanKerDec=type_decls+'\n'+func_proto+'\n'+func_decl+'\n'+smc_select_calls+'\n'+cleanKerDec
         # prepare the string
         cleanKerDec=cleanKerDec.replace('"','\"')
-        cleanKerDec=cleanKerDec.replace('\n','\\n')
+        cleanKerDec=cleanKerDec.replace('\n','\\\n')
         kernelInvoc='\n/* kernel call statement*/\n'
         kernelInvoc+='static cl_kernel __ipmacc_clkern'+kerId_str+'=NULL;\n'
         kernelRandomId=str(randint(1,10000000))

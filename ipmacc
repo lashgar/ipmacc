@@ -294,7 +294,7 @@ if [ "$?" == "0" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
              echo "$CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__"
             fi
-            $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__
+            $CXX $NVCCARGS $OUTPUT -D__NVOPENCL__ $CFLAG $LDFLAG 
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
             fi

@@ -18,7 +18,7 @@ export OPENCLINC=/opt/intel/opencl/include/
 
 # ISPC
 export ISPCSUPPORT=1
-export ISPCHOME=/home/lashgar/opt/ispc/
+export ISPCHOME=/home/lashgar/opt/ispc-1.8.3v/
 
 # no modification is needed for the following lines
 export LD_LIBRARY_PATH=$IPMACCROOT/lib:$LD_LIBRARY_PATH
