@@ -19,8 +19,11 @@ cuda: hurricane_gen
 opencl: hurricane_gen
 	ta=nvopencl $(ACC) nn_openacc.cpp $(ACL_FLAGS) -o nn_$(ACC)_ocl -lm
 
+ispc: hurricane_gen
+	ta=intelispc $(ACC) nn_openacc.cpp $(ACL_FLAGS) -o nn_$(ACC)_ispc -lm
+
 hurricane_gen:
 	$(CC) hurricane_gen.c $(CC_FLAGS) -lm -o hurricane_gen
 	 
 clean :
-	rm -f *.o nn_$(ACC) nn_$(CC) hurricane_gen *_ipmacc* *txt
+	rm -f *.o nn_$(ACC) nn_$(CC) hurricane_gen *_ipmacc* *txt *ispc out.*

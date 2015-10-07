@@ -1,6 +1,8 @@
 time ./nn_g++ filelist_4 -r 5 -lat 30 -lng 90 > out.g++.txt
-time ./nn_ipmacc_cuda filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_cuda.txt
-time ./nn_ipmacc_opencl filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_opencl.txt
+#time ./nn_ipmacc_cuda filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_cuda.txt
+time ./nn_ipmacc_ocl filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_opencl.txt
+time ./nn_ipmacc_ispc filelist_4 -r 5 -lat 30 -lng 90 > out.ipmacc_ispc.txt
 #echo 'RUNNING NEW BENCHMARK NN' >> ~/run_script/diff_error
 #diff out.g++.txt out.ipmacc_cuda.txt >> ~/run_script/diff_error
-#diff out.g++.txt out.ipmacc_opencl.txt >> ~/run_script/diff_error
+diff out.g++.txt out.ipmacc_opencl.txt #>> ~/run_script/diff_error
+diff out.g++.txt out.ipmacc_ispc.txt #>> ~/run_script/diff_error

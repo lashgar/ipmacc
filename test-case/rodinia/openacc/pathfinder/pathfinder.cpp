@@ -102,7 +102,8 @@ void run(int argc, char** argv)
     //memset(data, 0, sizeof(int)*rows*cols);
 
     pin_stats_reset();
-    #pragma acc data copyin(src[0:cols],data[0:rows*cols]) copyout(dst[0:cols])
+    //#pragma acc data copyin(src[0:cols],data[0:rows*cols]) copyout(dst[0:cols])
+    #pragma acc data copy(src[0:cols],data[0:rows*cols],dst[0:cols])
     {
         int t;
         for ( t = 0; t < rows-1; t++) {

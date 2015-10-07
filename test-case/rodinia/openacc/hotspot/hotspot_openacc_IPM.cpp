@@ -42,7 +42,7 @@ void single_iteration(double *result, double *temp, double *power, int row, int 
 	#pragma acc kernels present(temp, power, result)
 	#pragma acc loop independent
 	for (r = 0; r < row; r++) {
-		#pragma acc loop independent
+		#pragma acc loop independent private(delta)
 		for (c = 0; c < col; c++) {
   			/*	Corner 1	*/
             int S=(r==(row-1))?row-1:r+1;
@@ -50,7 +50,7 @@ void single_iteration(double *result, double *temp, double *power, int row, int 
             int W=(c==(0))?0:c-1;
             int E=(c==(col-1))?col-1:c+1;
             //for(iter=0; iter<tot_iter; iter++){
-			    	delta = (stepCap) * (power[r*col+c] + 
+				delta = (stepCap) * (power[r*col+c] + 
 			    			(temp[S*col+c] + temp[N*col+c] - 2.0*temp[r*col+c])*rRy + 
 			    			(temp[r*col+E] + temp[r*col+W] - 2.0*temp[r*col+c])*rRx + 
 			    			(amb_temp - temp[r*col+c])*rRz);

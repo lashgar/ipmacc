@@ -1,7 +1,9 @@
-INPUT="1024 1024 2  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
+INPUT="1024 1024 64  ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024"
 time ./hotspot_g++ $INPUT > result.g++.txt
-time ./hotspot_ipmacc_cuda  $INPUT > result.ipmacc_cuda.txt
+#time ./hotspot_ipmacc_cuda  $INPUT > result.ipmacc_cuda.txt
 time ./hotspot_ipmacc_opencl $INPUT > result.ipmacc_opencl.txt
+time ./hotspot_ipmacc_ispc   $INPUT > result.ipmacc_ispc.txt
 #echo 'RUNNING NEW BENCHMARK HOTSPOT' >> ~/run_script/diff_error
-diff result.g++.txt result.ipmacc_cuda.txt #>> ~/run_script/diff_error
+#diff result.g++.txt result.ipmacc_cuda.txt #>> ~/run_script/diff_error
 diff result.g++.txt result.ipmacc_opencl.txt #>> ~/run_script/diff_error
+diff result.g++.txt result.ipmacc_ispc.txt #>> ~/run_script/diff_error

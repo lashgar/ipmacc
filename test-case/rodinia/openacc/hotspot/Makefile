@@ -10,6 +10,7 @@ CC_FLAGS = -O2 $(DUMPOUT)
 ACC = ipmacc
 ACC_FLAGS = -O2 $(DUMPOUT) $(ARCH)
 ACL_FLAGS = -O2 $(DUMPOUT)
+ACI_FLAGS = -O2 $(DUMPOUT)
 
 cpu:
 	$(CC)  hotspot_openacc_IPM.cpp -o hotspot_$(CC)  $(CC_FLAGS) 
@@ -21,5 +22,8 @@ cuda:
 opencl:
 	ta=nvopencl $(ACC) hotspot_openacc_IPM.cpp -o hotspot_$(ACC)_opencl $(ACL_FLAGS) 
 
+ispc:
+	ta=intelispc $(ACC) hotspot_openacc_IPM.cpp -o hotspot_$(ACC)_ispc $(ACI_FLAGS) 
+
 clean:
-	rm -f hotspot_$(CC) hotspot_$(ACC)* *.o a.out result*txt *_ipmacc.cu *_ipmacc.cpp *txt .perf*
+	rm -f hotspot_$(CC) hotspot_$(ACC)* *.o a.out result*txt *_ipmacc.cu *_ipmacc.cpp *txt .perf* *ispc
