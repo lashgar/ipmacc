@@ -14,6 +14,8 @@
 #define width 640
 #define height 480
 
+#define char int8
+
 int main()
 {
     double x,y;
@@ -21,7 +23,7 @@ int main()
     double xend, yend;
     double z,zi,newz,newzi;
     double colour;
-    int iter;
+    int iter=10;
     long col;
     char *pic;//[height][width][3];
     int i,j,k;
@@ -125,3 +127,4 @@ int main()
     write(fd, pic, width*height*3);
     close(fd);
 }
+

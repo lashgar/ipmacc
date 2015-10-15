@@ -4,7 +4,7 @@
 //#include <accelmath.h>
 #include <math.h>
 
-#define LEN 8
+#define LEN 1024
 #define SIZE LEN*LEN
 
 int main(int argc, char *argv[])
@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
     // ****************
     // Perform the add
 
+    /*
     printf("A:\n");
     for (i = 0; i < LEN; ++i) {
        for(j=0; j<LEN; j++)
@@ -89,6 +90,7 @@ int main(int argc, char *argv[])
            printf("%6.4f ",c[i*LEN+j]);
         printf("\n");
     }
+    */
 
     printf("Calculation on CPU ... ");
 

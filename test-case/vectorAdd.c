@@ -48,7 +48,7 @@ int main()
             {
                 #pragma acc loop independent 
                 {
-                    for (i = 0; i < SIZE; ++i) {
+                    for (i = 0; i < SIZE ; ++i) {
                         c[i] = a[i] + b[i] ;
                     }
                 }

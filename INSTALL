@@ -47,11 +47,11 @@ Step 2:
     $ chmod +x ./compile-all
     $ ./compile-all
     
-    In this step, you me see several warnings but there shouldn't be any error! Compilation successfully terminates with the following prompt:
+    may see several warnings but there shouldn't be any error! Compilation successfully terminates with the following prompt:
     ~ compiling OpenACC API .. done
 
 Step 3:
-    At this step, you should be able to see ipmacc on the command-line:
+    should be able to see ipmacc on the command-line:
     $ ipmacc --version
     IPMACC 0.7.5b
     Also get available accelerators using:
@@ -100,6 +100,10 @@ Step 6:
 
 ====================
 Usage:
+Type following command to see ipmacc usage:
+$ ipmacc --help
+
+summary:
 $ [ipmacc-flags] ipmacc <c-file> [compile-flags]
     [ipmacc-flags]
         ta=<target> target: nvopencl or nvcuda
@@ -109,7 +113,7 @@ $ [ipmacc-flags] ipmacc <c-file> [compile-flags]
         nvcc/g++ flags
 
 IPMACC translates OpenACC API (function calls or directives) in the input C-file to OpenCL/CUDA source. In case no compilation flag is passed, and if the compilation succeeds, two files will be generated:
-    1) the translation destination OpenCL/CUDA source file is created in the same path as the C-file, with the `_ipmacc.[cu/c/cpp]` suffix.
+    1) the translation destination OpenCL/CUDA/ISPC source file is created in the same path as the C-file, with the `_ipmacc.[cu/c/cpp/ispc]` suffix.
     2) a.out is generated in current directory
 
 
@@ -117,5 +121,7 @@ IPMACC translates OpenACC API (function calls or directives) in the input C-file
 Known issues:
 -srcML, the parser which is used in IPMACC, has a compatibility issue with latest version of libxml2. In future release of IPMACC, we plan to include the compatible version of libxml2 in the package. To resolve this issue, use libxml2-2.7.6 which can be downloaded from here:
 ftp://gd.tuwien.ac.at/pub/libxml/
+
+
 
 

@@ -28,7 +28,7 @@ REDUCTION_TWOLEVELTREE=True # two-level tree reduction is the default policy.
     # setting the control to False, generates only CUDA code which is supported on limited number of devices (cc>=1.3). 
 USEPYCPARSER=False # True: pycparser (depreciated!), False: srcML
 USEAPI=True # use API instead of hard-code for performing OpenCL kernel compilation
-WARNING=False
+WARNING=True
 WARNINGSMC=False # warning in cache of smc pragma
 PROFILER=False
 
@@ -206,6 +206,7 @@ class codegen(object):
         # constants
         self.prefix_kernel='__ungenerated_kernel_region_'
         self.prefix_kernel_gen='__generated_kernel_region_'
+        self.prefix_kernel_lau='__generated_kernel_launch_'
         self.prefix_datacp='__ungenerated_data_copy_'
         self.prefix_datacpin='__ungenerated_data_copyin_'
         self.prefix_datacpout='__ungenerated_data_copyout_'
@@ -2486,7 +2487,7 @@ class codegen(object):
                 cleanKerDec=incstm
                 break
         if cleanKerDec=='':
-            print 'Fatal internal error! enable to retrieve back the kernel!'
+            print 'Fatal internal error! unable to retrieve back the kernel!'
             exit(-1)
         #print '===================='+kerDec
         # prepare the prototype of function called in the regions
@@ -3064,16 +3065,17 @@ class codegen(object):
     # ispc platform
     def constructKernel_ispc(self, args, decl, kernelB, kernelId, privinfo, reduinfo, ctasize, forDims, template, smcinfo):
         [nctadim, ctadimx, ctadimy, ctadimz]=ctasize
-        code =template+'export void '+self.prefix_kernel_gen+str(kernelId)
-        proto=template+'extern "C" void '+self.prefix_kernel_gen+str(kernelId)
+        code =template+'task void '+self.prefix_kernel_gen+str(kernelId)
         suff_args_proto=[]
         suff_args_code=[]
+        suff_args_launch_call=[]
         for idx in range(0,len(args)):
             sc=args[idx].replace('__ipmacc_deviceptr','')
             if self.opt_readonlycache:
                 sc=sc.replace('__ipmacc_opt_readonlycache','') # FIXME fix this to add ispc support
             else:
                 sc=sc.replace('__ipmacc_opt_readonlycache','')
+            suff_args_launch_call.append(sc.split()[-1])
             if sc.count('*')!=0:
                 sc=sc.replace('*','')+sc.count('*')*'[]'
                 suff_args_code.append('uniform '+sc)
@@ -3082,7 +3084,6 @@ class codegen(object):
                 suff_args_code.append('uniform '+sc)
                 suff_args_proto.append(sc)
         code +='('+','.join(suff_args_code)+')'
-        proto+='('+','.join(suff_args_proto)+')'+';\n'
         code+='{\n'
         code+='int '+self.prefix_kernel_uid_x+'=programIndex;\n'
         #code+='int '+self.prefix_kernel_uid_y+'=get_global_id(1);\n'
@@ -3231,18 +3232,25 @@ class codegen(object):
         code+=decl
         code+=kernelB
         code+='}\n'
+        code+=template+'export void '+self.prefix_kernel_lau+str(kernelId)
+        code+='('+','.join(suff_args_code)+')'
+        code+="{"
+        if nctadim>1:
+            code+="launch [__ispc_n_threads] "+self.prefix_kernel_gen+str(kernelId)+"("+','.join(suff_args_launch_call)+");"
+        else:
+            code+="launch [1] "+self.prefix_kernel_gen+str(kernelId)+"("+','.join(suff_args_launch_call)+");"
+        code+="}"
+        proto=template+'extern "C" void '+self.prefix_kernel_lau+str(kernelId)
+        proto+='('+','.join(suff_args_proto)+')'+';\n'
         return [proto, code]
 
     def appendKernelToCode_ispc(self, kerPro, kerDec, kerId, forDims, args, smcinfo):
-        ##self.code=kerPro+self.code+kerDec
-        #blockDim=self.blockDim_opencl
-        ##gridDim='('+'*'.join(forDims)+')/256+1'
-        #gridDim='(('+forDims+'/'+blockDim+')+1)*'+blockDim
+        parallelizeovertask=False
         self.code=self.code.replace(' __ipmacc_prototypes_kernels_'+str(kerId)+' ',' '+self.codegen_getFuncProto()+kerPro+' \n')
-        #self.ispc_kerneldecl+=kerDec
         [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kerId)
         if nctadim>1:
-            print 'warning: multiple loops are parallelized under ispc, only the must inner is considered for vector parallelization!'+str(getframeinfo(currentframe()).lineno)
+            parallelizeovertask=True
+            print 'warning: multiple loops are parallelized under ispc! parallelizing inner over SIMD and outer over cores. '+str(getframeinfo(currentframe()).lineno)
             #print kerDec
             #exit(-1)
 
@@ -3251,13 +3259,20 @@ class codegen(object):
         # remove undefined declaration from __kernel in three steps: 1) append kernel to code, 2) parse it using cpp, 3) extract the kernel back
         #print self.code+'\n'+kerDec
         cleanKerDec=''
-        for [tp,incstm] in self.code_getAssignments(self.var_parseForYacc(self.code+'\n'+kerDec),['fcn']):
+        listOfFunctions = self.code_getAssignments(self.var_parseForYacc(self.code+'\n'+kerDec),['fcn'])
+        for [tp,incstm] in listOfFunctions:
+            #if incstm.strip()[0:8]=='__kernel':
+            if incstm.strip()[0:100].find('task')!=-1:
+                cleanKerDec+=incstm
+                break
+        for [tp,incstm] in listOfFunctions:
             #if incstm.strip()[0:8]=='__kernel':
             if incstm.strip()[0:100].find('export')!=-1:
-                cleanKerDec=incstm
+                cleanKerDec+=incstm
                 break
         if cleanKerDec=='':
-            print 'Fatal internal error! enable to retrieve back the kernel! #'+str(getframeinfo(currentframe()).lineno)
+            print self.code+'\n'+kerDec
+            print 'Fatal internal error! unable to retrieve back the kernel! #'+str(getframeinfo(currentframe()).lineno)
             exit(-1)
         #print '===================='+kerDec
         # prepare the prototype of function called in the regions
@@ -3375,7 +3390,12 @@ class codegen(object):
             atomicCodePreKernel=''
             atomicCodePostKernel=''
         kernelInvoc='\n/* kernel call statement*/\n{\n'
-        kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'('+','.join(callArgs)+');'
+        #if parallelizeovertask:
+        kernelInvoc+='\nunsigned int __ispc_n_threads = 4; //acc_get_n_cores(acc_device_intelispc);\n'
+        #    kernelInvoc+='\nfor(unsigned int __ispc_thread_idx=0; __ispc_thread_idx<__ispc_n_threads; __ispc_thread_idx++){\n'
+        kernelInvoc+=self.prefix_kernel_lau+str(kerId)+'('+','.join(callArgs)+');'
+        #if parallelizeovertask:
+        #    kernelInvoc+='\n}\n'
         kernelInvoc+='\n}\n/* kernel call statement*/\n'
         self.code=self.code.replace(self.prefix_kernel+str(kerId)+'();',atomicCodePreKernel+kernelInvoc+atomicCodePostKernel)
         self.code_kernels.append('\n{\n'+atomicCodePreKernel+kernelInvoc+atomicCodePostKernel+'\n}\n')
@@ -4966,26 +4986,31 @@ class codegen(object):
             pointr=False
             if not priv:
                 try :
-                    idx=scopeVarsNames.index(vars[i])
-                    if scopeVarsTypes[idx].count('*')!=0:
+                    if self.target_platform=='ISPC' and (vars[i]=='__ispc_thread_idx' or vars[i]=='__ispc_n_threads'):
+                        # variables to run over ISPC tasks
+                        thisVarType='unsigned int'
+                    else:
+                        idx=scopeVarsNames.index(vars[i])
+                        thisVarType=scopeVarsTypes[idx]
+                    if thisVarType.count('*')!=0:
                         # 7- is pointer
                         pointr=True
-                    scalar_copy=(scopeVarsTypes[idx].count('*')==0) and manualvar and (not self.container_class_supported(scopeVarsTypes[idx]))
-                    is_container = self.container_class_supported(scopeVarsTypes[idx])
+                    scalar_copy=(thisVarType.count('*')==0) and manualvar and (not self.container_class_supported(thisVarType))
+                    is_container = self.container_class_supported(thisVarType)
                     if is_container:
-                        arg_type=self.container_class_pseudo(scopeVarsTypes[idx])
+                        arg_type=self.container_class_pseudo(thisVarType)
                     else:
-                        arg_type=scopeVarsTypes[idx]
+                        arg_type=thisVarType
                     arg_type+='* ' if (redu or scalar_copy) else ' '
-                    arg_name=scopeVarsNames[idx]
+                    arg_name=vars[i]
                     arg_name+=('__ipmacc_scalar' if scalar_copy and (not (redu and manualvar)) else '')
                     arg_name+=('__ipmacc_deviceptr' if autovar else '')
                     arg_name+=('__ipmacc_reductionarray_internal' if redu else '')
                     arg_name+=('__ipmacc_container' if is_container else '')
-                    arg_name=('__ipmacc_opt_readonlycache'+arg_name if pointr else arg_name)
+                    arg_name =('__ipmacc_opt_readonlycache'+arg_name if pointr else arg_name)
                     function_args.append(arg_type+arg_name)
-                    #function_args.append(scopeVarsTypes[idx]+('* ' if redu else ' '))
-                    #function_args.append(scopeVarsTypes[idx]+('* ' if (redu or not pointr)else ' ')+(scopeVarsNames[idx]+('__ipmacc_scalar' if ((not pointr) and (not redu)) else '')))
+                    #function_args.append(thisVarType+('* ' if redu else ' '))
+                    #function_args.append(thisVarType+('* ' if (redu or not pointr)else ' ')+(vars[i]+('__ipmacc_scalar' if ((not pointr) and (not redu)) else '')))
                 except:
                     if WARNING and not self.iskeyword(vars[i]):
                         print 'warning: Could not determine the type of identifier used in the kernel: '+vars[i]
@@ -5031,6 +5056,8 @@ class codegen(object):
                 atomicBlocks.append([atomicId, atomicBody, atomicClause])
         if len(atomicBlocks)>0:
             function_args.append(self.atomicRegion_locktype+' * '+self.prefix_kernel_atomicLocks)
+
+            
 
         # report stats
         if VERBOSE==1:
@@ -5359,6 +5386,7 @@ class codegen(object):
                         self.oacc_loopPrivatizin.append([id,variables])
                     #if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
                     if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
+                        # parallelize this loop over the SIMD 
                         dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
                         iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
                         code+='\nfor('
@@ -5366,7 +5394,14 @@ class codegen(object):
                         code+=root.attrib.get('iterator')+'='+iteratorVal+'\n'
                         code+=root.attrib.get('boundary')+';\n'
                         code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
+                    elif root.attrib['independent']=='true' and root.attrib['reversedepth']=='1':
+                        code=code+self.code_gen_reversiFor(root.attrib.get('iterator')+'=taskIndex0/*__ispc_thread_idx*/',
+                            root.attrib.get('boundary'),
+                            root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'__ispc_n_threads\n')+'\n'
                     else:
+                        #for atr in root.attrib:
+                        #    print atr+' '+root.attrib[atr]+'\n'
+                        #exit(-1)
                         code=code+self.code_gen_reversiFor(root.attrib.get('initial'),root.attrib.get('boundary'),root.attrib.get('increment'))+'\n'
                     # go through childs
                     for ch in root:

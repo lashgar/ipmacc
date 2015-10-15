@@ -16,11 +16,13 @@ ifeq ($(CUDASUPPORT),1)
  LDFLAG+= -L$(CUDAHOME)/lib64/ -lcudart
 endif
 
+
+
 all: libopenacc listdevices
 	./listdevices CUDA
 	./listdevices OCL
 
-libopenacc: openacc.o openacc_container.o 
+libopenacc: openacc.o openacc_container.o tasksys.o
 	@echo 'CFLAG : '$(CFLAG)
 	@echo 'LDFLAG: '$(LDFLAG)
 	@#$(CC) -I$(CUDAHOME)/include/ -L$(CUDAHOME)/lib64/ -lcudart -I$(OPENCLINC)/ -L$(OPENCLLIB)/ -lOpenCL -D__NVCUDA__ -D__NVOPENCL__ openacc.c -c -fPIC
@@ -33,6 +35,11 @@ openacc.o: openacc.c
 
 openacc_container.o: openacc_container.cpp 
 	$(CXX) $(CFLAG) openacc_container.cpp -c -fPIC -g -std=c++0x -DOBJ
+
+tasksys.o:
+ifeq ($(ISPCSUPPORT),1)
+	$(CXX) $(ISPCHOME)/examples/tasksys.cpp -O2 -c -o $(IPMACCROOT)/src/tasksys.o
+endif
 
 listdevices: listdevices.c
 	$(CC) listdevices.c -o listdevices -fPIC -g `ipmacc --cflags` `ipmacc --ldflags`

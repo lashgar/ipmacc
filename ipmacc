@@ -47,15 +47,19 @@ export PYTHONPATH=$path/:$path/pycparser/:$PYTHONPATH
 #echo $PYTHONPATH
 
 # 3. Compile/Link flags for CUDA/OpenCL destination
-export CFLAG="-I$path/include"
-export LDFLAG="-L$path/lib -lopenacc"
+export CFLAG="-I$path/include "
+export LDFLAG="-L$path/lib -lopenacc "
 if [ "$CUDASUPPORT" == "1" ] ; then
  export CFLAG="$CFLAG -I$CUDAHOME/include/ "
- export LDFLAG="$LDFLAG -L$CUDAHOME/lib64/ -lcudart"
+ export LDFLAG="$LDFLAG -L$CUDAHOME/lib64/ -lcudart "
 fi
 if [ "$OPENCLSUPPORT" == "1" ] ; then
  export CFLAG="$CFLAG -I$OPENCLINC/ "
- export LDFLAG="$LDFLAG -L$OPENCLLIB/ -lOpenCL"
+ export LDFLAG="$LDFLAG -L$OPENCLLIB/ -lOpenCL "
+fi
+if [ "$ISPCSUPPORT" == "1" ] ; then
+ export CFLAG="$CFLAG "
+ export LDFLAG="$LDFLAG $IPMACCROOT/src/tasksys.o "
 fi
 if [ "$VERBOSE" == "1" ] ; then
  echo 'LDFLAG: '$LDFLAG
@@ -310,10 +314,14 @@ if [ "$?" == "0" ] ; then
                 echo "[failed] ispc failed to generate the object code"
                 exit 255
             fi
+            # 5. CC to compile ISPC Task API
+            if [ -f $IPMACCROOT/src/tasksys.o ] ; then
+                make -C $IPMACCROOT/src/ tasksys.o
+            fi
             # 5. CC to compile the compile host and link
             if [ "$VERBOSE" == "1" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
-             echo "$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS"
+             echo -en "$CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG "
             fi
             $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
             #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
