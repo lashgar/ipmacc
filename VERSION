@@ -291,6 +291,7 @@ Generating a CUDA code corresponding to the given XML file.
 
 0.8.5b
 -Adding support for Intel ISPC backend.
+-Several bugfix.
 
 =========================
 Component Description:

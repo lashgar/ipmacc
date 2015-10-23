@@ -14,7 +14,7 @@
 #define width 640
 #define height 480
 
-#define char int8
+//#define char int8
 
 int main()
 {
@@ -114,6 +114,7 @@ int main()
         fprintf(stderr,"error opening file\n");
         exit(1);
     }
+    printf("mandelbrot computation done!\n");
     buffer[0] = 0;
     buffer[1] = 0;
     buffer[2] = 2;

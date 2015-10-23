@@ -44,7 +44,7 @@ DEBUGFC=False #function call
 DEBUGSRCML=False   #debugging srcml 
 DEBUGSRCMLC=False #debugging srcml wrapper calls
 DEBUGFWDCL=False #debug forward declaration and function redeclaration
-DEBUGITER=False
+DEBUGITER=True
 DEBUGCPP=False #debug cpp call
 DEBUGSMC=False
 DEBUGMULTIDIMTB=False#True
@@ -3414,7 +3414,8 @@ class codegen(object):
         print '\twarning: Storing ispc kernels in '+ispcfile
         f=open(ispcfile, 'w')
         #code=re.sub('\\b'+'int'+'[\\ \\t\\n\\r]*','int32 ', self.ispc_kerneldecl)
-        code=self.ispc_kerneldecl
+        code ='#define char int8\n'
+        code+=self.ispc_kerneldecl
         f.write(code)
         f.close()
 
@@ -4631,9 +4632,9 @@ class codegen(object):
         else:
             extraIter='+0'
         if operator=='*' or operator=='/':
-            return 'log(abs((int)'+final+'-'+init+extraIter+')'+')'+'/log('+steps+')'
+            return 'log(abs((int)'+final+'-('+init+extraIter+'))'+')'+'/log('+steps+')'
         elif operator=='+' or operator=='-':
-            return '(abs((int)'+final+'-'+init+extraIter+')'+')'+'/('+steps+')'
+            return '(abs((int)'+final+'-('+init+extraIter+'))'+')'+'/('+steps+')'
         else:
             print 'unexpected loop increment operator'
             exit(-1)
@@ -5012,7 +5013,10 @@ class codegen(object):
                     #function_args.append(thisVarType+('* ' if redu else ' '))
                     #function_args.append(thisVarType+('* ' if (redu or not pointr)else ' ')+(vars[i]+('__ipmacc_scalar' if ((not pointr) and (not redu)) else '')))
                 except:
-                    if WARNING and not self.iskeyword(vars[i]):
+                    if self.target_platform=='ISPC' and (vars[i]=='programCount' or vars[i]=='taskIndex0'):
+                        # skip these two variable, these are defined in the export/task body by ISPC compiler.
+                        undef=True
+                    elif WARNING and not self.iskeyword(vars[i]):
                         print 'warning: Could not determine the type of identifier used in the kernel: '+vars[i]
                         print '\tignoring undefined variable, maybe it\'s a macro or field of struct.'
                         print '\tavailables are: '+','.join(scopeVarsNames)
