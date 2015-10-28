@@ -44,7 +44,7 @@ DEBUGFC=False #function call
 DEBUGSRCML=False   #debugging srcml 
 DEBUGSRCMLC=False #debugging srcml wrapper calls
 DEBUGFWDCL=False #debug forward declaration and function redeclaration
-DEBUGITER=True
+DEBUGITER=False
 DEBUGCPP=False #debug cpp call
 DEBUGSMC=False
 DEBUGMULTIDIMTB=False#True
@@ -5399,7 +5399,7 @@ class codegen(object):
                         code+=root.attrib.get('boundary')+';\n'
                         code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
                     elif root.attrib['independent']=='true' and root.attrib['reversedepth']=='1':
-                        code=code+self.code_gen_reversiFor(root.attrib.get('iterator')+'=taskIndex0/*__ispc_thread_idx*/',
+                        code=code+self.code_gen_reversiFor(root.attrib.get('iterator')+'=('+root.attrib.get('initial').split('=')[1]+') '+root.attrib.get('incoperator')+'taskIndex0/*__ispc_thread_idx*/',
                             root.attrib.get('boundary'),
                             root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'__ispc_n_threads\n')+'\n'
                     else:
