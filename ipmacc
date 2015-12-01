@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.8.5b
+VERSION=0.8.6b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"

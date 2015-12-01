@@ -13,11 +13,11 @@ TODO:
 - Support dynamic shared memory size (for smc and cache clause)
 - BUGFIX: '\n' character in for statement cause XML crash.
 - BUGFIX: two terminating condition in the for loop may lead to XML crash.
+- BUGFIX: typedef struct on ISPC backend is broken.
 - OpenACC syntax parser may disallow valid cases. Fix the parser state machine. (related file: parser/oaccparser.y)
 - Add support for parallel directive
 - Add `name' clause to kernels directive, allowing easy debugging.
 - IMPROVEMENT: __smc_select_* procedures must be optimized. nvcc alone cannot highly optimize the code. these are generated in case of `cache' directive.
-- Support Intel ISPC backend.
 - An issue with atomic pragmas on OpenCL; adding '#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable' should be added to OpenCL kernels.
 
 CHANGES:
@@ -38,3 +38,4 @@ CHANGES:
 - Implementing '#pragma acc exit data'
 - [Apr 21, 2015] Supporting NVIDIA Kepler's Read Only Cache. Enabled by '--enable readonlycache' compiler flag.
 - [May 16, 2015] early support for `atomic capture` added. Sample added in test-case/atomictest.c. For cuda-backend, pass `arch=sm_13` flag to ipmacc. mgBench added to test-case/mgBench/.
+- [September 2015] Support Intel ISPC backend.

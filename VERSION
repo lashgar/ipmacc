@@ -293,6 +293,10 @@ Generating a CUDA code corresponding to the given XML file.
 -Adding support for Intel ISPC backend.
 -Several bugfix.
 
+0.8.6b
+-BUGFIX: clause parser.
+-BUGFIX: updating scalar variables listed in data clauses on the host.
+
 =========================
 Component Description:
 preprocessor-<version>.py

@@ -6,13 +6,13 @@ IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also
 * Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
 * Refer to TODO document to see latest changes and the roadmap.
 * Refer to INSTALL file for installation.
-* Refer to docs/ipmacc-performance.pdf to see the performance comparison of OpenACC applications compiled by our implementation to native CUDA implementation.
+* Refer to docs/ipmacc-performance.pdf to see the performance comparison of OpenACC applications compiled by our implementation versus native CUDA implementation.
 * After the installation, the best way to start is to compile and run the samples in the test-case/ directory. Example:
 ```
     $ ipmacc test-case/vectorAdd.c -o vectorAdd
     $ ./vectorAdd
 ```
-* There are microbenchmarks to evaluate the overhead of memory allocation, memory copies, and kernel launches under test-case/microbenchmarks/ directory. Also there are wide set of benchmarks under test-case/rodinia/
+* There are microbenchmarks to evaluate the overhead of memory allocation, memory copies, and kernel launches under test-case/microbenchmarks/ directory. Also there are wide set of benchmarks under test-case/rodinia/openacc/
 
 
 # Usage:
@@ -25,12 +25,12 @@ IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also
       `$ ipmacc acc_source.cpp -arch=sm_35 -o binary`
 
 # Runtime environment variables:
-* Set **IPMACC_VERBOSE** to run the code in verbose mode debuggin your code with the generate code (copies, kernel launches, and
+* Set **IPMACC_VERBOSE** to run the code in verbose mode debugging your code with the generate code (copies, kernel launches, and
     synchronizations):
 
     `$ export IPMACC_VERBOSE=1`
 
-* Set **IPMACCLIB_VERBOSE** to run the code in verbose mode debuggin IPMACC OpenACC underlying library:
+* Set **IPMACCLIB_VERBOSE** to run the code in verbose mode debugging IPMACC OpenACC underlying library:
 
     `$ export IPMACCLIB_VERBOSE=1`
 
