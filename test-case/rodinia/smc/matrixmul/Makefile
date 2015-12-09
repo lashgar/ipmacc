@@ -15,7 +15,7 @@ cpu:
 	$(CC)  matrixMul.cpp -o matMul_$(CC)  $(CC_FLAGS)
 
 smc:
-	$(ACC) matrixMul.cpp -o matMul_baseline  $(ACC_FLAGS) -Xptxas=-v
+	$(ACC) matrixMul.cpp -o matMul_smc  $(ACC_FLAGS) -Xptxas=-v
 
 nosmc:
 	$(ACC) matrixMul_nosmc.cpp -o matMul_nosmc  $(ACC_FLAGS) -Xptxas=-v
