@@ -21,7 +21,9 @@ echo -en '.'
 make > /dev/null 
 echo -en '.'
 make install > /dev/null
+ln -s $ROOTDIR/uncrustify/avalon.cfg $ROOTDIR/uncrustify/build/bin/avalon.cfg
 echo '. done'
+
 
 # Parser
 # pycparser
