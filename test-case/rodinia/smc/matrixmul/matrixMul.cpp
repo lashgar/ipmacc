@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <time.h>
-#include <openacc.h>
+#include <stdio.h>
+#include <stdlib.h>
 //#include <accelmath.h>
 #include <math.h>
 
@@ -8,16 +9,18 @@
 #define SIZE LEN*LEN
 
 #define TYPE double
+#define MIN(a,b)    (a<b?a:b)
+
 
 int main(int argc, char *argv[])
 {
     int i;
-    #ifdef __NVCUDA__
+#ifdef __NVCUDA__
     acc_init( acc_device_nvcuda );
-    #endif 
-    #ifdef __NVOPENCL__
+#endif 
+#ifdef __NVOPENCL__
     acc_init( acc_device_nvocl );
-    #endif 
+#endif 
 
     TYPE *a, *b, *c;
     //TYPE *kK[10], *jJ[10];
@@ -43,21 +46,34 @@ int main(int argc, char *argv[])
         printf("Calculation on GPU ... ");
         tic = clock();
 
-        #pragma acc data pcopyin(a[0:SIZE],b[0:SIZE]) pcopy(c[0:SIZE])
+#pragma acc data pcopyin(a[0:SIZE],b[0:SIZE]) pcopy(c[0:SIZE])
         {
-            #pragma acc kernels
+#pragma acc kernels
             {
-                #pragma acc loop independent   
+#pragma acc loop independent vector(16)
                 {
                     for (i = 0; i < LEN; ++i) {
-                        #pragma acc loop independent  
+#pragma acc loop independent vector(16)
                         {
-                            for(j=0; j<LEN; j++){
+                            for(j=0; j<LEN; ++j){
                                 TYPE sum=0;
-                                for(l=0; l<LEN; l++){
-                                    sum += a[i*LEN+l]*b[l*LEN+j];
+                                //#pragma acc cache (temp[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:false:0:0:0:0],power[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:false:0:0:0:0])
+                                for (l=0; l<LEN; l+=16){
+                                    int offseti=l;
+                                    int offsetj=l;
+                                    #pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:16:false:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:16:j:0:0:false:0:0:0:0])
+                                    {
+                                        if(j<LEN && i<LEN){
+                                            int m;
+                                            for(m=l; m<MIN(l+16,LEN);m++){
+                                                sum += a[i*LEN+m]*b[m*LEN+j];
+                                            }
+                                        }
+                                    }
                                 }
-                                c[i*LEN+j]=sum;
+                                if(j<LEN && i<LEN){
+                                    c[i*LEN+j] = sum;
+                                }
                             }
                         }
                     }
@@ -74,25 +90,25 @@ int main(int argc, char *argv[])
     // Perform the add
 
     /*
-    printf("A:\n");
-    for (i = 0; i < LEN; ++i) {
+       printf("A:\n");
+       for (i = 0; i < LEN; ++i) {
        for(j=0; j<LEN; j++)
-           printf("%6.4f ",a[i*LEN+j]);
-        printf("\n");
-    }
-    printf("B:\n");
-    for (i = 0; i < LEN; ++i) {
+       printf("%6.4f ",a[i*LEN+j]);
+       printf("\n");
+       }
+       printf("B:\n");
+       for (i = 0; i < LEN; ++i) {
        for(j=0; j<LEN; j++)
-           printf("%6.4f ",b[i*LEN+j]);
-        printf("\n");
-    }
-    printf("C:\n");
-    for (i = 0; i < LEN; ++i) {
+       printf("%6.4f ",b[i*LEN+j]);
+       printf("\n");
+       }
+       printf("C:\n");
+       for (i = 0; i < LEN; ++i) {
        for(j=0; j<LEN; j++)
-           printf("%6.4f ",c[i*LEN+j]);
-        printf("\n");
-    }
-    */
+       printf("%6.4f ",c[i*LEN+j]);
+       printf("\n");
+       }
+       */
 
     printf("Calculation on CPU ... ");
 

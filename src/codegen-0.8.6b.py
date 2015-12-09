@@ -28,7 +28,7 @@ REDUCTION_TWOLEVELTREE=True # two-level tree reduction is the default policy.
     # setting the control to False, generates only CUDA code which is supported on limited number of devices (cc>=1.3). 
 USEPYCPARSER=False # True: pycparser (depreciated!), False: srcML
 USEAPI=True # use API instead of hard-code for performing OpenCL kernel compilation
-WARNING=True
+WARNING=False
 WARNINGSMC=False # warning in cache of smc pragma
 PROFILER=False
 
@@ -4116,7 +4116,7 @@ class codegen(object):
                     elif a=='isexitdirective':
                         isexit= True if d=='true' else False
                 # handle dynamic allocation here
-                if size.find('dynamic')!=-1:
+                if size.find('dynamic')!=-1 and clause!='present':
                     if size.count('dynamic')!=len(dim) and not self.oacc_data_dynamicAllowed(clause):
                         print 'Error: [data clause] unable to find a match for variable size! variable name: '+varname+' - clause('+clause+')'
                         exit(-1)
@@ -4125,6 +4125,8 @@ class codegen(object):
                             print 'Error: dynamic array without the length at the data clause!'
                             print '\tvariable name: '+varname
                             print '\trange statement: '+repa
+                            print '\tsize: '+size
+                            print '\tclause: '+clause
                             exit(-1)
                         size=size.replace('dynamic',repa.split(':')[1]+'+'+repa.split(':')[0])
                 # duplication check for declaration and allocation
@@ -4245,6 +4247,7 @@ class codegen(object):
                             print 'Error: dynamic array without the length at the data clause!'
                             print '\tvariable name: '+varname
                             print '\trange statement: '+repa
+                            print '\tsize: '+size
                             exit(-1)
                         size=size.replace('dynamic',repa.split(':')[1]+'+'+repa.split(':')[0])
                 # duplication check for declaration and allocation
