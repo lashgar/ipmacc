@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
                                 for (l=0; l<LEN; l+=16){
                                     int offseti=l;
                                     int offsetj=l;
-                                    #pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:16:false:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:16:j:0:0:false:0:0:0:0])
+                                    #pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:16:tag64:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:16:j:0:0:tag64:0:0:0:0])
                                     {
                                         if(j<LEN && i<LEN){
                                             int m;

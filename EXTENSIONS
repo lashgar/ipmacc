@@ -36,4 +36,4 @@ Example:
     #pragma acc loop smc(a[READ_ONLY:0:1:1:false],b[READ_ONLY:-2:0:1:false])
     for(i=0; i<size; ++i){
         c[i]=a[i-1]+a[i]+a[i+1]+b[i-2]+b[i-1];
-
+    }

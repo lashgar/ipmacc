@@ -1,24 +1,5 @@
-#define __CUDA_INTERNAL_COMPILATION__
-#include "math_functions.h"
-#undef __CUDA_INTERNAL_COMPILATION__
-//#include <math_functions.h>
-//#include "math.h"
 
-#ifndef __CUDACC__
-typedef struct {
-    float x;
-    float y;
-    float z;
-} float3;
-typedef struct {
-    float x;
-    float y;
-    float z;
-    float w;
-} float4;
-#endif
-
-//#include "bodysystemcpu_impl.h"
+#include <math_functions.h>
 
 void bodyBodyInteraction(float3 *accel, float4 posMass0, float4 posMass1, float softeningSquared)
 {
@@ -34,8 +15,7 @@ void bodyBodyInteraction(float3 *accel, float4 posMass0, float4 posMass1, float 
     distSqr += softeningSquared;
 
     // invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]
-    //float invDist = (float)1.0 / (float)rsqrtf(distSqr);
-    float invDist = rsqrtf(distSqr);
+    float invDist = (float)1.0 / (float)sqrtf((double)distSqr);
     float invDistCube =  invDist * invDist * invDist;
 
     // s = m_j * invDistCube [1 FLOP]
@@ -64,20 +44,19 @@ void _computeNBodyGravitation_openacc(float *m_pos_f,
         //int indexForce = 3*i;
 
         float3 acc;//[3] = {0, 0, 0};
-        float4 pos_p=m_pos[i];
 
         // We unroll this loop 4X for a small performance boost.
         int j = 0;
-        #pragma unroll 32 
-        for(j=0; j< m_numBodies; j++)
+
+        while (j < m_numBodies)
         {
-            bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
+            bodyBodyInteraction(&acc, m_pos[i], m_pos[j], m_softeningSquared);
+            j++;
+            //bodyBodyInteraction(acc, m_pos[i], m_pos[j], m_softeningSquared);
             //j++;
-            //bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
+            //bodyBodyInteraction(acc, m_pos[i], m_pos[j], m_softeningSquared);
             //j++;
-            //bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
-            //j++;
-            //bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
+            //bodyBodyInteraction(acc, m_pos[i], m_pos[j], m_softeningSquared);
             //j++;
         }
 
@@ -103,7 +82,7 @@ void _updateNBodyGravitation_openacc(float *m_pos_f,
     float* m_vel  =(float*)m_vel_f;
     float* m_pos  =(float*)m_pos_f;
 
-        #pragma acc kernels pcopyin(m_force[0:m_numBodies*3],m_vel[0:m_numBodies*3],m_pos[0:m_numBodies*4]) pcopyout(m_pos[0:m_numBodies*4])
+        #pragma acc kernels pcopyin(m_force[0:m_numBodies*3],m_vel[0:m_numBodies*3]) pcopyout(m_pos[0:m_numBodies*4])
         //#pragma acc kernels pcopyin(m_force[0:m_numBodies],m_vel[0:m_numBodies]) pcopyout(m_pos[0:m_numBodies])
         #pragma acc loop independent
         for (int i = 0; i < m_numBodies; ++i)
@@ -145,9 +124,9 @@ void _updateNBodyGravitation_openacc(float *m_pos_f,
         m_pos[index+1] = pos[1];
         m_pos[index+2] = pos[2];
 
-        m_vel[indexForce+0] = vel[0];
-        m_vel[indexForce+1] = vel[1];
-        m_vel[indexForce+2] = vel[2];
+        m_vel[index+0] = vel[0];
+        m_vel[index+1] = vel[1];
+        m_vel[index+2] = vel[2];
 
             /*
             float4 pos;

@@ -74,6 +74,7 @@ NARG=${#ARGS[@]}
 #echo $ARGS $NARG
 NVCCARGS=
 OPTIMIZATION= #optimization swtiches
+COMPILEONLY=0
 
 LISTANDEXIT=
 LISTANDEXITPAR=
@@ -116,6 +117,9 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
     elif [ "$i" != "0" ] ; then
         # append this arg
         NVCCARGS="${NVCCARGS} ${ARGS[i]}"
+        if [ "${ARGS[i]}" == "-c" ] ; then
+            COMPILEONLY=1
+        fi
     fi
 done;
 
@@ -285,12 +289,21 @@ if [ "$?" == "0" ] ; then
             # 5. Call NVCC to compile the CUDA
             if [ "$VERBOSE" == "1" ] ; then
              echo -en "\n=============NVCC LOGS==============\n"
-             echo "$NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+             if [ "$COMPILEONLY" == "1" ] ; then
+              echo "$NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+             else
+              echo "$NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+             fi
             fi
             #echo "$NVCC $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
-            $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+            if [ "$COMPILEONLY" == "1" ] ; then
+             $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+            else
+             $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+            fi
             if [ "$?" != "0" ] ; then
                 echo "[failed] nvcc failed to generate the binary"
+                exit 255
             fi
         elif [ $TARGETARCH == "nvopencl" ] ; then
             # 5. Call CC to compile the OpenCL
@@ -301,6 +314,7 @@ if [ "$?" == "0" ] ; then
             $CXX $NVCCARGS $OUTPUT -D__NVOPENCL__ $CFLAG $LDFLAG 
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
+                exit 255
             fi
         elif [ "$TARGETARCH" == "intelispc" ] ; then
             # 5. Call ISPC to compile the ISPC kernel
@@ -327,6 +341,7 @@ if [ "$?" == "0" ] ; then
             #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
+                exit 255
             fi
         fi
     fi

@@ -28,3 +28,5 @@ opencl:
 
 clean:
 	rm -f matMul** *.o a.out result*txt *_ipmacc.cu *_ipmacc.cpp
+
+

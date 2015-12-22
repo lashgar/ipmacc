@@ -47,6 +47,8 @@ void bodyBodyInteraction(float3 *accel, float4 posMass0, float4 posMass1, float 
     accel->z += r.z * s;
 }
 
+#define TILESIZE    256
+#define TILESIZELOG 8
 void _computeNBodyGravitation_openacc(float *m_pos_f,
         float *m_force_f,
         float m_softeningSquared,
@@ -58,17 +60,27 @@ void _computeNBodyGravitation_openacc(float *m_pos_f,
     //#pragma acc kernels present(m_force[0:m_numBodies],m_pos[0:m_numBodies])
     #pragma acc data copyin(m_force[0:m_numBodies],m_pos[0:m_numBodies])
     #pragma acc kernels present(m_force[0:m_numBodies],m_pos[0:m_numBodies])
-    #pragma acc loop independent
+    #pragma acc loop independent vector(TILESIZE)
     for (int i = 0; i < m_numBodies; i++)
     {
         //int indexForce = 3*i;
 
-        float3 acc;//[3] = {0, 0, 0};
+        float3 acc; //[3] = {0, 0, 0};
+        acc.x = acc.y = acc.z = 0;
         float4 pos_p=m_pos[i];
 
-        // We unroll this loop 4X for a small performance boost.
+        //for(int tile =0; tile <=((m_numBodies>>TILESIZELOG)+1); tile++){
+        //    int bound = ((tile+1)*TILESIZE)<m_numBodies ? ((tile+1)*TILESIZE) : m_numBodies;
+        //    #pragma acc cache (m_pos[0:m_numBodies:FETCH_CHANNEL:(tile*TILESIZE):0:TILESIZE:false:0:0])
+        //    {
+        //        for(int j=( tile*TILESIZE); j<bound; j++){
+        //            bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
+        //        }
+        //    }
+        //}
         int j = 0;
-        #pragma unroll 32 
+        // We unroll this loop 4X for a small performance boost.
+        #pragma unroll 4
         for(j=0; j< m_numBodies; j++)
         {
             bodyBodyInteraction(&acc, pos_p, m_pos[j], m_softeningSquared);
@@ -103,8 +115,8 @@ void _updateNBodyGravitation_openacc(float *m_pos_f,
     float* m_vel  =(float*)m_vel_f;
     float* m_pos  =(float*)m_pos_f;
 
-        #pragma acc kernels pcopyin(m_force[0:m_numBodies*3],m_vel[0:m_numBodies*3],m_pos[0:m_numBodies*4]) pcopyout(m_pos[0:m_numBodies*4])
         //#pragma acc kernels pcopyin(m_force[0:m_numBodies],m_vel[0:m_numBodies]) pcopyout(m_pos[0:m_numBodies])
+        #pragma acc kernels pcopyin(m_force[0:m_numBodies*3],m_vel[0:m_numBodies*3],m_pos[0:m_numBodies*4]) pcopyout(m_pos[0:m_numBodies*4])
         #pragma acc loop independent
         for (int i = 0; i < m_numBodies; ++i)
         {

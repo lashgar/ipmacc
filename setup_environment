@@ -5,7 +5,7 @@ export IPMACCROOT=/home/lashgar/opt/ipmacc
 
 # CUDA environment
 # comment the following line to disable CUDA integration in libopenacc, else set CUDAHOME properly
-export CUDASUPPORT=0
+export CUDASUPPORT=1
 export CUDAHOME=/usr/local/cuda/
 
 # OpenCL environment

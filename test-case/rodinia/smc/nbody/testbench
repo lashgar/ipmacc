@@ -1,0 +1,28 @@
+#!/bin/bash
+
+#for HSBPTBIN in matMul_baseline matMul ;
+#do
+ for sizet in 1024 #256 512 # 32 64 128 ;
+ #for size in 512 #1024 2048 4096 8192 16384;
+ do
+  size=`expr 1024 \* $sizet`
+  #./${HSBPTBIN}_verify $size > /dev/null
+  #if [ "$?" != "0" ] ; then
+  # echo 'test failed> results differ'
+  # sleep 3
+  # #exit
+  #fi
+
+  #mv .testlog.$size.$iter.out .testlog.$HSBPTBIN.$size.$iter.out
+  for rep in {1..30};
+  do
+   echo $size.$rep
+   nvprof ./nbody -compare -openacc -numbodies=$size > .testlog.$size.out 2> .perflog.$size.t$rep
+   #mv .perflog.$size.t$rep .perflog.$HSBPTBIN.$size.t$rep
+   if [ "$?" != "0" ] ; then
+    echo 'running failed'
+    exit
+   fi
+  done
+ done
+#done

@@ -28,6 +28,7 @@ REDUCTION_TWOLEVELTREE=True # two-level tree reduction is the default policy.
     # setting the control to False, generates only CUDA code which is supported on limited number of devices (cc>=1.3). 
 USEPYCPARSER=False # True: pycparser (depreciated!), False: srcML
 USEAPI=True # use API instead of hard-code for performing OpenCL kernel compilation
+TAGBASEDSMC=False
 WARNING=False
 WARNINGSMC=False # warning in cache of smc pragma
 PROFILER=False
@@ -1397,6 +1398,12 @@ class codegen(object):
             fusionSMC=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range] in smcinfo:
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
+                try:
+                    tagbasedcache_size = str(int(div.replace('tag','')))
+                    tagbasedcache_datp = ' int '
+                except:
+                    tagbasedcache_size = ''
+                    tagbasedcache_datp = ' int '
 
                 # can it be merged with previous smc code?
                 isfusion=False
@@ -1470,8 +1477,8 @@ class codegen(object):
                         #datafetch+='__syncthreads();\n'
                         # ALT 2: 
                         datafetch+="bool lastcol= blockIdx.x==(gridDim.x-1);\n"
-                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastcol)?'+dimhi+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'-1;\n'
-                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(('+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1)<=('+length+'))?('+self.prefix_kernel_smc_endpointer+v+'):(blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'-1);\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastcol)?'+dimhi+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(('+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1)<=('+length+'))?('+self.prefix_kernel_smc_endpointer+v+'):(blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1);\n'
                         # fetch the data in using parallel available threads of thread-block
                         datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
                         if GENDEBUGCODE:
@@ -1718,8 +1725,11 @@ class codegen(object):
                     length_2=ctadimy+'+'+dw2range+'+'+up2range
                     # declare local memories
                     decl+='\n/* declare the shared memory of '+v+' */\n'
-                    decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+']['+length_2+'];\n'
-                    #decl+='__shared__ unsigned char '+self.prefix_kernel_smc_tagpref+v+'['+length+'];\n'
+                    if tagbasedcache_size!='':
+                        decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+tagbasedcache_size+'];\n'
+                        decl+='__shared__ '+tagbasedcache_datp+' '+self.prefix_kernel_smc_tagpref+v+'['+tagbasedcache_size+'];\n'
+                    else:
+                        decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+']['+length_2+'];\n'
                     decl+='/*__shared__*/ int '+self.prefix_kernel_smc_startpointer+v+';\n'
                     decl+='/*__shared__*/ int '+self.prefix_kernel_smc_endpointer+v+';\n'
                     decl+='/*__shared__*/ int '+self.prefix_kernel_smc_startpointer+v+'_2d;\n'
@@ -1728,13 +1738,21 @@ class codegen(object):
                     decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
                     decl+=self.prefix_kernel_smc_endpointer+v+'_2d=-1;\n'
                     decl+=self.prefix_kernel_smc_startpointer+v+'_2d=-1;\n'
-                    decl+='/*{\n'
-                    decl+='int iterator_of_smc=0;\n'
-                    decl+='for(iterator_of_smc=threadIdx.x; iterator_of_smc<('+length+'); iterator_of_smc+=blockDim.x){\n'
-                    decl+='//'+self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
-                    decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc]=0;\n'
-                    decl+='}\n__syncthreads();\n'
-                    decl+='}*/\n'
+                    if tagbasedcache_size!='':
+                        decl+='{\n //initialize the tag array to zero\n'
+                        decl+='int iterator_of_smc_x=0, iterator_of_smc_y=0;\n'
+                        decl+='/*\n'
+                        decl+='for(iterator_of_smc_y=threadIdx.y; iterator_of_smc_y<('+length+'); iterator_of_smc_y+=blockDim.y){\n'
+                        decl+='for(iterator_of_smc_x=threadIdx.x; iterator_of_smc_x<('+length_2+'); iterator_of_smc_x+=blockDim.x){\n'
+                        decl+=self.prefix_kernel_smc_varpref+v+'[iterator_of_smc_y][iterator_of_smc_x]=0;\n'
+                        decl+='}\n'
+                        decl+='}\n'
+                        decl+='*/\n'
+                        decl+='for(iterator_of_smc_y=threadIdx.y; (iterator_of_smc_y*blockDim.x+threadIdx.x)<('+tagbasedcache_size+'); iterator_of_smc_y+=blockDim.y){\n'
+                        decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc_y*blockDim.x+threadIdx.x]=-1;\n'
+                        decl+='}\n'
+                        decl+='__syncthreads();\n'
+                        decl+='}\n'
                     if st=='READ_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL':
                         # fetch data to local memory
                         datafetch ='{ // fetch begins\n'
@@ -1821,8 +1839,8 @@ class codegen(object):
                             #  ALT 4:
                             datafetch+="bool lastcol=blockIdx.x==(gridDim.x-1);\n"
                             datafetch+="bool lastrow=blockIdx.y==(gridDim.y-1);\n"
-                            datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastrow)?'+dimhi+'-1:blockDim.y+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'-1;\n'
-                            datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+'(lastcol)?'+dim2high+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'_2d+'+up2range+'-1;\n'
+                            datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastrow)?'+dimhi+'-1:blockDim.y+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
+                            datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+'(lastcol)?'+dim2high+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'_2d+'+up2range+'+'+dw2range+'-1;\n'
                             datafetch+="// FINDING DONE\n"
                             datafetch+='//__fusion_merge_boundary_'+str(len(fusionSMC)-1)+'()\n'
 
@@ -1848,7 +1866,7 @@ class codegen(object):
                             if dw.strip()=='0' and up.strip()=='0':
                                 datafetch+='  kk2=threadIdx.x;\n'
                             else:
-                                datafetch+='  for(kk2=threadIdx.x; kk2<__ipmacc_length_2d; kk2+=blockDim.y)\n'
+                                datafetch+='  for(kk2=threadIdx.x; kk2<__ipmacc_length_2d; kk2+=blockDim.x)\n'
                             datafetch+='  {\n'
                             datafetch+='   int idx2='+self.prefix_kernel_smc_startpointer+v+'_2d+kk2;\n'
                             datafetch+='   if(idx2<('+dim2high+') && idx2>=('+dim2low+'))\n'
@@ -1856,13 +1874,17 @@ class codegen(object):
                             if dw2range.strip()=='0' and up2range.strip()=='0':
                                 datafetch+='  kk=threadIdx.y;\n'
                             else:
-                                datafetch+='for(kk=threadIdx.y; kk<__ipmacc_length; kk+=blockDim.x)\n'
+                                datafetch+='for(kk=threadIdx.y; kk<__ipmacc_length; kk+=blockDim.y)\n'
                             datafetch+='{\n'
                             datafetch+=' int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
                             datafetch+=' if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
                             datafetch+=' {\n'
-                            datafetch+=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
-                            datafetch+='//'+self.prefix_kernel_smc_tagpref+v+'[kk][kk2]=1;\n'
+                            if tagbasedcache_size!='':
+                                datafetch+='unsigned int sidx = (idx*'+dim2high+'+idx2)&('+tagbasedcache_size+'-1);\n'
+                                datafetch+=self.prefix_kernel_smc_varpref+v+'[sidx]='+v+'[idx*'+dim2high+'+idx2];\n'
+                                datafetch+=self.prefix_kernel_smc_tagpref+v+'[sidx]=(idx*'+dim2high+'+idx2);\n'
+                            else:
+                                datafetch+=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
                             datafetch+='//__fusion_merge_fetch_'+str(len(fusionSMC)-1)+'()\n'
                             datafetch+='   }\n'
                             datafetch+='  }\n'
@@ -1871,12 +1893,16 @@ class codegen(object):
                             datafetch+='__syncthreads();\n'
                         datafetch+='} // end of fetch\n'
                         # pragma to replace global memory access with smc 
-                        datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+')\n'
+                        #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+v+((', '+self.prefix_kernel_smc_tagpref+v) if TAGBASEDSMC else '')+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+')\n'
                         #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
                         kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
                     # construct the smc_select_ per array for READ
                     #smc_select_calls+='__noinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr1, int startptr2, int endptr1, int endptr2, int pitch){\n'
-                    smc_select_calls+='/*__forceinline__*/ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){\n'
+                    smc_select_calls+='/*__forceinline__*/ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2,\n'
+                    smc_select_calls+=((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+'\n'
+                    smc_select_calls+=t+' g_array, '
+                    smc_select_calls+=t.replace('*','')+(' s_array['+tagbasedcache_size+'], ' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+'\n'
+                    smc_select_calls+=' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){\n'
                     if div=='false':
                         smc_select_calls+='// the pragmas are well-set. do not check the boundaries.\n'
                         if GENDEBUGCODE:
@@ -1904,6 +1930,7 @@ class codegen(object):
                     else:
                         #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
                         smc_select_calls+='// the pragmas are not well-set. do check the boundaries.\n'
+                        smc_select_calls+='// also we check the tag to assure data is already fetched.\n'
                         if GENDEBUGCODE:
                             smc_select_calls+="""#define REPLACECALL() printf("tid> (%d,%d,%d) bid> (%d,%d,%d) index> %d idx> %d idx2> %d startptr> %d startptr2> %d\\n",\\\n
         threadIdx.x,threadIdx.y,threadIdx.z,\\\n
@@ -1926,12 +1953,30 @@ class codegen(object):
             assert((idx2-startptr2)<16);\n
     }\n"""
                         #smc_select_calls+='return s_array[diff1][diff2];\n'
-                        smc_select_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
-                        smc_select_calls+='return s_array[diff1][diff2];\n'
-                        #smc_select_calls+='return s_array[index1-startptr1][index2-startptr2];\n'
-                        smc_select_calls+='}else{ \n'
-                        smc_select_calls+='return 0;//g_array[index1*pitch+index2];\n' #FIXME seriously
-                        smc_select_calls+='}\n'
+                        if tagbasedcache_size!='':
+                            smc_select_calls+=t.replace('*','')+' value_to_return;\n'
+                            smc_select_calls+='int gidx = (index1*pitch+index2);\n'
+                            smc_select_calls+='//return g_array[gidx];\n'
+                            smc_select_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
+                            smc_select_calls+='if(tag_array[sidx]==(gidx)){\n'
+                            smc_select_calls+='value_to_return = s_array[sidx];\n'
+                            smc_select_calls+='}\n'
+                            smc_select_calls+='bool tag_updated=false;\n'
+                            smc_select_calls+='if(tag_array[sidx]!=(gidx)){ \n'
+                            smc_select_calls+='value_to_return = g_array[gidx];\n'
+                            smc_select_calls+='s_array[sidx] = value_to_return;\n'
+                            smc_select_calls+='tag_updated = true;\n'
+                            smc_select_calls+='}\n'
+                            smc_select_calls+='__syncthreads();\n' 
+                            smc_select_calls+='if(tag_updated) tag_array[sidx] = gidx;\n' 
+                            smc_select_calls+='__syncthreads();\n' 
+                            smc_select_calls+='return value_to_return;\n'
+                        else:
+                            smc_select_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 ){\n'
+                            smc_select_calls+='return s_array[diff1][diff2];\n'
+                            smc_select_calls+='}else{ \n'
+                            smc_select_calls+='return g_array[index1*pitch+index2];\n'
+                            smc_select_calls+='}\n'
                         #smc_select_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                         #smc_select_calls+='// dynamic runtime performs the check\n'
                         #smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
@@ -1945,18 +1990,30 @@ class codegen(object):
                     smc_select_calls+='}\n'
                     # construct the smc_write_ per array for WRITE
                     #smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr, int startptr2, int dim2size, '+t.replace('*','')+' value){\n'
-                    smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index1, int index2, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, '+t.replace('*','')+' value){\n'
+                    smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index1, int index2, '+((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+t+' g_array, '+t.replace('*','')+(' s_array['+tagbasedcache_size+'],' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, '+t.replace('*','')+' value){\n'
                     #smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before,'+t.replace('*','')+' value, int startptr){\n'
                     if div=='false':
                         smc_write_calls+='// the pragmas are well-set. do not check the boundaries.\n'
                         smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
                     else:
                         #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
-                        smc_write_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
-                        smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
-                        smc_write_calls+='}else{\n'
-                        smc_write_calls+='g_array[index1*pitch+index2]=value;\n'
-                        smc_write_calls+='}\n'
+                        if tagbasedcache_size:
+                            smc_write_calls+='int gidx = (index1*pitch+index2);\n'
+                            smc_write_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
+                            smc_write_calls+='if(tag_array[sidx]==(gidx)){\n'
+                            smc_write_calls+='s_array[sidx]=value;\n'
+                            smc_write_calls+='}else{ \n'
+                            smc_write_calls+='g_array[tag_array[sidx]]=s_array[sidx];\n'
+                            smc_write_calls+='s_array[sidx] = g_array[gidx];\n'
+                            smc_write_calls+='tag_array[sidx]=gidx;\n'
+                            smc_write_calls+='//__syncthreads();\n' 
+                            smc_write_calls+='}\n'
+                        else:
+                            smc_write_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
+                            smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
+                            smc_write_calls+='}else{\n'
+                            smc_write_calls+='g_array[index1*pitch+index2]=value;\n'
+                            smc_write_calls+='}\n'
                         #smc_write_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                         #smc_write_calls+='// dynamic runtime performs the check\n'
                         #smc_write_calls+='bool a=index>=down;\n'
@@ -1989,7 +2046,7 @@ class codegen(object):
                             [tmp_idx1, tmp_idx2] = self.decompose1Dindexto2D(unifiedIdxSet[unifiedIdxList[idx_num]], '0', dim2high, '2D')
                             tmp_diff1=tmp_idx1+'-'+self.prefix_kernel_smc_startpointer+v
                             tmp_diff2=tmp_idx2+'-'+self.prefix_kernel_smc_startpointer+v+'_2d'
-                            access_tmp='__smc_select_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
+                            access_tmp='__smc_select_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if tagbasedcache_size else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
                             kernelB=kernelB[:idx_s]+access_tmp+'/* '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
                             #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+')\n'
                             #self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim2'+']'+' /* replacing '
@@ -2011,7 +2068,15 @@ class codegen(object):
                         #writeIdx_replacer+='__syncthreads();\n'
                         # ALT2: 
                         writeIdx_replacer ='__syncthreads();\n'
-                        writeIdx_replacer+=self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim2'+']='+writeIdx_val[:-1]+';\n'
+                        if div=='false':
+                            writeIdx_replacer+=self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim2'+']='+writeIdx_val[:-1]+';\n'
+                        else:
+                            print 'cache divergent write not implemented! #'+str(getframeinfo(currentframe()).lineno)+'\n'
+                            exit(-1)
+                            if TAGBASEDSMC:
+                                writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+writeIdx_val[:-1]+')'
+                            else:
+                                writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
                         writeIdx_replacer+='__syncthreads();\n'
                         kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
                     # generate writeback code
@@ -2977,7 +3042,12 @@ class codegen(object):
         smc_select_calls=''
         if len(smcinfo)>0:
             #pfreelist=[]
-            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
+            #for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
+            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range] in smcinfo:
+                if dim2low!='' and dim2high!='':
+                    print 'two dimensional smc is not implemented on OpenCL.'
+                    print 'aborting()'
+                    exit(-1)
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
                 if kernelB.find(fcall)==-1:
                     # this smc does not belong to this kernel, ignore 
