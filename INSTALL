@@ -1,5 +1,5 @@
 ====================
-The compiler should work on most Linux systems. It is developed under CentOS 6.2 64-bit:
+The compiler should work on most Linux systems, initially developed under CentOS 6.2 64-bit:
 - gcc/g++ : 4.4.6
 - python  : 2.6.6
 

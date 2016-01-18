@@ -419,7 +419,7 @@ class codegen(object):
             print 'looking for declaration of following types: "'+'" "'.join(undecls_types)+'"'
             print 'looking for declaration of following calls: "'+'" "'.join(undecls_calls)+'"'
         # 4) find the declaration
-        [self.active_types_decl, self.active_calls_decl]=srcml_get_fwdecls(codein, undecls_types, undecls_calls, self.intrinsic_calls_ocl)
+        [self.active_types_decl, self.active_calls_decl] = srcml_get_fwdecls(codein, undecls_types, undecls_calls, self.intrinsic_calls_cuda if self.target_platform=='CUDA' else self.intrinsic_calls_ocl)
         # 5) debugging
         if DEBUGFWDCL:
             decls=self.active_types_decl
@@ -1531,12 +1531,14 @@ class codegen(object):
                         #smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
                         #smc_select_calls+='bool b=index<=up && index<ubnd;\n'
                         #smc_select_calls+='bool d=a&b;\n'
-                        smc_select_calls+='if(startptr<=index && index<=endptr){\n'
+                        smc_select_calls+=t.replace('*','')+' ret = s_array[diff];\n'
+                        smc_select_calls+='if(!(startptr<=index && index<=endptr)){\n'
                         #smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
-                        smc_select_calls+='return s_array[diff];\n'
-                        smc_select_calls+='}else{\n'
-                        smc_select_calls+='return s_array[0];//assert(0);//return g_array[index];\n' #FIXME seriously
+                        #smc_select_calls+='return s_array[diff];\n' #FIXME seriously
+                        smc_select_calls+=' ret = g_array[index];\n' #FIXME seriously
+                        #smc_select_calls+='}else{ ret = s_array[diff];\n' #FIXME seriously
                         smc_select_calls+='}\n'
+                        smc_select_calls+='return ret;\n'
                     smc_select_calls+='}\n'
                     # construct the smc_write_ per array for WRITE
                     smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before,'+t.replace('*','')+' value, int startptr){\n'
@@ -1898,7 +1900,7 @@ class codegen(object):
                         kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
                     # construct the smc_select_ per array for READ
                     #smc_select_calls+='__noinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr1, int startptr2, int endptr1, int endptr2, int pitch){\n'
-                    smc_select_calls+='/*__forceinline__*/ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2,\n'
+                    smc_select_calls+='__forceinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2,\n'
                     smc_select_calls+=((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+'\n'
                     smc_select_calls+=t+' g_array, '
                     smc_select_calls+=t.replace('*','')+(' s_array['+tagbasedcache_size+'], ' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+'\n'
@@ -1972,11 +1974,12 @@ class codegen(object):
                             smc_select_calls+='__syncthreads();\n' 
                             smc_select_calls+='return value_to_return;\n'
                         else:
-                            smc_select_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 ){\n'
-                            smc_select_calls+='return s_array[diff1][diff2];\n'
-                            smc_select_calls+='}else{ \n'
-                            smc_select_calls+='return g_array[index1*pitch+index2];\n'
+                            smc_select_calls+=t.replace('*','')+' ret = s_array[diff1][diff2];\n'
+                            smc_select_calls+='if(!(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 )){\n'
+                            #smc_select_calls+='assert(0);\n'
+                            smc_select_calls+='ret = g_array[index1*pitch+index2];\n'
                             smc_select_calls+='}\n'
+                            smc_select_calls+='return ret;\n'
                         #smc_select_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                         #smc_select_calls+='// dynamic runtime performs the check\n'
                         #smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
