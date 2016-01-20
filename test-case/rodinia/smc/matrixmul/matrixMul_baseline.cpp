@@ -5,7 +5,7 @@
 //#include <accelmath.h>
 #include <math.h>
 
-#define LEN 1024
+//#define LEN 1024
 #define SIZE LEN*LEN
 
 #define TYPE double
@@ -21,6 +21,15 @@ int main(int argc, char *argv[])
 #ifdef __NVOPENCL__
     acc_init( acc_device_nvocl );
 #endif 
+    
+    int LEN = -1;
+    if(argc!=2){
+        printf("usage: ./matMul <size>\n");
+        exit(-1);
+    }else{
+        sscanf(argv[1], "%d", &LEN);
+    }
+    assert(LEN>0);
 
     TYPE *a, *b, *c;
     //TYPE *kK[10], *jJ[10];
@@ -92,6 +101,7 @@ int main(int argc, char *argv[])
        }
        */
 
+    /*
     printf("Calculation on CPU ... ");
 
     tic = clock();
@@ -112,6 +122,6 @@ int main(int argc, char *argv[])
     printf(" %6.4f ms\n",(toc-tic)/(TYPE)1000);
 
     fprintf(stderr,"OpenACC matrix multiply test with dynamic arrays was successful!\n");
-
+    */
     return 0;
 }

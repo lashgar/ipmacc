@@ -97,13 +97,13 @@ main( int argc, char* argv[] )
     m = 0;
     iters = 0;
 
-/*
     if( argc > 1 ){
         n = atoi( argv[1] );
         if( argc > 2 ){
             m = atoi( argv[2] );
             if( argc > 3 ){
                 iters = atoi( argv[3] );
+                /*
                 if( argc > 4 ){
                     if( !strcmp( argv[4], "host" ) ||
                             !strcmp( argv[4], "HOST" ) ){
@@ -119,14 +119,14 @@ main( int argc, char* argv[] )
                             printf( "unknown device: %s\nUsing default\n", argv[4] );
                         }
                 }
+                */
             }
         }
     }
-*/
 
-    if( n <= 0 ) n = 1000;
+    if( n <= 0 ) n = 1024;
     if( m <= 0 ) m = n;
-    if( iters <= 0 ) iters = 10;
+    if( iters <= 0 ) iters = 1;
 
     aa = (float*) malloc( sizeof(float) * n * m );
     aahost = (float*) malloc( sizeof(float) * n * m );

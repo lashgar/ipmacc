@@ -21,6 +21,9 @@ nosmc:
 	$(ACC) matrixMul_nosmc.cpp -o matMul_nosmc  $(ACC_FLAGS) -Xptxas=-v
 
 cuda:
+	nvcc matrixMul_cuda.cu -o matMul_cuda `ipmacc --cflags` `ipmacc --ldflags` -Xptxas=-v
+
+baseline:
 	$(ACC) matrixMul_baseline.cpp -o matMul_baseline  $(ACC_FLAGS) -Xptxas=-v
 
 opencl:

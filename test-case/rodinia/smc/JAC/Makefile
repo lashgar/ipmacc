@@ -17,8 +17,11 @@ cpu:
 smc:
 	$(ACC)  jacobi_smc.c -o JAC_$@  $(ACC_FLAGS)
 
-cuda:
+nosmc:
 	$(ACC)  jacobi_baseline.c -o JAC_$@  $(ACC_FLAGS)
+
+cuda:
+	nvcc jacobi_shared.cu -o JAC_$@  `ipmacc --cflags` `ipmacc --ldflags`
 
 opencl:
 	ta=nvopencl $(ACC) jacobi_baseline.c -o JAC_$@ $(ACL_FLAGS)

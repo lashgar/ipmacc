@@ -4,8 +4,9 @@
 #include <stdlib.h>
 //#include <accelmath.h>
 #include <math.h>
+#include <assert.h>
 
-#define LEN 1024
+//#define LEN 1024
 #define SIZE LEN*LEN
 
 #define TYPE double
@@ -21,6 +22,14 @@ int main(int argc, char *argv[])
 #ifdef __NVOPENCL__
     acc_init( acc_device_nvocl );
 #endif 
+    int LEN = -1;
+    if(argc!=2){
+        printf("usage: ./matMul <size>\n");
+        exit(-1);
+    }else{
+        sscanf(argv[1], "%d", &LEN);
+    }
+    assert(LEN>0);
 
     TYPE *a, *b, *c;
     //TYPE *kK[10], *jJ[10];
@@ -33,11 +42,12 @@ int main(int argc, char *argv[])
 
     // Initialize matrices.
     for (i = 0; i < SIZE; ++i) {
-        //B
+        // B
         a[i] = (TYPE)i ;
         b[i] = (TYPE)2*i;
         c[i] = 0.0f;
-    }// B
+        // B
+    }
 
     unsigned long long int tic, toc;
     // Compute vector Add
@@ -57,11 +67,12 @@ int main(int argc, char *argv[])
                         {
                             for(j=0; j<LEN; ++j){
                                 TYPE sum=0;
-                                //#pragma acc cache (temp[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:false:0:0:0:0],power[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:false:0:0:0:0])
+                                //#pragma acc cache (temp[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:true:0:0:0:0],power[0:row:0:col:FETCH_CHANNEL:r:0:0:c:0:0:true:0:0:0:0])
                                 for (l=0; l<LEN; l+=16){
                                     int offseti=l;
                                     int offsetj=l;
-                                    #pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:16:tag64:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:16:j:0:0:tag64:0:0:0:0])
+                                    //#pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:16:true:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:16:j:0:0:true:0:0:0:0])
+                                    #pragma acc cache (a[0:LEN:0:LEN:FETCH_CHANNEL:i:0:0:offsetj:0:0:true:0:0:0:0],b[0:LEN:0:LEN:FETCH_CHANNEL:offseti:0:0:j:0:0:true:0:0:0:0])
                                     {
                                         if(j<LEN && i<LEN){
                                             int m;
@@ -112,6 +123,7 @@ int main(int argc, char *argv[])
 
     printf("Calculation on CPU ... ");
 
+    /*
     tic = clock();
     for (i = 0; i < LEN; ++i) {
         for(j=0; j<LEN; j++){
@@ -128,8 +140,8 @@ int main(int argc, char *argv[])
     }
     toc = clock();
     printf(" %6.4f ms\n",(toc-tic)/(TYPE)1000);
+    */
 
     fprintf(stderr,"OpenACC matrix multiply test with dynamic arrays was successful!\n");
-
     return 0;
 }

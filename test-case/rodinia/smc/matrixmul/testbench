@@ -2,10 +2,10 @@
 
 #for HSBPTBIN in matMul_baseline matMul ;
 #do
- for sizet in 64 128 256 512 1024 2048 #32 16 8 4 2 #1024 #256 512 # 32 64 128 ;
+ for sizet in 1 2 4 8 16 #32 #1024 #256 512 # 32 64 128 ;
  #for size in 512 #1024 2048 4096 8192 16384;
  do
-  size=`expr 1024 \* $sizet`
+  size=`expr 512 \* $sizet`
   #./${HSBPTBIN}_verify $size > /dev/null
   #if [ "$?" != "0" ] ; then
   # echo 'test failed> results differ'
@@ -16,11 +16,12 @@
   #mv .testlog.$size.$iter.out .testlog.$HSBPTBIN.$size.$iter.out
   for rep in {1..30};
   do
-   for bin in smctrue #nosmc smcfalse cuda
+   for bin in smc_true # smc_false 
+   #for bin in cuda baseline smc_false smc_true
    do
     echo $bin.$size.$rep
-    #nvprof ./nbody_nosmc -compare -cuda    -numbodies=$size > .testlog.${bin}.${size}.out 2> .perflog.new.${bin}.${sizet}.$rep
-    nvprof ./nbody_$bin -compare -openacc -numbodies=$size > .testlog.${bin}.${size}.out 2> .perflog.new.${bin}.${sizet}.$rep
+    nvprof ./matMul_$bin $size > .testlog.${bin}.${size}.out 2> .perflog.lowoccup.${bin}.${sizet}.$rep
+    #nvprof ./nbody_$bin -compare -openacc -numbodies=$size > .testlog.${bin}.${size}.out 2> .perflog.${bin}.${sizet}.$rep
     #mv .perflog.$size.t$rep .perflog.$HSBPTBIN.$size.t$rep
     if [ "$?" != "0" ] ; then
      echo 'running failed'
@@ -30,3 +31,4 @@
   done
  done
 #done
+

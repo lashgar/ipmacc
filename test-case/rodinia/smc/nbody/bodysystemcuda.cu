@@ -31,17 +31,17 @@ __constant__ double softeningSquared_fp64;
 cudaError_t setSofteningSquared(float softeningSq)
 {
     return cudaMemcpyToSymbol(softeningSquared,
-                              &softeningSq,
-                              sizeof(float), 0,
-                              cudaMemcpyHostToDevice);
+            &softeningSq,
+            sizeof(float), 0,
+            cudaMemcpyHostToDevice);
 }
 
 cudaError_t setSofteningSquared(double softeningSq)
 {
     return cudaMemcpyToSymbol(softeningSquared_fp64,
-                              &softeningSq,
-                              sizeof(double), 0,
-                              cudaMemcpyHostToDevice);
+            &softeningSq,
+            sizeof(double), 0,
+            cudaMemcpyHostToDevice);
 }
 
 template<class T>
@@ -60,19 +60,19 @@ struct SharedMemory
     }
 };
 
-template<typename T>
+    template<typename T>
 __device__ T rsqrt_T(T x)
 {
     return rsqrt(x);
 }
 
-template<>
+    template<>
 __device__ float rsqrt_T<float>(float x)
 {
     return rsqrtf(x);
 }
 
-template<>
+    template<>
 __device__ double rsqrt_T<double>(double x)
 {
     return rsqrt(x);
@@ -84,12 +84,12 @@ __device__ double rsqrt_T<double>(double x)
 // This macro is only used when multithreadBodies is true (below)
 #define SX_SUM(i,j) sharedPos[i+blockDim.x*j]
 
-template <typename T>
+    template <typename T>
 __device__ T getSofteningSquared()
 {
     return softeningSquared;
 }
-template <>
+    template <>
 __device__ double getSofteningSquared<double>()
 {
     return softeningSquared_fp64;
@@ -105,12 +105,44 @@ struct DeviceData
     unsigned int numBodies;
 };
 
+template <typename T>
+    __device__ float3
+bodyBodyInteraction_ret(typename vec4<T>::Type bi,
+        typename vec4<T>::Type bj)
+{
+    typename vec3<T>::Type r;
+    float3 ai;
+    // r_ij  [3 FLOPS]
+    r.x = bj.x - bi.x;
+    r.y = bj.y - bi.y;
+    r.z = bj.z - bi.z;
+
+    // distSqr = dot(r_ij, r_ij) + EPS^2  [6 FLOPS]
+    T distSqr = r.x * r.x + r.y * r.y + r.z * r.z;
+    distSqr += getSofteningSquared<T>();
+
+    // invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]
+    T invDist = rsqrt_T(distSqr);
+    T invDistCube =  invDist * invDist * invDist;
+
+    // s = m_j * invDistCube [1 FLOP]
+    T s = bj.w * invDistCube;
+
+    // a_i =  a_i + s * r_ij [6 FLOPS]
+    ai.x = r.x * s;
+    ai.y = r.y * s;
+    ai.z = r.z * s;
+
+    return ai;
+}
+
+
 
 template <typename T>
-__device__ typename vec3<T>::Type
+    __device__ typename vec3<T>::Type
 bodyBodyInteraction(typename vec3<T>::Type ai,
-                    typename vec4<T>::Type bi,
-                    typename vec4<T>::Type bj)
+        typename vec4<T>::Type bi,
+        typename vec4<T>::Type bj)
 {
     typename vec3<T>::Type r;
 
@@ -139,10 +171,10 @@ bodyBodyInteraction(typename vec3<T>::Type ai,
 }
 
 template <typename T>
-__device__ typename vec3<T>::Type
+    __device__ typename vec3<T>::Type
 computeBodyAccel(typename vec4<T>::Type bodyPos,
-                 typename vec4<T>::Type *positions,
-                 int numTiles)
+        typename vec4<T>::Type *positions,
+        int numTiles)
 {
     typename vec4<T>::Type *sharedPos = SharedMemory<typename vec4<T>::Type>();
 
@@ -155,11 +187,15 @@ computeBodyAccel(typename vec4<T>::Type bodyPos,
         __syncthreads();
 
         // This is the "tile_calculation" from the GPUG3 article.
-#pragma unroll 128
+//#pragma unroll 128
 
         for (unsigned int counter = 0; counter < blockDim.x; counter++)
         {
-            acc = bodyBodyInteraction<T>(acc, bodyPos, sharedPos[counter]);
+            //typename vec3<T>::Type acc_c = bodyBodyInteraction_ret<T>(bodyPos, sharedPos[counter]);
+            float3 acc_c = bodyBodyInteraction_ret<T>(bodyPos, sharedPos[counter]);
+            acc.x += acc_c.x;
+            acc.y += acc_c.y;
+            acc.z += acc_c.z;
         }
 
         __syncthreads();
@@ -169,12 +205,12 @@ computeBodyAccel(typename vec4<T>::Type bodyPos,
 }
 
 template<typename T>
-__global__ void
+    __global__ void
 integrateBodies(typename vec4<T>::Type *__restrict__ newPos,
-                typename vec4<T>::Type *__restrict__ oldPos,
-                typename vec4<T>::Type *vel,
-                unsigned int deviceOffset, unsigned int deviceNumBodies,
-                float deltaTime, float damping, int numTiles)
+        typename vec4<T>::Type *__restrict__ oldPos,
+        typename vec4<T>::Type *vel,
+        unsigned int deviceOffset, unsigned int deviceNumBodies,
+        float deltaTime, float damping, int numTiles)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -186,8 +222,8 @@ integrateBodies(typename vec4<T>::Type *__restrict__ newPos,
     typename vec4<T>::Type position = oldPos[deviceOffset + index];
 
     typename vec3<T>::Type accel = computeBodyAccel<T>(position,
-                                                       oldPos,
-                                                       numTiles);
+            oldPos,
+            numTiles);
 
     // acceleration = force / mass;
     // new velocity = old velocity + acceleration * deltaTime
@@ -213,16 +249,16 @@ integrateBodies(typename vec4<T>::Type *__restrict__ newPos,
     vel[deviceOffset + index]    = velocity;
 }
 
-template <typename T>
+    template <typename T>
 void integrateNbodySystem(DeviceData<T> *deviceData,
-                          cudaGraphicsResource **pgres,
-                          unsigned int currentRead,
-                          float deltaTime,
-                          float damping,
-                          unsigned int numBodies,
-                          unsigned int numDevices,
-                          int blockSize,
-                          bool bUsePBO)
+        cudaGraphicsResource **pgres,
+        unsigned int currentRead,
+        float deltaTime,
+        float damping,
+        unsigned int numBodies,
+        unsigned int numDevices,
+        int blockSize,
+        bool bUsePBO)
 {
     if (bUsePBO)
     {
@@ -246,11 +282,11 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
         int sharedMemSize = blockSize * 4 * sizeof(T); // 4 floats for pos
 
         integrateBodies<T><<< numBlocks, blockSize, sharedMemSize >>>
-        ((typename vec4<T>::Type *)deviceData[dev].dPos[1-currentRead],
-         (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
-         (typename vec4<T>::Type *)deviceData[dev].dVel,
-         deviceData[dev].offset, deviceData[dev].numBodies,
-         deltaTime, damping, numTiles);
+            ((typename vec4<T>::Type *)deviceData[dev].dPos[1-currentRead],
+             (typename vec4<T>::Type *)deviceData[dev].dPos[currentRead],
+             (typename vec4<T>::Type *)deviceData[dev].dVel,
+             deviceData[dev].offset, deviceData[dev].numBodies,
+             deltaTime, damping, numTiles);
 
         if (numDevices > 1)
         {
@@ -280,21 +316,21 @@ void integrateNbodySystem(DeviceData<T> *deviceData,
 
 // Explicit specializations needed to generate code
 template void integrateNbodySystem<float>(DeviceData<float> *deviceData,
-                                          cudaGraphicsResource **pgres,
-                                          unsigned int currentRead,
-                                          float deltaTime,
-                                          float damping,
-                                          unsigned int numBodies,
-                                          unsigned int numDevices,
-                                          int blockSize,
-                                          bool bUsePBO);
+        cudaGraphicsResource **pgres,
+        unsigned int currentRead,
+        float deltaTime,
+        float damping,
+        unsigned int numBodies,
+        unsigned int numDevices,
+        int blockSize,
+        bool bUsePBO);
 
 template void integrateNbodySystem<double>(DeviceData<double> *deviceData,
-                                           cudaGraphicsResource **pgres,
-                                           unsigned int currentRead,
-                                           float deltaTime,
-                                           float damping,
-                                           unsigned int numBodies,
-                                           unsigned int numDevices,
-                                           int blockSize,
-                                           bool bUsePBO);
+        cudaGraphicsResource **pgres,
+        unsigned int currentRead,
+        float deltaTime,
+        float damping,
+        unsigned int numBodies,
+        unsigned int numDevices,
+        int blockSize,
+        bool bUsePBO);
