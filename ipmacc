@@ -75,6 +75,7 @@ NARG=${#ARGS[@]}
 NVCCARGS=
 OPTIMIZATION= #optimization swtiches
 COMPILEONLY=0
+COMPILEONLY_OBJ=
 
 LISTANDEXIT=
 LISTANDEXITPAR=
@@ -91,6 +92,10 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
     elif [ "$pendingoptimization" == "1" ] ; then
         OPTIMIZATION=${ARGS[i]}
         pendingoptimization="0"
+        continue
+    elif [ "$pendingobject" == "1" ] ; then
+        COMPILEONLY_OBJ=${ARGS[i]}
+        pendingobject="0"
         continue
     fi
 
@@ -114,6 +119,8 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         pendingaccfile="1"
     elif [ "${ARGS[i]}" == "--enable" ] ; then
         pendingoptimization="1"
+    elif [ "${ARGS[i]}" == "-o" ] ; then
+        pendingobject="1"
     elif [ "$i" != "0" ] ; then
         # append this arg
         NVCCARGS="${NVCCARGS} ${ARGS[i]}"
@@ -337,7 +344,12 @@ if [ "$?" == "0" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
              echo -en "$CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG "
             fi
-            $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+            if [ "$COMPILEONLY" == "1" ]; then
+             $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG -o /tmp/launcher.o
+             ld -r /tmp/launcher.o $ISPCKERNELOBJ -o $COMPILEONLY_OBJ
+            else
+              $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+            fi
             #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"

@@ -232,9 +232,10 @@ class srcML:
                 #<parameter_list>(<param><decl><type>
                 if USEALT2:
                     # ALT 2
-                    for stm in fcn.findall(".//parameter_list/param"):
+                    for stm in fcn.findall(".//parameter_list/param") + fcn.findall(".//for"):
                         for ch in stm.findall(".//decl"):
                             arg_stmt=self.getAllText(ch).strip()+';'
+                            #print arg_stmt
                             [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
                             e_vnames+=e_vars
                             e_vsizes+=e_sizes

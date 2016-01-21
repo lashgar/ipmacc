@@ -46,7 +46,7 @@ DEBUGFC=False #function call
 DEBUGSRCML=False   #debugging srcml 
 DEBUGSRCMLC=False #debugging srcml wrapper calls
 DEBUGFWDCL=False #debug forward declaration and function redeclaration
-DEBUGITER=False
+DEBUGITER=False 
 DEBUGCPP=False #debug cpp call
 DEBUGSMC=False
 DEBUGMULTIDIMTB=False#True
@@ -57,7 +57,7 @@ GENDEBUGCODE=False
 #GENMULTIDIMTB=True
 GENMULTIDIMTB=False #True
 DEBUGSTL=False #debug std stl support
-DEBUGENTEREXIT=True 
+DEBUGENTEREXIT=False 
 DEBUGSCALRVAR=False
 
 class bcolors:
@@ -4720,7 +4720,9 @@ class codegen(object):
         else:
             #srcML
             self.astRootML = srcml_code2xml(self.code)
-            if DEBUGSRCMLC: print 'Error 1719! Unimplemented AST generator!'
+            if DEBUGSRCMLC:
+                #print self.astRootML
+                print 'Error 1719! Unimplemented AST generator!'
             #exit(-1)
 
 #        root = tree.getroot()
@@ -5111,6 +5113,7 @@ class codegen(object):
             except:
                 itr=False
             if itr:
+                # we handle iterators separately 
                 continue
             # 2- check if it is defined as automatic var
             autovar=False
@@ -5567,7 +5570,7 @@ class codegen(object):
                         code+=root.attrib.get('boundary')+';\n'
                         code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
                     elif root.attrib['independent']=='true' and root.attrib['reversedepth']=='1':
-                        code=code+self.code_gen_reversiFor(root.attrib.get('iterator')+'=('+root.attrib.get('initial').split('=')[1]+') '+root.attrib.get('incoperator')+'taskIndex0/*__ispc_thread_idx*/',
+                        code=code+self.code_gen_reversiFor('int '+root.attrib.get('iterator')+'=('+root.attrib.get('initial').split('=')[1]+') '+root.attrib.get('incoperator')+'taskIndex0/*__ispc_thread_idx*/',
                             root.attrib.get('boundary'),
                             root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'__ispc_n_threads\n')+'\n'
                     else:
