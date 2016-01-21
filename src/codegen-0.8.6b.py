@@ -36,6 +36,7 @@ PROFILER=False
 # Debugging level control
 DEBUG=0 #general
 DEBUGCP=0 #copy statement
+DEBUGREGEX=False
 DEBUGCPARSER=0 #parsers
 DEBUGVAR=False #variable type/size/name tracking
 DEBUGLD=False   # loop detector
@@ -57,7 +58,6 @@ GENDEBUGCODE=False
 GENMULTIDIMTB=False #True
 DEBUGSTL=False #debug std stl support
 DEBUGENTEREXIT=True 
-DEBUGREGEX=False
 DEBUGSCALRVAR=False
 
 class bcolors:

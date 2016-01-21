@@ -109,7 +109,10 @@ def decomposeWord(vname):
                 # top-level brac close, array notation
                 # dim starts with '[' and ends with ']'
                 dim=dim[1:-1]
-                arr.append(dim.strip())
+                if dim=='':
+                    arr.append('(dynamic)')
+                else:
+                    arr.append(dim.strip())
                 dim=''
         elif opbrac>0:
             dim+=ch
@@ -503,6 +506,7 @@ class srcML:
                     for idx in range(0,len(e_vnames)):
                         if vname==e_vnames[idx]:
                             e_size=e_vsizes[idx]
+                            # print 'found the size> '+e_size
                             return e_size
                 else:
                     # ALT 1
@@ -519,8 +523,11 @@ class srcML:
                                 if DEBUG: print tostring(ch)
                                 type=self.getAllText(ch.find(".//decl/type")).strip()
                                 nDynDims=type.count('*')
+                                #print 'ndim'
                                 dims=[]
                                 for dim in ch.findall(".//decl/name/index"):
+                                    tmp_dimsize=self.getAllText(dim).strip()
+                                    #print 'index size> '+tmp_dimsize
                                     if DEBUG:
                                         print 'dim > '+self.getAllText(dim)
                                         print 'size >'+' ('+self.getAllText(dim).replace('[','',1)[::-1].replace(']','',1)[::-1].strip()+')'
