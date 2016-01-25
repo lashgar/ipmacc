@@ -10,7 +10,7 @@ ipmaccprefix=os.path.dirname(os.path.realpath(__file__))+"/../"
 sys.path.extend(['.', '..', ipmaccprefix+'./pycparser/', ipmaccprefix+"/srcML/wrapper/"])
 from pycparser import c_parser, c_ast
 from utils_clause import clauseDecomposer,clauseDecomposer_break
-from wrapper import srcml_code2xml, srcml_get_fcn_calls, srcml_get_var_details, srcml_get_parent_fcn, srcml_get_all_ids, srcml_get_declared_vars, srcml_find_var_size, srcml_get_fwdecls, srcml_prefix_functions,srcml_get_dependentVars
+from wrapper import srcml_code2xml, srcml_get_fcn_calls, srcml_get_var_details, srcml_get_parent_fcn, srcml_get_all_ids, srcml_get_declared_vars, srcml_find_var_size, srcml_get_fwdecls, srcml_prefix_functions,srcml_get_dependentVars,srcml_get_active_types
 
 from subprocess import call, Popen, PIPE
 import tempfile
@@ -45,11 +45,11 @@ DEBUGSTMBRK=False
 DEBUGFC=False #function call
 DEBUGSRCML=False   #debugging srcml 
 DEBUGSRCMLC=False #debugging srcml wrapper calls
-DEBUGFWDCL=False #debug forward declaration and function redeclaration
+DEBUGFWDCL=False  #debug forward declaration and function redeclaration
 DEBUGITER=False 
 DEBUGCPP=False #debug cpp call
 DEBUGSMC=False
-DEBUGMULTIDIMTB=False#True
+DEBUGMULTIDIMTB=False #True
 DEBUGCACHE=False
 DEBUGSMCPRECALCINDEX=False
 DEBUGATOMIC=False
@@ -117,7 +117,7 @@ class codegen(object):
         self.code_include+='#ifdef __cplusplus\n#include "openacc_container.h"\n#endif\n\n'
         self.active_types=[] # list of types which have at least one variable in the region scope
                              # keep track of types used in this code to forward declare undeclared types
-        self.active_types_decl=[] # list of tuple (type name, type forward declaration, and full declaration)
+        self.active_types_decl=[] # list of tuple (type name, type forward declaration, and full declaration, second forward declaration, recursion type parent)
                              # declaration of active types which are not standard
         self.active_calls=[] # list of types which have at least one variable in the region scope
                              # keep track of calls used in this code to declare them
@@ -367,13 +367,18 @@ class codegen(object):
         except:
             return False
         return True
-    def builtin_type(self, tp):
+    def get_builtin_types(self):
         #tp=self.clear_type(tp)
+        # FIXME: it might be necessary to separate the list of built-in type for each backend 
         types =['signed char', 'unsigned char', 'char', 'short int', 'unsigned short int', 'int', 'unsigned int', 'long int', 'unsigned long int', 'long long int', 'unsigned long long int']
         types+=['float', 'double', 'long double', 'float _Complex']
         types+=['double _Complex', 'long double _Complex']
         types+=['__complex__ float', '__complex__ double', '__complex__ long double', '__complex__ int']
         types+=['long long unsigned int', 'bool']
+        return types
+    def is_builtin_type(self, tp):
+        #tp=self.clear_type(tp)
+        types = self.get_builtin_types()
         try:
             idx=types.index(tp)
         except:
@@ -399,33 +404,35 @@ class codegen(object):
 
     def forward_declare_find(self):
         # find the declaration of the undeclared calls/types listed in self.active_calls and self.active_types
-        # the declaration will be stored in self.active_calls_decl and self.active_types_decl for future uses
-        # 1) determine the list of undeclared types
-        undecls_types=[]
         codein=self.preprocess_by_gnu_cpp(self.code)
-        for i in self.active_types:
-            tp=self.clear_type(i)
-            if not self.builtin_type(tp):
-                undecls_types.append(tp)
-        undecls_types=list(set(undecls_types))
-        # 2) determine the list undeclared function calls
+        # the declaration will be stored in self.active_calls_decl and self.active_types_decl for future uses
+        # 1) determine the list undeclared function calls
         undecls_calls=[]
         for i in self.active_calls:
             if i.find('__kernel_privred_region_')==-1 and i.find('__kernel_reduction_region_')==-1:
                 undecls_calls.append(i)
         undecls_calls=list(set(undecls_calls))
+        # 2) determine the list of undeclared types
+        active_types_in_fcns = srcml_get_active_types(codein, undecls_calls, self.intrinsic_calls_cuda if self.target_platform=='CUDA' else self.intrinsic_calls_ocl)
+        undecls_types=[]
+        self.active_types = list(set(self.active_types+active_types_in_fcns))
+        for i in self.active_types:
+            tp=self.clear_type(i)
+            if not self.is_builtin_type(tp):
+                undecls_types.append(tp)
+        undecls_types=list(set(undecls_types))
         # 3) debugging
         if DEBUGFWDCL:
             print 'looking for declaration of following types: "'+'" "'.join(undecls_types)+'"'
             print 'looking for declaration of following calls: "'+'" "'.join(undecls_calls)+'"'
         # 4) find the declaration
-        [self.active_types_decl, self.active_calls_decl] = srcml_get_fwdecls(codein, undecls_types, undecls_calls, self.intrinsic_calls_cuda if self.target_platform=='CUDA' else self.intrinsic_calls_ocl)
+        [self.active_types_decl, self.active_calls_decl] = srcml_get_fwdecls(codein, undecls_types, undecls_calls, self.intrinsic_calls_cuda if self.target_platform=='CUDA' else self.intrinsic_calls_ocl, self.get_builtin_types(), self.target_platform)
         # 5) debugging
         if DEBUGFWDCL:
             decls=self.active_types_decl
             for i in range(0,len(decls)):
-                [type, fw_decl, full_decl, ocl_full_decl]=decls[i]
-                print '===== forward declarations '+str(i)+': type<'+type+'> fwdecl<'+fw_decl+'> fulldecl<'+full_decl+'> oclfulldecl<'+ocl_full_decl+'>'
+                [type, fw_decl, full_decl, ocl_full_decl, ocl_parent]=decls[i]
+                print '===== forward declarations '+str(i)+': type<'+type+'> fwdecl<'+fw_decl+'> fulldecl<'+full_decl+'> oclfulldecl<'+ocl_full_decl+'> oclparent<'+ocl_parent+'>'
             decls=self.active_calls_decl
             for i in range(0,len(decls)):
                 [call, proto, body]=decls[i]
@@ -1039,13 +1046,13 @@ class codegen(object):
                 #print ch+' '+dimension+' '+str(f)+' '+forDims[f]+' '+str(len(forDims))
                 dim3_gridblock+='__ipmacc_blockDim.'+ch+'='+dimension+';\n'
                 #dim3_gridblock+='__ipmacc_blockDim.'+ch+'='+self.blockDim_cuda_xyz+';\n'
-                padgrid='((('+forDims[f]+')%('+dimension+'))==0?0:1)'
+                padgrid='(((int)ceil('+forDims[f]+')%('+dimension+'))==0?0:1)'
                 dim3_gridblock+='__ipmacc_gridDim.'+ch+'=(('+forDims[f]+')/__ipmacc_blockDim.'+ch+')+('+padgrid+');\n'
             if DEBUGMULTIDIMTB:
                 print dim3_gridblock
         else:
             blockDim=ctadimx #self.blockDim_cuda
-            padgrid='((('+forDims+')%('+blockDim+'))==0?0:1)'
+            padgrid='(((int)ceil('+forDims+')%('+blockDim+'))==0?0:1)'
             gridDim='('+forDims+')/'+blockDim+'+'+padgrid
 
         callArgs=[]
@@ -1094,10 +1101,11 @@ class codegen(object):
             if PROFILER:
                 kernelInvoc+='acc_profiler_end(0);\n'
         else:
-            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+str(kerId)+' > gridDim: %d\\tblockDim: %d\\n",'+gridDim+','+blockDim+');\n')
+            kernelInvoc+='int griddim_x = '+gridDim+';\n'
+            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+str(kerId)+' > gridDim: %d\\tblockDim: %d\\n", griddim_x, '+blockDim+');\n')
             if PROFILER:
                 kernelInvoc+='acc_profiler_start();\n'
-            kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'<<<'+gridDim+','+blockDim+'>>>('+(','.join(callArgs))+');'
+            kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'<<< griddim_x, '+blockDim+'>>>('+(','.join(callArgs))+');'
             if PROFILER:
                 kernelInvoc+='acc_profiler_end(0);\n'
         kernelInvoc+='\n}\n/* kernel call statement*/\n'
@@ -2379,7 +2387,7 @@ class codegen(object):
         return type+('* ' if sccopy else ' ')+name+';\n'
     def getTypeFwrDecl_cuda(self):
         type_decls=''
-        for [nm, fwdcl, fudcl, oclfudcl] in self.active_types_decl:
+        for [nm, fwdcl, fudcl, oclfudcl, oclparent] in self.active_types_decl:
             type_decls+=fwdcl+'\n'
         return type_decls
     def getFuncDecls_cuda(self):
@@ -2593,14 +2601,14 @@ class codegen(object):
                 #print ch+' '+dimension+' '+str(f)+' '+forDims[f]+' '+str(len(forDims))
                 dim3_gridblock+='__ipmacc_blockDim'+ch+'='+dimension+';\n'
                 #dim3_gridblock+='__ipmacc_blockDim.'+ch+'='+self.blockDim_cuda_xyz+';\n'
-                padgrid='((('+forDims[f]+')%('+dimension+'))==0?0:1)'
-                dim3_gridblock+='__ipmacc_gridDim'+ch+'=((('+forDims[f]+')/__ipmacc_blockDim'+ch+')+('+padgrid+'))*'+'__ipmacc_blockDim'+ch+';\n'
+                padgrid='(((int)ceil('+forDims[f]+')%('+dimension+'))==0?0:1)'
+                dim3_gridblock+='__ipmacc_gridDim'+ch+'=(int)((('+forDims[f]+')/__ipmacc_blockDim'+ch+')+('+padgrid+'))*'+'__ipmacc_blockDim'+ch+';\n'
             if DEBUGMULTIDIMTB:
                 print dim3_gridblock
         else:
             blockDim=ctadimx #self.blockDim_cuda
-            padgrid='((('+forDims+')%('+blockDim+'))==0?0:1)'
-            gridDim='(('+forDims+')/'+blockDim+'+'+padgrid+')*'+blockDim
+            padgrid='(((int)ceil('+forDims+')%('+blockDim+'))==0?0:1)'
+            gridDim='(int)(('+forDims+')/'+blockDim+'+'+padgrid+')*'+blockDim
 
         #callArgs=[]
         #for i in args:
@@ -2627,16 +2635,21 @@ class codegen(object):
         # prepare non-standard types
         type_decls=''
         #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
-        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
+        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
         #print 'kernel#'+kerId_str+': '+','.join(intT)
-        for [nm, fwdcl, fudcl, oclfudcl] in self.active_types_decl:
-            for intTe in intT:
-                if intTe.find(nm)!=-1:
+        tmp_forwarddecl_proto=''
+        for [nm, fwdcl, fudcl, oclfudcl, oclparent] in self.active_types_decl:
+            tmp_active_flag = False
+            for intTe in self.active_types:
+                if intTe.find(nm)!=-1 or oclparent!='': #either type is used directly or indirectly
                     if DEBUGFWDCL: print 'type is active in this kernel: '+nm
                     type_decls+=oclfudcl+'\n'
+                    tmp_forwarddecl_proto+=fwdcl+'\n'
+                    tmp_active_flag = True
                     break
-                else:
-                    if DEBUGFWDCL: print 'type is inactive in this kernel: '+nm
+            if (not tmp_active_flag) and DEBUGFWDCL:
+                print 'type is inactive in this kernel: '+nm
+        type_decls = tmp_forwarddecl_proto + type_decls
         # renaming function calls within kernel
         for [fname, prototype, declbody] in self.active_calls_decl:
             cleanKerDec=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'(', cleanKerDec)
@@ -2764,9 +2777,9 @@ class codegen(object):
             if USEAPI: kernelInvoc+='acc_training_kernel_start('+kernelRandomId+');\n'
             kernelInvoc+='__ipmacc_clerr=clEnqueueNDRangeKernel(__ipmacc_temp_cmdqueue, __ipmacc_clkern'+kerId_str+', __ipmacc_ndims, __ipmacc_offsets,\n global_item_size'+kerId_str+', local_item_size'+kerId_str+', 0, NULL, NULL);\n'
         else:
-            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %d\\tblockDim: %d\\n",'+gridDim+','+blockDim+');\n')
             kernelInvoc+='size_t global_item_size'+kerId_str+' = '+gridDim+';\n'
             kernelInvoc+='size_t local_item_size'+kerId_str+' = '+blockDim+';\n'
+            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %llu\\tblockDim: %llu\\n", global_item_size'+kerId_str+', local_item_size'+kerId_str+');\n')
             kernelInvoc+='__ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
         #kernelInvoc+='cl_command_queue __ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
             if USEAPI: kernelInvoc+='acc_training_kernel_start('+kernelRandomId+');\n'
@@ -3438,9 +3451,9 @@ class codegen(object):
             exit(-1)
         #print '===================='+kerDec
         # prepare the prototype of function called in the regions
-        func_proto=self.getFuncProto_opencl()
+        func_proto=self.getFuncProto_ispc()
         # prepare the declaration of function called in the regions
-        func_decl =self.getFuncDecls_opencl()
+        func_decl =self.getFuncDecls_ispc()
         #if func_proto+func_decl!='':
         #    print 'function call in the region is not supported on ispc backend.\nexiting with failure.\n'+str(getframeinfo(currentframe()).lineno)
         #    print 'function declaration:'
@@ -3453,25 +3466,35 @@ class codegen(object):
         # prepare non-standard types
         type_decls=''
         #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),'')
-        [intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
+        #[intV, intT]=srcml_get_var_details(srcml_code2xml(cleanKerDec+'\n'+func_decl),self.prefix_kernel_gen+kerId_str)
+        #intT=srcml_get_active_types(cleanKerDec+'\n'+func_decl, [self.prefix_kernel_gen+kerId_str], self.intrinsic_calls_cuda if self.target_platform=='CUDA' else self.intrinsic_calls_ocl)
         #print 'kernel#'+kerId_str+': '+','.join(intT)
+        #print 'debug here you sir!'
+        #exit(-1)
         #for intVe, intTe in zip(intV, intT):
         #    print intVe, intTe
         #print '========='
         #print cleanKerDec+'\n'+func_decl
         #exit(-1)
-        for [nm, fwdcl, fudcl, oclfudcl] in self.active_types_decl:
+        if DEBUGFWDCL:
+            print str(len(self.active_types_decl))+' found to be undeclared (be appended.)'
+        tmp_forwarddecl_proto=''
+        for [nm, fwdcl, fudispc, ispcfudcl, ispcparent] in self.active_types_decl:
             #print 'warning: arbitrary type is not implemented for ISPC.'
-            for intTe in intT:
-                if intTe.find(nm)!=-1:
+            tmp_active_flag = False
+            for intTe in self.active_types:
+                if intTe.find(nm)!=-1 or ispcparent!='': #either type is used directly or indirectly
                     if DEBUGFWDCL: print 'type is active in this kernel: '+nm
-                    type_decls+=oclfudcl+'\n'
+                    type_decls+=ispcfudcl+'\n'
+                    tmp_forwarddecl_proto+=fwdcl+'\n'
+                    tmp_active_flag = True
                     break
-                else:
-                    if DEBUGFWDCL: print 'type is inactive in this kernel: '+nm
+            if (not tmp_active_flag) and DEBUGFWDCL:
+                print 'type is inactive in this kernel: '+nm
+        type_decls = tmp_forwarddecl_proto + type_decls
         # renaming function calls within kernel
         for [fname, prototype, declbody] in self.active_calls_decl:
-            print 'warning: procedure call is not implemented for ISPC.'
+            #print 'warning: procedure call is not implemented for ISPC.'
             cleanKerDec=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'(', cleanKerDec)
         # construct smc calls
         smc_select_calls=''
@@ -3553,7 +3576,8 @@ class codegen(object):
             atomicCodePostKernel=''
         kernelInvoc='\n/* kernel call statement*/\n{\n'
         #if parallelizeovertask:
-        kernelInvoc+='\nunsigned int __ispc_n_threads = 4; //acc_get_n_cores(acc_device_intelispc);\n'
+        kernelInvoc+='\nunsigned int __ispc_n_threads = sysconf(_SC_NPROCESSORS_ONLN); // acc_get_n_cores(acc_device_intelispc);\n'
+        kernelInvoc+='if(getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching ISPC kernel> %d threads + SIMD \\n", __ispc_n_threads);\n'
         #    kernelInvoc+='\nfor(unsigned int __ispc_thread_idx=0; __ispc_thread_idx<__ispc_n_threads; __ispc_thread_idx++){\n'
         kernelInvoc+=self.prefix_kernel_lau+str(kerId)+'('+','.join(callArgs)+');'
         #if parallelizeovertask:
@@ -3564,10 +3588,17 @@ class codegen(object):
         #print self.code
     def includeHeaders_ispc(self):
         self.code_include+='// no header for ISPC\n'
+    def getFuncDecls_ispc(self):
+        code=''
+        for [fname, prototype, declbody] in self.active_calls_decl:
+            code +='inline '+declbody+'\n' #FIXME inject inline after template declarations
+        for [fname, prototype, declbody] in self.active_calls_decl:
+            code=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'(', code)
+        return code
     def getFuncProto_ispc(self):
         code=''
         for [fname, prototype, declbody] in self.active_calls_decl:
-            code +=prototype+'\n'
+            code +='inline '+prototype+'\n' #FIXME inject inline after template declarations
         for [fname, prototype, declbody] in self.active_calls_decl:
             code=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'(', code)
         return code
@@ -4804,7 +4835,7 @@ class codegen(object):
         if operator=='*' or operator=='/':
             return 'log(abs((int)'+final+'-('+init+extraIter+'))'+')'+'/log('+steps+')'
         elif operator=='+' or operator=='-':
-            return '(abs((int)'+final+'-('+init+extraIter+'))'+')'+'/('+steps+')'
+            return '(abs((int)'+final+'-('+init+extraIter+'))'+')'+'/(float)('+steps+')'
         else:
             print 'unexpected loop increment operator'
             exit(-1)
@@ -5481,7 +5512,15 @@ class codegen(object):
                         print 'for loop of -> '+root.attrib['iterator']+' -> '+root.attrib['dimloops']
                     # generate indexing
                     dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
-                    iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
+                    # iterating value 
+                    if root.attrib.get('incoperator')=='+' or root.attrib.get('incoperator')=='-':
+                        iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+root.attrib.get('incstep')+'*('+dimension_iterator+');'
+                    elif root.attrib.get('incoperator')=='/' or root.attrib.get('incoperator')=='*':
+                        powerfunction = 'pown((float)'+root.attrib.get('incstep')+',(int)'+dimension_iterator+')' if self.target_platform=='OPENCL' else 'powf((float)'+root.attrib.get('incstep')+',(float)'+dimension_iterator+')'
+                        iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+powerfunction+';'
+                    else:
+                        print 'unsupported loop increment operator> '+root.attrib.get('incoperator')
+                        exit(-1)
                     #if root.attrib['lastlevel']=='true':
                     #    # last-level
                     #    if nesting==0:
@@ -5513,6 +5552,10 @@ class codegen(object):
                     # generate work-sharing control statement
                     if root.attrib.get('gang')!='' and root.attrib.get('vector')!='':
                         # FIXME
+                        print 'unimplemented configuration:'
+                        print 'gang and vector are enable together.'
+                        print 'aborting()'
+                        exit(-1)
                         code+='if('+self.prefix_kernel_uid_x+'<('+root.attrib.get('gang')+'*'+root.attrib.get('vector')+'*'+root.attrib.get('dimloops')+'))'
                         code+='for('+root.attrib.get('iterator')+'='+iteratorVal+' '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+='+root.attrib.get('gang')+'*'+root.attrib.get('vector')+')\n'
                     else:
@@ -5562,13 +5605,36 @@ class codegen(object):
                     #if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
                     if root.attrib['independent']=='true' and root.attrib['lastlevel']=='true':
                         # parallelize this loop over the SIMD 
-                        dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
-                        iteratorVal=(root.attrib.get('init')+root.attrib.get('incoperator'))+'('+dimension_iterator+');'
-                        code+='\nfor('
-                        code+=root.attrib.get('declared')+' ' #append iterator type if it is carried
-                        code+=root.attrib.get('iterator')+'='+iteratorVal+'\n'
-                        code+=root.attrib.get('boundary')+';\n'
-                        code+=root.attrib.get('iterator')+'='+root.attrib.get('iterator')+root.attrib.get('incoperator')+'programCount)\n'
+                        #print root.attrib
+                        if root.attrib.get('incoperator')=='+' and root.attrib.get('incstep')=='1':
+                            # special case, use foreach
+                            code+='uniform int __ispc_loop_initial = '+root.attrib.get('init')+';\n'
+                            code+='foreach( '+root.attrib.get('iterator')+'= __ispc_loop_initial ... '+root.attrib.get('terminate')+')\n'
+                        else:    
+                            dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
+                            if root.attrib.get('incoperator')=='+' or root.attrib.get('incoperator')=='-':
+                                iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+root.attrib.get('incstep')+'*('+dimension_iterator+')'
+                            elif root.attrib.get('incoperator')=='/' or root.attrib.get('incoperator')=='*':
+                                powerfunction = 'pown((float)'+root.attrib.get('incstep')+',(int)'+dimension_iterator+')' if self.target_platform=='OPENCL' else 'powf((float)'+root.attrib.get('incstep')+',(float)'+dimension_iterator+')'
+                                powerfunction = 'pow((float)'+root.attrib.get('incstep')+', programIndex)'
+                                iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+powerfunction+''
+                            else:
+                                print 'unsupported loop increment operator> '+root.attrib.get('incoperator')
+                                exit(-1)
+                            code+='\nint __ispc_loop_initial = '+iteratorVal+';\n'
+                            code+='int __ispc_chunk_id=0;\n '
+                            code+='for( '
+                            code+=root.attrib.get('declared')+' ' #append iterator type if it is carried
+                            code+=root.attrib.get('iterator')+'= __ispc_loop_initial;\n'
+                            code+=root.attrib.get('boundary')+';\n'
+                            if root.attrib.get('incoperator')=='+' or root.attrib.get('incoperator')=='-':
+                                code+='__ispc_chunk_id+=1, '+root.attrib.get('iterator')+'= __ispc_loop_initial'+root.attrib.get('incoperator')+'(__ispc_chunk_id*programCount*'+root.attrib.get('incstep')+'))\n'
+                            elif root.attrib.get('incoperator')=='*' or root.attrib.get('incoperator')=='/':
+                                powerfunction = 'pow((float)'+root.attrib.get('incstep')+',(int)(__ispc_chunk_id*programCount))'
+                                code+='__ispc_chunk_id+=1, '+root.attrib.get('iterator')+'= __ispc_loop_initial'+root.attrib.get('incoperator')+powerfunction+')\n'
+                            else:
+                                print 'unsupported loop increment operator> '+root.attrib.get('incoperator')
+                                exit(-1)
                     elif root.attrib['independent']=='true' and root.attrib['reversedepth']=='1':
                         code=code+self.code_gen_reversiFor('int '+root.attrib.get('iterator')+'=('+root.attrib.get('initial').split('=')[1]+') '+root.attrib.get('incoperator')+'taskIndex0/*__ispc_thread_idx*/',
                             root.attrib.get('boundary'),

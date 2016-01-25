@@ -147,7 +147,7 @@ elif [ "$ta" == "intelispc" ] ; then
     if [ "$ISPCSUPPORT" != "1" ] ; then
         echo 'warning: targeting for intelispc while the environemnt is not setup for ISPC'
     fi
-else
+elif [ "$ta" == "" ] ; then
     #fallback
     if [ "$CUDASUPPORT" == "1" ] ; then
         if [ "$VERBOSE" == "1" ] ; then
@@ -168,6 +168,10 @@ else
         echo 'fatal error! unable to find an enabled backend. enable CUDASUPPORT, OPENCLSUPPORT, or ISPCSUPPORT in setup_environment file.'
         exit
     fi
+else
+    echo 'unknown target: '$ta
+    echo 'aborting()'
+    exit 
 fi
 
 # Skip if this is only for listing.

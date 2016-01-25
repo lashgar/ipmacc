@@ -320,6 +320,57 @@ class srcML:
             except:
                 nonFunctionTemplate=True
         return template
+
+    def findActiveTypesRecursively(self, root, calls, upper_declared, intrinsics):
+        # recursively, returns name, prototype, and declration of the function calls listed in undecls
+        if DEBUGFWD:
+            print '===================================================='
+            print 'recursive search for types within these calls: '+', '.join(calls)
+            print tostring(root)
+
+        here_declared=[]
+        wcalls=[]
+        for fcn in calls:
+            # 0) if it is declared earlier, skip this
+            skip_intr=True
+            try:
+                idx=intrinsics.index(fcn)
+            except:
+                skip_intr=False
+            if skip_intr:
+                continue
+            skip_row =False
+            for name in upper_declared:
+                if name==fcn:
+                    skip_row =True
+                    break
+            if skip_row:
+                continue
+            # 1) find fcn
+            found=False
+            template=self.findTemplateOverFcn(root, fcn)
+            for oc in root.findall(".//function"):
+                nm=oc.find("name")
+                if nm.text==fcn:
+                    # add the function
+                    [vnamelist, vtypelist] = self.getVarDetails(root, fcn)
+                    here_declared += vtypelist
+                    # find within calls
+                    wcalls+=self.getFunctionCalls_(oc)
+                    found=True
+                    break
+            if WARNING and not found:
+                print 'Warning: unable to locate the declaration of function called in the region.'
+                print '\tfunction name: '+fcn
+                #print '\tintrinsics are: '+', '.join(intrinsics)
+                #exit(-1)
+        # 3) recursively, find the other undeclared calls of here
+        lower_declared=[]
+        wcalls = list(set(wcalls))
+        if len(wcalls)>0:
+            lower_declared=self.findActiveTypesRecursively(root, wcalls, upper_declared+here_declared, intrinsics)
+        return list(set(lower_declared+here_declared+upper_declared))
+
     def findDeclsOfFuncs(self, root, undecls, upper_declared, intrinsics):
         # recursively, returns name, prototype, and declration of the function calls listed in undecls
         if DEBUGFWD:
@@ -382,51 +433,126 @@ class srcML:
             if unq:
                 merged.append([p1, p2, p3])
         return merged
-            
 
-    def findDeclsOfTypes(self, root, undecls):
+
+    def findDeclsOfTypes(self, root, undecls, upper_declared, builtintypes, target_platform):
         # returns short and long declration of the undeclared type listed in undecls
         # note: forward declarations in the root are not returned back as declaration
-        decls=[] # (name, declaration) pair of all structs
-        # first, structs
-        for stc in root.findall(".//struct"):
+        if DEBUGDCL:
+            print 'looking for following undeclared types> '+str(undecls)
+        # decls=[] # (name, declaration) pair of all structs
+        here_declared=[]
+        wtypes=[]
+        for [tp, demandingTP] in undecls:
+            # tp is the type we are looking for declaration
+            # demandingTP is the parent type used tp (in nested case, otherwise it is '')
+            # 0) if it is declared earlier, skip this
+            skip_builtin=True
             try:
-                nmroot=stc.find("name")
-                blkroot=stc.find("block")
-                decl=self.getAllText(stc)
-                name=self.getAllText(nmroot)
-                block=self.getAllText(blkroot)
-                if DEBUGDCL:
-                    print 'declaration of "'+name+'" is "'+decl.replace('\n',' ')+'" blk="'+block+'"'
-                    #print ('typedef struct '+block+' '+tp+';')
-                for tp in undecls:
-                    if tp==name:
-                        decls.append([tp, 'struct '+tp+';', decl, (('typedef struct '+block+' ')[::-1].replace(';',(';'+tp[::-1]),1)[::-1])])
+                idx=builtintypes.index(tp)
             except:
-                # ignore, its forward declaration
-                nf=True
-        # second, typedefs
-        for tpd in root.findall(".//typedef"):
-            try:
-                nmroot=tpd.find("name")
-                blkroot=tpd.find("type")
-                decl=self.getAllText(tpd)
-                name=self.getAllText(nmroot).split()[0]
-                block=self.getAllText(blkroot)
-                if DEBUGDCL:
-                    print 'declaration of "'+name+'" is "'+decl.replace('\n',' ')+'" blk="'+block+'"'
-                    #print ('typedef struct '+block+' '+tp+';')
-                for tp in undecls:
+                skip_builtin=False
+            if skip_builtin:
+                continue
+            skip_decl=False
+            for [name, proto1, decl, proto2, parent] in upper_declared:
+                if name.strip()==tp.strip():
+                    skip_decl=True
+                    break
+            if skip_decl:
+                continue
+            # first, structs
+            for stc in root.findall(".//struct"):
+                try:
+                    # 1) find type
+                    nmroot=stc.find("name")
+                    blkroot=stc.find("block")
+                    decl=self.getAllText(stc)
+                    name=self.getAllText(nmroot)
+                    block=self.getAllText(blkroot)
+                    if DEBUGDCL:
+                        self.recursivePrint(stc, 0)
+                        print 'declaration of "'+name+'" is "'+decl.replace('\n',' ')+'" blk="'+block+'"'
+                        #print ('typedef struct '+block+' '+tp+';')
                     if tp==name:
-                        decls.append([tp, 'typedef struct '+tp+';', decl, decl])
-            except:
-                # ignore, its forward declaration
-                nf=True
-        # third,  unions
-        # fourth, enums
-        # fifth,  classes
+                        #print 'struct name matched>'
+                        if target_platform=='ISPC':
+                            curl2curl = decl[decl.find('{'):][::-1]
+                            curl2curl = curl2curl[curl2curl.find('}'):][::-1]
+                            curl2curl = 'struct '+tp+' '+curl2curl+';\n'
+                            here_declared.append([tp, 'struct '+tp+';', curl2curl, curl2curl, demandingTP])
+                            #here_declared.append([tp, 'struct '+tp+';', decl, (('struct '+block+' ')[::-1].replace(';',(';'+tp[::-1]),1)[::-1]), demandingTP])
+                        else:
+                            here_declared.append([tp, 'typedef struct '+tp+';', decl, (('typedef struct '+block+' ')[::-1].replace(';',(';'+tp[::-1]),1)[::-1]), demandingTP])
+                        # append undeclared fields to wtypes
+                        for nestedDecl in stc.findall(".//decl_stmt"):
+                            statement=self.getAllText(nestedDecl)
+                            for wd in statement.split():
+                                if wd.strip()=='typedef' or wd.strip()=='struct' or wd.strip()=='static': #FIXME: this does not seem to be systematic
+                                    # skip forekeywords 
+                                    continue
+                                # capture the first word as the type
+                                #print 'type is> '+wd
+                                wtypes.append([wd, tp])
+                                break
+                        #print 'non'
+                except:
+                    # ignore, its forward declaration
+                    nf=True
+            # second, typedefs
+            for tpd in root.findall(".//typedef"):
+                try:
+                    nmroot=tpd.find("name")
+                    blkroot=tpd.find("type")
+                    decl=self.getAllText(tpd)
+                    name=self.getAllText(nmroot).split()[0]
+                    block=self.getAllText(blkroot)
+                    if DEBUGDCL:
+                        self.recursivePrint(tpd, 0)
+                        print 'declaration of "'+name+'" is "'+decl.replace('\n',' ')+'" blk="'+block+'"'
+                        #print ('typedef struct '+block+' '+tp+';')
+                    if tp==name:
+                        #print 'type name matched>'
+                        if target_platform=='ISPC':
+                            curl2curl = decl[decl.find('{'):][::-1]
+                            curl2curl = curl2curl[curl2curl.find('}'):][::-1]
+                            curl2curl = 'struct '+tp+' '+curl2curl+';\n'
+                            here_declared.append([tp, 'struct '+tp+';', curl2curl, curl2curl, demandingTP])
+                        else:
+                            here_declared.append([tp, 'typedef struct '+tp+';', decl, decl, demandingTP])
+                        # append undeclared fields to wtypes
+                        for nestedDecl in tpd.findall(".//decl_stmt"):
+                            statement=self.getAllText(nestedDecl)
+                            for wd in statement.split():
+                                if wd.strip()=='typedef' or wd.strip()=='struct' or wd.strip()=='static': #FIXME: this does not seem to be systematic
+                                    # skip forekeywords 
+                                    continue
+                                # capture the first word as the type
+                                #print 'type is> '+wd
+                                wtypes.append([wd, tp])
+                                break
+                        #print 'non'
+                except:
+                    # ignore, its forward declaration
+                    nf=True
+            # third,  unions   #FIXME: not implemented
+            # fourth, enums    #FIXME: not implemented
+            # fifth,  classes  #FIXME: not implemented
         # recursively, declare the types which are undeclared in elements of typdefs, structs, and unions 
-        return decls
+        lower_declared=[]
+        if len(wtypes)>0:
+            lower_declared=self.findDeclsOfTypes(root, wtypes, here_declared+upper_declared, builtintypes, target_platform)
+        # merge all levels
+        merged=[]
+        for [p1, p2, p3, p4, p5] in lower_declared+here_declared+upper_declared:
+            unq=True
+            for [r1, r2, r3, r4, r5] in merged:
+                if p1==r1:
+                    unq=False
+                    break
+            if unq:
+                merged.append([p1, p2, p3, p4, p5])
+        return merged
 
     def prefixFunction(self, root, kernelsParents):
         for id in range(0,len(kernelsParents)):
@@ -1061,14 +1187,19 @@ def srcml_find_var_size(root, funcName, varName):
     srcml_sample = srcML()
     return srcml_sample.findVarSize(root, funcName, varName)
 
-def srcml_get_fwdecls(code, undeclsTypes, undeclsFuncs, intrinsics):
+def srcml_get_fwdecls(code, undeclsTypes, undeclsFuncs, intrinsics, builtintypes, target_platform):
     # undeclsTypes: types which are used, but not declared on accelerator
     # undeclsFuncs: functions which are called, but not declared on accelerator
     srcml_sample = srcML()
     root=srcml_sample.codeToXML(code)
     declFuncs=srcml_sample.findDeclsOfFuncs(root, undeclsFuncs, [], intrinsics)
-    declTypes=srcml_sample.findDeclsOfTypes(root, undeclsTypes)
+    declTypes=srcml_sample.findDeclsOfTypes(root, [[tp, ''] for tp in undeclsTypes], [], builtintypes, target_platform)
     return [declTypes, declFuncs]
+
+def srcml_get_active_types(code, calls, intrinsics):
+    srcml_sample = srcML()
+    root=srcml_sample.codeToXML(code)
+    return srcml_sample.findActiveTypesRecursively(root, calls, [], intrinsics)
 
 def srcml_prefix_functions(code, funcs):
     srcml_sample = srcML()

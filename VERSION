@@ -296,6 +296,9 @@ Generating a CUDA code corresponding to the given XML file.
 0.8.6b
 -BUGFIX: clause parser.
 -BUGFIX: updating scalar variables listed in data clauses on the host.
+-BUGFIX: loop parallelization for arbitrary increment and operators.
+-foreach support on ISPC backend
+-nested type declration support on ISPC, CUDA, and OpenCL backends
 
 =========================
 Component Description:

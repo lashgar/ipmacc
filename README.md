@@ -52,6 +52,7 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 * To gurantee proper device allocation and release, it is necessary to use acc_init() early in the code to avoid potentially runtime errors. This is essential for the OpenCL target devices.
 * IPMACC can parallel the iterations of loops with the following increment steps: +, -, ++, --, *, /
 * ISPC backend support is experimental right now. Most inner loop is executed in parallel over SIMD and the most outter parallel loop will be executed over ISPC tasks. char, short, and long data types are not fully supported. For reduction, only min, max, and sum operations are supported.
+* Using templates for ISPC backend might lead to compilation crash.
 
 # Contributors:
 * Ahmad Lashgar, University of Victoria
