@@ -2,16 +2,14 @@
 TODO:
 - Support all clauses of kernel, data, and loop directive
 - Fully support use of non-standard types in C/C++ (template, class, union, enum, typedef, and struct)
-- Support function template of C++
-- Support class template of C++
-- Support 'kernels loop' directive
+- Support C++ features (function template, class template, struct operator overload)
+- Support 'kernels loop' directive (autodetection of parallelisim, without independent clause)
 - Improve pragmadecomposer parser to detect malformed reduction/private
 - Support 2D arrays
 - Support parallel directive
 - Support entire API
 - BUGFIX: codegen fails to find the type/size upon passing struct element to data clause
 - Support dynamic shared memory size (for smc and cache clause)
-- BUGFIX: '\n' character in for statement cause XML crash.
 - BUGFIX: two terminating condition in the for loop may lead to XML crash.
 - BUGFIX: typedef struct on ISPC backend is broken.
 - OpenACC syntax parser may disallow valid cases. Fix the parser state machine. (related file: parser/oaccparser.y)
@@ -19,9 +17,10 @@ TODO:
 - Add `name' clause to kernels directive, allowing easy debugging.
 - IMPROVEMENT: __smc_select_* procedures must be optimized. nvcc alone cannot highly optimize the code. these are generated in case of `cache' directive.
 - An issue with atomic pragmas on OpenCL; adding '#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable' should be added to OpenCL kernels.
+- Within the kernels region, if a nested procedure uses a global variable, the variable is not copied in/out.
 
 CHANGES:
-- Replacing pycparser XML generator with srcML generator (faster and lower-level)
+- Replacing pycparser XML generator with srcML generator (delivering faster, plain, and detailed parser)
 - Support serial loops
 - Fully-support dynamic allocation
 - Detect pragma region without full-bracketing
@@ -39,3 +38,5 @@ CHANGES:
 - [Apr 21, 2015] Supporting NVIDIA Kepler's Read Only Cache. Enabled by '--enable readonlycache' compiler flag.
 - [May 16, 2015] early support for `atomic capture` added. Sample added in test-case/atomictest.c. For cuda-backend, pass `arch=sm_13` flag to ipmacc. mgBench added to test-case/mgBench/.
 - [September 2015] Support Intel ISPC backend.
+- BUGFIX: '\n' character in for statement cause XML crash.
+- [Januray 2016] Nested type declaration supported on CUDA, OpenCL, and ISPC.

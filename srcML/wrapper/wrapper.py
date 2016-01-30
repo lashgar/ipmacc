@@ -12,6 +12,7 @@ DEBUGDCL=False
 DEBUGTEMPLATE=False
 DEBUGFWD=False
 DEBUGKA=False
+DEBUGDETAILPROC=False
 KAVERBOSE=True
 
 WARNING=False
@@ -240,8 +241,8 @@ class srcML:
                             e_vnames+=e_vars
                             e_vsizes+=e_sizes
                             e_vtypes+=e_types
-                    decls=fcn.findall(".//decl_stmt")
-                    decls+=root.findall("./decl_stmt")
+                    decls=fcn.findall(".//decl_stmt") #local variables
+                    decls+=root.findall("./decl_stmt") #global variables
                     for ch in decls:
                         stmt=self.getAllText(ch).strip()
                         [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
@@ -390,8 +391,8 @@ class srcML:
             if skip_intr:
                 continue
             skip_decl=False
-            for [name, proto, decl] in upper_declared:
-                if name==fcn:
+            for [tmp_name, tmp_proto, tmp_decl, tmp_rettype, tmp_qualifiers, tmp_params, tmp_local_vars, tmp_scope_vars, tmp_fcalls, tmp_ids, tmp_ex_params] in upper_declared:
+                if tmp_name==fcn:
                     skip_decl=True
                     break
             if skip_decl:
@@ -401,16 +402,56 @@ class srcML:
             template=self.findTemplateOverFcn(root, fcn)
             for oc in root.findall(".//function"):
                 nm=oc.find("name")
+                #print tostring(root)
                 if nm.text==fcn:
+                    # get details about the function 
+                    det_qualifiers = []
+                    for qlf in oc.find("./type").findall(".//name"):
+                        det_qualifiers.append(self.getAllText(qlf))
+                    det_rettype = det_qualifiers[-1]
+                    det_params_v = []
+                    det_params_t = []
+                    for prm in self.getAllText(oc.find("./parameter_list"))[1:-1].strip().split(','):
+                        if len(prm.split())>0:
+                            det_params_t.append(' '.join(prm.split()[0:-1]).strip())
+                            det_params_v.append(prm.split()[-1].strip())
+                    [det_scope_vlist, det_scope_tlist] = self.getVarDetails(root, fcn)
+                    det_local_vlist = []
+                    det_local_tlist = []
+                    det_local_vlist += det_params_v
+                    det_local_tlist += det_params_t
+                    for tmp_ch in oc.findall(".//decl_stmt"): #local variables
+                        stmt=self.getAllText(tmp_ch).strip()
+                        [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
+                        if DEBUGST:
+                            print '==== statement: '+stmt
+                        det_local_vlist+=e_vars
+                        det_local_tlist+=e_types
+                    det_fcalls = self.getFunctionCalls_(oc)
+                    det_ids = self.getAllNames(oc)
+                    det_global_vars = 1 #ids - declared_in_body - declared_in_params - calls - keywords
+                    if DEBUGDETAILPROC:
+                        print '=================='
+                        print 'fcn name> '+fcn
+                        print 'qualifiers> '+', '.join(det_qualifiers[0:-1])
+                        print 'return type> '+det_rettype
+                        print 'call args name> '+', '.join(det_params_v)
+                        print 'call args type> '+', '.join(det_params_t)
+                        print 'scope vars > '+', '.join(det_scope_vlist)
+                        print 'scope typs > '+', '.join(det_scope_tlist)
+                        print 'calls> '+', '.join(det_fcalls)
+                        print 'all ids> '+', '.join(det_ids)
+                        print 'local vars > '+', '.join(det_local_vlist)
+                        print 'local typs > '+', '.join(det_local_tlist)
                     # add the function
                     proto =template
                     proto+=self.getAllText(oc.find("./type"))+' '
                     proto+=self.getAllText(oc.find("./name"))+' '
                     proto+=self.getAllText(oc.find("./parameter_list"))+';'
                     decl=template+self.getAllText(oc)
-                    here_declared.append([fcn, proto, decl])
+                    here_declared.append([fcn, proto, decl, det_rettype, det_qualifiers[0:-1], [det_params_t, det_params_v], [det_local_tlist, det_local_vlist], [det_scope_tlist, det_scope_vlist], det_fcalls, det_ids, [[],[]]])
                     # find within calls
-                    wcalls+=self.getFunctionCalls_(oc)
+                    wcalls+=det_fcalls
                     found=True
                     break
             if WARNING and not found:
@@ -424,14 +465,14 @@ class srcML:
             lower_declared=self.findDeclsOfFuncs(root, wcalls, upper_declared+here_declared, intrinsics)
         # merge all levels
         merged=[]
-        for [p1, p2, p3] in lower_declared+here_declared+upper_declared:
+        for [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] in lower_declared+here_declared+upper_declared:
             unq=True
-            for [r1, r2, r3] in merged:
+            for [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] in merged:
                 if p1==r1:
                     unq=False
                     break
             if unq:
-                merged.append([p1, p2, p3])
+                merged.append([p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11])
         return merged
 
 

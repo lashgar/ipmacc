@@ -300,6 +300,10 @@ Generating a CUDA code corresponding to the given XML file.
 -foreach support on ISPC backend
 -nested type declration support on ISPC, CUDA, and OpenCL backends
 
+0.8.7b
+-Supporting global variables (scalar or array) in the functions called from the kernels region.
+-Three automated test cases are added under test-case/test
+
 =========================
 Component Description:
 preprocessor-<version>.py
