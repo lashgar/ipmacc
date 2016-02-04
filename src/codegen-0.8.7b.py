@@ -408,9 +408,9 @@ class codegen(object):
         #modified_active_calls=[]
         additional_params = {}
         for [call, proto, body, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in active_calls:
-            [params_t, params_v] = params
-            [local_t, local_v]  = local_vars
-            [scope_t, scope_v]  = scope_vars
+            [params_t, params_v, params_s] = params
+            [local_t, local_v, local_s]  = local_vars
+            [scope_t, scope_v, scope_s]  = scope_vars
             # find global variables
             additional_vars = []
             for v in ids:
@@ -434,7 +434,7 @@ class codegen(object):
                     iscall=False
                 if not (iskeyword or isparam or islocal or iscall or isfname):
                     if DEBUGDETAILPROC: print v+' is global'
-                    additional_vars.append([v, scope_t[scope_v.index(v)].strip()])
+                    additional_vars.append([v, scope_t[scope_v.index(v)].strip(), scope_s[scope_v.index(v)].strip()])
                 else:
                     if DEBUGDETAILPROC: print v+' is '+' '.join([str(iskeyword), str(isparam), str(islocal), str(iscall), str(isfname)])
             if len(additional_vars)>0:
@@ -452,10 +452,11 @@ class codegen(object):
                     inflate_args = False
                 if inflate_args or call==key:
                     if DEBUGDETAILPROC: print 'appending vars> '
-                    [ex_params_t, ex_params_v] = ex_params
-                    for [v, t] in additional_vars:
+                    [ex_params_t, ex_params_v, ex_params_s] = ex_params
+                    for [v, t, s] in additional_vars:
                         ex_params_t.append(t)
                         ex_params_v.append(v)
+                        ex_params_s.append(s)
         #return modified_active_calls
 
     def forward_declare_find(self):
@@ -493,10 +494,10 @@ class codegen(object):
             decls=self.active_calls_decl
             for i in range(0,len(decls)):
                 [call, proto, body, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params]=decls[i]
-                [params_t, params_v] = params
-                [local_t, local_v]  = local_vars
-                [scope_t, scope_v]  = scope_vars
-                [ex_params_t, ex_params_v] = ex_params
+                [params_t, params_v, params_s] = params
+                [local_t, local_v, local_s]  = local_vars
+                [scope_t, scope_v, scope_s]  = scope_vars
+                [ex_params_t, ex_params_v, ex_params_s] = ex_params
                 print '===== forward declarations '+str(i)+': call<'+call+'> prototype<'+proto+'> fulldecl<'+body+'> params_t<'+','.join(params_t)+'> params_v<'+','.join(params_v)+'> ex_params_t<'+','.join(ex_params_t)+'> ex_params_v<'+','.join(ex_params_v)+'> qualifiers<'+','.join(qualifiers)+'>'
     #
     # various
@@ -812,8 +813,8 @@ class codegen(object):
     def fix_call_args(self, kernelcode):
         cleanKerDec = kernelcode
         for [tmp_fname, tmp_prototype, tmp_declbody, tmp_rettype, tmp_qualifiers, tmp_params, tmp_local_vars, tmp_scope_vars, tmp_fcalls, tmp_ids, tmp_ex_params] in self.active_calls_decl:
-            [params_t, params_v] = tmp_params
-            [ex_params_t, ex_params_v] = tmp_ex_params
+            [params_t, params_v, params_s] = tmp_params
+            [ex_params_t, ex_params_v, ex_params_s] = tmp_ex_params
             extra_params = [ex_params_v[idx] for idx in range(0,len(ex_params_t))]
             extra_args = (','.join(extra_params)+(',' if len(params_t)>0 else '')) if len(extra_params)>0 else ''
             #print extra_args
@@ -823,23 +824,74 @@ class codegen(object):
     def getAllFuncDecls(self):
         code=''
         for [fname, prototype, declbody, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in self.active_calls_decl:
-            code += self.getSingleFuncProto(params, qualifiers, rettype, fname, ex_params)+declbody[declbody.find('{'):]+'\n'
+            if self.target_platform=='ISPC':
+                all_comb_params = self.getAllCombinationParams_ispc(params)
+            else:
+                all_comb_params = []
+                all_comb_params.append(params)
+            for new_params in all_comb_params:
+                code += self.getSingleFuncProto(new_params, qualifiers, rettype, fname, ex_params, 'accel')+declbody[declbody.find('{'):]+'\n'
         # rename function calls within the declaration bodies
         for [fname, prototype, declbody, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in self.active_calls_decl:
-            [ex_params_t, ex_params_v] = ex_params
-            [params_t, params_v] = params
+            [ex_params_t, ex_params_v, ex_params_s] = ex_params
+            [params_t, params_v, params_s] = params
             extra_params = [ex_params_v[idx] for idx in range(0,len(ex_params_t))]
             extra_args = (','.join(extra_params)+(',' if len(params_t)>0 else '')) if len(extra_params)>0 else ''
             code=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'('+extra_args, code)
         # append new parameters
         return code
-    def getAllFuncProto(self):
+
+    def getAllFuncProto(self, proto_format):
         code=''
         for [fname, prototype, declbody, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in self.active_calls_decl:
-            code += self.getSingleFuncProto(params, qualifiers, rettype, fname, ex_params)+';\n'
+            if self.target_platform=='ISPC' and proto_format=='accel':
+                all_comb_params = self.getAllCombinationParams_ispc(params)
+            else:
+                all_comb_params = []
+                all_comb_params.append(params)
+            for new_params in all_comb_params:
+                code += self.getSingleFuncProto(new_params, qualifiers, rettype, fname, ex_params, proto_format)+';\n'
+        #self.getAllCombinationOfFuncProto_ispc( proto_format )
         return code
 
-    def getSingleFuncProto(self, params, qualifiers, rettype, fname, ex_params):
+    def getAllCombinationOfFuncProto_ispc(self, proto_format):
+        code = ''
+        for [fname, prototype, declbody, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in self.active_calls_decl:
+            all_comb_params = self.getAllCombinationParams_ispc(params)
+            for new_params in all_comb_params:
+                print new_params
+                code += self.getSingleFuncProto(new_params, qualifiers, rettype, fname, ex_params, proto_format)+';\n'
+        print code
+
+    def getAllCombinationParams_ispc(self, params):
+        [params_t, params_v, params_s] = params
+        all_comb_params = []
+        all_comb_params.append(params)
+        for idx in range(0,len(params_t)):
+            if params_t[idx].find('*')!=-1:
+                new_comb_params = []
+                for listof_params in all_comb_params:
+                    #print listof_params
+                    [pt, pv, ps] = listof_params
+                    # varying: not needed, it's the default
+                    #new_pt = list(pt)
+                    #new_pv = pv
+                    #new_ps = ps
+                    #new_pt[idx] = new_pt[idx]
+                    ##new_pv[idx] = new_pv[idx]+('[]'*new_pt[idx].count('*'))
+                    #new_comb_params.append([new_pt, new_pv, new_ps])
+                    # uniform 
+                    new_pt = list(pt)
+                    new_pv = pv
+                    new_ps = ps
+                    new_pt[idx] = 'uniform '+new_pt[idx]
+                    #new_pv[idx] = new_pv[idx]+('[]'*new_pt[idx].count('*'))
+                    new_comb_params.append([new_pt, new_pv, new_ps])
+                all_comb_params += new_comb_params
+        return all_comb_params
+
+    def getSingleFuncProto(self, params, qualifiers, rettype, fname, ex_params, proto_format):
+        # proto_format: accel or host
         pointersprefix = ''
         if self.target_platform=='CUDA':
             requalified = ['__device__']
@@ -854,7 +906,7 @@ class codegen(object):
                     requalified.append('__inline__')
                 # ignore rest of qualifiers: static, 
             #print requalified
-            pointersprefix = '__global '
+            pointersprefix = '__global ' # FIXME: not necessary for OpenCL >= 2.0 (enabled as a workaround for tests on NV OpenCL)
         elif self.target_platform=='ISPC':
             requalified = ['inline']+qualifiers
             #print requalified
@@ -862,11 +914,15 @@ class codegen(object):
             print 'error: unimplemented platform #' +str(getframeinfo(currentframe()).lineno)
             exit(-1)
         requalified = list(set(requalified))
-        [params_t, params_v] = params
-        [ex_params_t, ex_params_v] = ex_params
+        [params_t, params_v, params_s] = params
+        [ex_params_t, ex_params_v, ex_params_s] = ex_params
         extra_params = [(pointersprefix if ex_params_t[idx].find('*')!=-1 else '')+ex_params_t[idx]+' '+ex_params_v[idx] for idx in range(0,len(ex_params_t))]
         extra_args = ','.join(extra_params)+(',' if len(params_t)>0 else '') if len(extra_params)>0 else ''
-        code = ' '.join(requalified)+' '+rettype+' __accelerator_'+fname+'('+extra_args+', '.join([(pointersprefix if params_t[idx].find('*')!=-1 else '')+params_t[idx]+' '+params_v[idx] for idx in range(0,len(params_t))])+')'
+        if self.target_platform=='ISPC':
+            org_args = ', '.join([params_t[idx].replace('*','')+' '+params_v[idx]+('[]'*params_t[idx].count('*')) for idx in range(0,len(params_t))])
+        else:
+            org_args = ', '.join([(pointersprefix if params_t[idx].find('*')!=-1 else '')+params_t[idx]+' '+params_v[idx] for idx in range(0,len(params_t))])
+        code = ' '.join(requalified)+' '+rettype+' __accelerator_'+fname+'('+extra_args+org_args+')'
         #code=re.sub('\\b'+fname+'[\\ \\t\\n\\r]*\(','__accelerator_'+fname+'('+extra_args, code)
         return code
 
@@ -1026,9 +1082,9 @@ class codegen(object):
         else:
             print 'error: unimplemented platform #' +str(getframeinfo(currentframe()).lineno)
             exit(-1)
-    def codegen_getFuncProto(self):
+    def codegen_getFuncProto(self, proto_format):
         # return prototype/declarations
-        return self.getAllFuncProto()
+        return self.getAllFuncProto(proto_format)
     def codegen_getFuncDecls(self):
         # return prototype/declarations
         return self.getAllFuncDecls()
@@ -1115,7 +1171,7 @@ class codegen(object):
     def closeCondition_cuda(self,cond):
         return '}\n'
     def appendKernelToCode_cuda(self, kerPro, kerDec, kerId, forDims, args):
-        self.code=self.code.replace(' __ipmacc_prototypes_kernels_'+str(kerId)+' ',' '+self.codegen_getFuncProto()+kerPro+' \n')
+        self.code=self.code.replace(' __ipmacc_prototypes_kernels_'+str(kerId)+' ',' '+self.codegen_getFuncProto('host')+kerPro+' \n')
         #self.cuda_kernelproto+=kerPro
         self.cuda_kerneldecl +=kerDec
         [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kerId)
@@ -2716,7 +2772,7 @@ class codegen(object):
             exit(-1)
         #print '===================='+kerDec
         # prepare the prototype of function called in the regions
-        func_proto=self.codegen_getFuncProto()
+        func_proto=self.codegen_getFuncProto('accel')
         # prepare the declaration of function called in the regions
         func_decl =self.codegen_getFuncDecls() #OPENCL
         #cleanKerDec=statmnts+kerDec
@@ -3499,7 +3555,7 @@ class codegen(object):
 
     def appendKernelToCode_ispc(self, kerPro, kerDec, kerId, forDims, args, smcinfo):
         parallelizeovertask=False
-        func_proto = self.codegen_getFuncProto() # ISPC
+        func_proto = self.codegen_getFuncProto(proto_format='host') # ISPC
         func_decl = '' # append them all once at the end (replacing self.codegen_getFuncDecls()) #ISPC
         self.code=self.code.replace(' __ipmacc_prototypes_kernels_'+str(kerId)+' ',' '+func_proto+kerPro+' \n')
         [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kerId)
@@ -3585,7 +3641,8 @@ class codegen(object):
                 cleanKerDec=cleanKerDec.replace(fcallst,'')
                 cleanKerDec=cleanKerDec.replace(fcallen,'')
         # append types, prototypes, and declarations to the kernel string
-        cleanKerDec=type_decls+'\n'+func_proto+'\n'+func_decl+'\n'+smc_select_calls+'\n'+cleanKerDec+'\n'
+        func_proto_accel = self.codegen_getFuncProto(proto_format='accel') # ISPC
+        cleanKerDec=type_decls+'\n'+func_proto_accel+'\n'+func_decl+'\n'+smc_select_calls+'\n'+cleanKerDec+'\n'
         self.ispc_kerneldecl+=cleanKerDec
         #print 'clean kernel declaration:\n'+cleanKerDec
         # prepare the sting
@@ -5080,7 +5137,7 @@ class codegen(object):
                 if len(res)>0:
                     #print 'added'
                     #print tmp_ex_params
-                    [tmp_ex_params_t, tmp_ex_params_v] = tmp_ex_params
+                    [tmp_ex_params_t, tmp_ex_params_v, tmp_ex_params_s] = tmp_ex_params
                     self.oacc_kernelsImplicit[i] += tmp_ex_params_v
                     #print kernelArguments[i]
                     for idx_new in range(0,len(tmp_ex_params_v)):
@@ -5635,6 +5692,8 @@ class codegen(object):
                         code+='if('+self.prefix_kernel_uid_x+'<('+root.attrib.get('gang')+'*'+root.attrib.get('vector')+'*'+root.attrib.get('dimloops')+'))'
                         code+='for('+root.attrib.get('iterator')+'='+iteratorVal+' '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+='+root.attrib.get('gang')+'*'+root.attrib.get('vector')+')\n'
                     else:
+                        #extracondition = '' if root.attrib.get('incoperator')!='-' else (' && '+root.attrib.get('iterator')+'<=('+root.attrib.get('init')+')')
+                        #code+='if('+root.attrib.get('boundary')+extracondition+')\n'
                         code+='if('+root.attrib.get('boundary')+')\n'
                     # private/reduction
                     if root.attrib.get('private')!='' or root.attrib.get('reduction')!='':

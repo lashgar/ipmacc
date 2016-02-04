@@ -286,7 +286,9 @@ void acc_init( acc_device_t devtype ){
 		size_t maxWorkItemSize[3];
 		cl_int error;
 
-		// 1. FIND AVAIABLE PLATFROMS
+        /////////////////////
+        // SELECT PLATFORM //
+        /////////////////////
 		char * platform_name ;
 		cl_context   *platform_context ;  //  per platform
 		cl_device_id **platform_devices ; // per platform list of device
@@ -303,27 +305,37 @@ void acc_init( acc_device_t devtype ){
 		// get list of devices in each platform
 		int selected_platformID=0;// select the platform of intend
         char *selected_platformName=NULL;
+        char *env_acc_device_type = getenv("ACC_DEVICE_TYPE");
+        short use_env = env_acc_device_type!=NULL;
 		for (i = 0; i < platformCount; i++) {
 			clGetPlatformInfo(platforms[i],CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
 			platform_name = (char *)malloc(sizeof(char)*platform_name_size);
 			clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, platform_name_size, platform_name, NULL);
 			if (getenv("IPMACCLIB_VERBOSE")) printf("platform name: %s\n", platform_name);
             // set the platform
-            switch(devtype){
-                case acc_device_nvocl:
-                    if(strcmp(platform_name,"NVIDIA CUDA")==0){
-                        selected_platformID=i;
-                        selected_platformName=platform_name;
-                    }
-                break;
-                case acc_device_intelocl:
-                    if(strcmp(platform_name,"Intel(R) OpenCL")==0){
-                        selected_platformID=i;
-                        selected_platformName=platform_name;
-                    }
-                break;
-                default:
-                break;
+            if(use_env){
+                // give higher priority to environment variable
+                if(strcmp(env_acc_device_type,platform_name)==0){
+                    selected_platformID=i;
+                    selected_platformName=platform_name;
+                }
+            }else{
+                switch(devtype){
+                    case acc_device_nvocl:
+                        if(strcmp(platform_name,"NVIDIA CUDA")==0){
+                            selected_platformID=i;
+                            selected_platformName=platform_name;
+                        }
+                    break;
+                    case acc_device_intelocl:
+                        if(strcmp(platform_name,"Intel(R) OpenCL")==0){
+                            selected_platformID=i;
+                            selected_platformName=platform_name;
+                        }
+                    break;
+                    default:
+                    break;
+                }
             }
 
 			// get all devices
@@ -362,10 +374,58 @@ void acc_init( acc_device_t devtype ){
 				printf("Error in clCreateContext();\n");
 			}
 		}
+        if(selected_platformName==NULL){
+            // exit, as there is no platfor as requested by the user.
+            printf("Unable to find the requested device type\n");
+            printf("[1] ACC_DEVICE_TYPE environment variable> \"%s\" [availables are ", env_acc_device_type);
+    		for (i = 0; i < platformCount; i++) {
+	    		clGetPlatformInfo(platforms[i],CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
+    			platform_name = (char *)malloc(sizeof(char)*platform_name_size);
+	    		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, platform_name_size, platform_name, NULL);
+                printf("\"%s\" ", platform_name);
+            }
+            printf("]\n");
+            printf("[2] acc_device_t passed to acc_init()> ");
+            switch(devtype){
+                case acc_device_nvocl:
+                    printf("acc_device_nvocl");
+                    break;
+                case acc_device_intelocl:
+                    printf("acc_device_intelocl");
+                    break;
+                default:
+                    break;
+            }
+            printf(" [availables are acc_device_nvocl acc_device_intelocl]\n");
+            printf("aborting()\n");
+            exit(-1);
+        }
         if (getenv("IPMACC_VERBOSE")){
             printf("Selected Platform Name: %s\n", selected_platformName);
         }
+
+        ///////////////////
+        // SELECT DEVICE //
+        ///////////////////
+        char *env_acc_device_num = getenv("ACC_DEVICE_NUM");
 		int selected_deviceID=0;  // select a device in the platform of intend
+        if(env_acc_device_num==NULL){
+            // pick the first device
+            selected_deviceID = 0;
+        }else{
+            selected_deviceID = atoi(env_acc_device_num); // if fails, picks 0
+            if(selected_deviceID>=platform_deviceCount[selected_platformID] || selected_deviceID<0){
+                printf("invalid device ID requested from platform %s: %d\n", selected_platformName, selected_deviceID);
+                printf("[1] ACC_DEVICE_NUM environment variable> %s [availables are ", env_acc_device_num);
+                for(i=0; i<platform_deviceCount[selected_platformID]; i++){
+                    printf("\"%d\" ",i);
+                }
+                printf("]\n");
+                printf("[2] acc_set_device_num> %d [unimplemented]\n", 0);
+                printf("aborting()\n");
+                exit(-1);
+            }
+        }
 		int selected_n_computeUnits=platform_device_computeunit_counts[selected_platformID][selected_deviceID]; // number of compute units in the selected device
 
 		cl_device_id device_id = platform_devices[selected_platformID][selected_deviceID];

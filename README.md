@@ -53,11 +53,12 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 * IPMACC can parallel the iterations of loops with the following increment steps: +, -, ++, --, *, /
 * ISPC backend support is experimental right now. Most inner loop is executed in parallel over SIMD and the most outter parallel loop will be executed over ISPC tasks. char, short, and long data types are not fully supported. For reduction, only min, max, and sum operations are supported.
 * Using templates for ISPC backend might lead to compilation crash.
+* OpenCL >= 2.0 is necessary for some features (e.g. function calls)
 
 # Contributors:
-* Ahmad Lashgar, University of Victoria
-* Alireza Majidi, Texas A&M University
-* Ebad Salehi, University of Victoria
+* Ahmad Lashgar from Institute for Research in Fundamental Sciences (now at University of Victoria)
+* Alireza Majidi from Institute for Research in Fundamental Sciences (now at Texas A&M University)
+* Ebad Salehi from University of Victoria
 
 # About IPMACC:
 IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. We had an old outdated website on IPM page here http://hpc.ipm.ac.ir/ipmacc/. Follow our latest updates on https://github.com/lashgar/ipmacc

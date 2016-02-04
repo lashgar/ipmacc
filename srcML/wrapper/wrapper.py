@@ -411,15 +411,28 @@ class srcML:
                     det_rettype = det_qualifiers[-1]
                     det_params_v = []
                     det_params_t = []
+                    det_params_s = []
+                    #print tostring(oc)
                     for prm in self.getAllText(oc.find("./parameter_list"))[1:-1].strip().split(','):
                         if len(prm.split())>0:
-                            det_params_t.append(' '.join(prm.split()[0:-1]).strip())
-                            det_params_v.append(prm.split()[-1].strip())
+                            #det_params_t.append(' '.join(prm.split()[0:-1]).strip())
+                            #det_params_v.append(prm.split()[-1].strip())
+                            [e_vars, e_types, e_sizes]=get_variable_size_type(prm+';')
+                            #print prm+'> '
+                            #print e_vars
+                            #print e_types
+                            #print e_sizes
+                            det_params_t+=e_types
+                            det_params_v+=e_vars
+                            det_params_s+=e_sizes
                     [det_scope_vlist, det_scope_tlist] = self.getVarDetails(root, fcn)
+                    det_scope_slist = ['']*len(det_scope_vlist)
                     det_local_vlist = []
                     det_local_tlist = []
+                    det_local_slist = []
                     det_local_vlist += det_params_v
                     det_local_tlist += det_params_t
+                    det_local_slist += det_params_s
                     for tmp_ch in oc.findall(".//decl_stmt"): #local variables
                         stmt=self.getAllText(tmp_ch).strip()
                         [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
@@ -427,6 +440,7 @@ class srcML:
                             print '==== statement: '+stmt
                         det_local_vlist+=e_vars
                         det_local_tlist+=e_types
+                        det_local_slist+=e_sizes
                     det_fcalls = self.getFunctionCalls_(oc)
                     det_ids = self.getAllNames(oc)
                     det_global_vars = 1 #ids - declared_in_body - declared_in_params - calls - keywords
@@ -437,6 +451,7 @@ class srcML:
                         print 'return type> '+det_rettype
                         print 'call args name> '+', '.join(det_params_v)
                         print 'call args type> '+', '.join(det_params_t)
+                        print 'call args size> '+', '.join(det_params_s)
                         print 'scope vars > '+', '.join(det_scope_vlist)
                         print 'scope typs > '+', '.join(det_scope_tlist)
                         print 'calls> '+', '.join(det_fcalls)
@@ -449,7 +464,7 @@ class srcML:
                     proto+=self.getAllText(oc.find("./name"))+' '
                     proto+=self.getAllText(oc.find("./parameter_list"))+';'
                     decl=template+self.getAllText(oc)
-                    here_declared.append([fcn, proto, decl, det_rettype, det_qualifiers[0:-1], [det_params_t, det_params_v], [det_local_tlist, det_local_vlist], [det_scope_tlist, det_scope_vlist], det_fcalls, det_ids, [[],[]]])
+                    here_declared.append([fcn, proto, decl, det_rettype, det_qualifiers[0:-1], [det_params_t, det_params_v, det_params_s], [det_local_tlist, det_local_vlist, det_local_slist], [det_scope_tlist, det_scope_vlist, det_scope_slist], det_fcalls, det_ids, [[],[],[]]])
                     # find within calls
                     wcalls+=det_fcalls
                     found=True

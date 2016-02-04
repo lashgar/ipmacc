@@ -1,0 +1,6 @@
+- NVIDIA CUDA passed all tests.
+- NVIDIA OpenCL passed all tests.
+- Intel ISPC passed all tests.
+- Intel OpenCL passed all tests except:
+    loopstep_dec.c loopstep_expoasc.c loopstep_expodsc.c
+

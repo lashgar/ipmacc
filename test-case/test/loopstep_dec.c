@@ -3,7 +3,7 @@
 #include <openacc.h>
 #include <math.h>
 
-#define SIZE 8199
+#define SIZE 4096
 int main()
 {
     int i;

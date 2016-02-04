@@ -13,6 +13,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#define _OPENACC 201510
+
 #define MSR_RAPL_POWER_UNIT		0x606
 
 /* Package RAPL Domain */

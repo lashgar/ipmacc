@@ -22,8 +22,10 @@ int main()
     acc_init( acc_device_nvcuda );
     #endif 
     #ifdef __NVOPENCL__
-    acc_init( acc_device_nvocl );
-    acc_list_devices_spec( acc_device_nvocl );
+    //#define DEVICE_TYPE acc_device_intelocl // alternative: acc_device_nvocl 
+    #define DEVICE_TYPE acc_device_nvocl // alternative: acc_device_intelocl
+    acc_init( DEVICE_TYPE );
+    acc_list_devices_spec( DEVICE_TYPE );
     #endif 
 
 
