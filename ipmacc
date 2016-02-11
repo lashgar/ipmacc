@@ -84,7 +84,7 @@ NARG=${#ARGS[@]}
 NVCCARGS=
 OPTIMIZATION= #optimization swtiches
 COMPILEONLY=0
-COMPILEONLY_OBJ=
+TARGETOBJ=
 
 LISTANDEXIT=
 LISTANDEXITPAR=
@@ -103,7 +103,7 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         pendingoptimization="0"
         continue
     elif [ "$pendingobject" == "1" ] ; then
-        COMPILEONLY_OBJ=${ARGS[i]}
+        TARGETOBJ=${ARGS[i]}
         pendingobject="0"
         continue
     fi
@@ -295,60 +295,65 @@ if [ "$?" == "0" ] ; then
     python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
-            # 5. Call NVCC to compile the CUDA
-            if [ "$VERBOSE" == "1" ] ; then
-             echo -en "\n=============NVCC LOGS==============\n"
-             if [ "$COMPILEONLY" == "1" ] ; then
-              echo "$NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+            # 5.a Call NVCC to compile the CUDA
+            if [ "$COMPILEONLY" == "1" ] ; then
+             if [ "$TARGETOBJ" != "" ] ; then
+              $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
              else
-              echo "$NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+              $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+             fi
+            else
+             if [ "$TARGETOBJ" != "" ] ; then
+              $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
+             else
+              $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
              fi
             fi
-            #echo "$NVCC $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
-            if [ "$COMPILEONLY" == "1" ] ; then
-             $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
-            else
-             $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
-            fi
             if [ "$?" != "0" ] ; then
-                echo "[failed] nvcc failed to generate the binary"
+                echo "[failed] $NVCC failed to generate the binary"
                 exit 255
             fi
         elif [ $TARGETARCH == "nvopencl" ] ; then
-            # 5. Call CC to compile the OpenCL
-            if [ "$VERBOSE" == "1" ] ; then
-             echo -en "\n=============$CXX LOGS==============\n"
-             echo "$CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__"
+            # 5.b Call CC to compile the OpenCL
+            if [ "$COMPILEONLY" == "1" ] ; then
+             if [ "$TARGETOBJ" != "" ] ; then
+              $CXX $CFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ -o $TARGETOBJ
+             else
+              $CXX $CFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ 
+             fi
+            else
+             if [ "$TARGETOBJ" != "" ] ; then
+              $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ -o $TARGETOBJ
+             else
+              $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ 
+             fi
             fi
-            $CXX $NVCCARGS $OUTPUT -D__NVOPENCL__ $CFLAG $LDFLAG 
+            # $CXX $NVCCARGS $OUTPUT -D__NVOPENCL__ $CFLAG $LDFLAG 
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
                 exit 255
             fi
         elif [ "$TARGETARCH" == "intelispc" ] ; then
-            # 5. Call ISPC to compile the ISPC kernel
-            if [ "$VERBOSE" == "1" ] ; then
-             echo -en "\n=============ISPC LOGS==============\n"
-             echo "$ISPC $ISPCFLAG $ISPCKERNEL -D__INTELISPC__ -o $ISPCKERNELOBJ"
-            fi
-            #echo "$NVCC $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__"
+            # 5.c.a Call ISPC to compile the ISPC kernel
             $ISPC $ISPCFLAG $ISPCKERNEL -D__INTELISPC__ -o $ISPCKERNELOBJ
             if [ "$?" != "0" ] ; then
                 echo "[failed] ispc failed to generate the object code"
                 exit 255
             fi
-            # 5. CC to compile ISPC Task API
+            # 5.c.b CC to compile ISPC Task API
             if [ -f $IPMACCROOT/src/tasksys.o ] ; then
                 make -C $IPMACCROOT/src/ tasksys.o
             fi
-            # 5. CC to compile the compile host and link
+            # 5.c.c CC to compile the compile host and link
             if [ "$VERBOSE" == "1" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
              echo -en "$CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG "
             fi
             if [ "$COMPILEONLY" == "1" ]; then
              $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG -o /tmp/launcher.o
-             ld -r /tmp/launcher.o $ISPCKERNELOBJ -o $COMPILEONLY_OBJ
+             if [ "$TARGETOBJ" != "" ] ; then 
+              ld -r /tmp/launcher.o $ISPCKERNELOBJ -o $TARGETOBJ
+             fi
             else
               $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
             fi
@@ -358,6 +363,10 @@ if [ "$?" == "0" ] ; then
                 exit 255
             fi
         fi
+    else
+        # code generator crashed
+        rm $OUTPUT~ -f #cleaning GNU indent
+        exit -1
     fi
     rm $OUTPUT~ -f #cleaning GNU indent
 fi

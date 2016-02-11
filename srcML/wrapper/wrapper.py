@@ -402,8 +402,9 @@ class srcML:
             template=self.findTemplateOverFcn(root, fcn)
             for oc in root.findall(".//function"):
                 nm=oc.find("name")
-                #print tostring(root)
+                # print tostring(root)
                 if nm.text==fcn:
+                    #print tostring(root)
                     # get details about the function 
                     det_qualifiers = []
                     for qlf in oc.find("./type").findall(".//name"):
@@ -433,7 +434,7 @@ class srcML:
                     det_local_vlist += det_params_v
                     det_local_tlist += det_params_t
                     det_local_slist += det_params_s
-                    for tmp_ch in oc.findall(".//decl_stmt"): #local variables
+                    for tmp_ch in oc.findall(".//decl_stmt")+oc.findall(".//for/init"): #local variables
                         stmt=self.getAllText(tmp_ch).strip()
                         [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
                         if DEBUGST:

@@ -434,24 +434,51 @@ class codegen(object):
                     iscall=False
                 if not (iskeyword or isparam or islocal or iscall or isfname):
                     if DEBUGDETAILPROC: print v+' is global'
-                    additional_vars.append([v, scope_t[scope_v.index(v)].strip(), scope_s[scope_v.index(v)].strip()])
+                    # first check if it is redundant or not
+                    redundant = False
+                    for [tmp_v, tmp_t, tmp_s] in additional_vars:
+                        if v==tmp_v:
+                            redundant = True
+                            #print 'merged '+tmp_v+' on '+call
+                            if tmp_t!=scope_t[scope_v.index(v)].strip():
+                                print 'warning: confused with naming: '+v+' is both defined as '+tmp_t+' and '+scope_t[scope_v.index(v)].strip()+' codegen.py: '+str(getframeinfo(currentframe()).lineno)
+                            break
+                    if not redundant:
+                        additional_vars.append([v, scope_t[scope_v.index(v)].strip(), scope_s[scope_v.index(v)].strip()])
                 else:
-                    if DEBUGDETAILPROC: print v+' is '+' '.join([str(iskeyword), str(isparam), str(islocal), str(iscall), str(isfname)])
+                    if False and DEBUGDETAILPROC: print v+' is '+' '.join([str(iskeyword), str(isparam), str(islocal), str(iscall), str(isfname)])
             if len(additional_vars)>0:
                 additional_params[call] = additional_vars
             #modified_active_calls.append([call, proto, body, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids])
+
         for key in additional_params:
             additional_vars = additional_params[key]
             if DEBUGDETAILPROC: print 'key> '+key
             if DEBUGDETAILPROC: print additional_vars
             for [call, proto, body, rettype, qualifiers, params, local_vars, scope_vars, fcalls, ids, ex_params] in active_calls:
-                inflate_args = True
-                try:
-                    fcalls.index(key)
-                except:
-                    inflate_args = False
-                if inflate_args or call==key:
-                    if DEBUGDETAILPROC: print 'appending vars> '
+                if DEBUGDETAILPROC: print ' checking the call '+call+' fcalls> '+','.join(fcalls)
+                # find if the `call' reaches key through nested calls.
+                callstovisit=list(set(fcalls))
+                callsvisited=[]
+                reachable=False #inflate
+                while True:
+                    newcalls=[]
+                    for c2v in callstovisit:
+                        if c2v==key:
+                            reachable=True
+                            break
+                        for [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] in active_calls:
+                            if p1==c2v:
+                                #print 'found the call to '+p1
+                                newcalls += [item for item in p9 if (item not in callsvisited) and (item not in callstovisit)]
+                    #print 'newcalls> '+','.join(newcalls)
+                    if len(newcalls)>0:
+                        callsvisited+=callstovisit
+                        callstovisit=newcalls
+                    if len(newcalls)==0 or reachable:
+                        break
+                if reachable or call==key:
+                    if DEBUGDETAILPROC: print 'appending vars to '+call+' arguments'
                     [ex_params_t, ex_params_v, ex_params_s] = ex_params
                     for [v, t, s] in additional_vars:
                         ex_params_t.append(t)
@@ -3707,6 +3734,12 @@ class codegen(object):
         f=open(ispcfile, 'w')
         #code=re.sub('\\b'+'int'+'[\\ \\t\\n\\r]*','int32 ', self.ispc_kerneldecl)
         code ='#define char int8\n'
+        code+='#define fabsf(f) abs(f)\n'
+        code+='#define floorf(f) floor(f)\n'
+        code+='#define logf(f) log(f)\n'
+        code+='#define sqrtf(f) sqrt(f)\n'
+        code+='#define expf(f) exp(f)\n'
+        code+='#define powf(f,p) pow(f,p)\n'
         code+=self.ispc_kerneldecl
         f.write(code)
         f.close()
@@ -5143,11 +5176,13 @@ class codegen(object):
                     for idx_new in range(0,len(tmp_ex_params_v)):
                         found = False
                         for idx_exi in range(0,len(kernelArguments[i])):
-                            if len(re.findall('\\b' + tmp_ex_params_v[idx_new] + '\\b', kernelArguments[i][idx_exi]))>0:
+                            clean_ker_arg = kernelArguments[i][idx_exi].replace('__ipmacc_opt_readonlycache','')
+                            if len(re.findall('\\b' + tmp_ex_params_v[idx_new] + '\\b', clean_ker_arg))>0:
                                 found = True
                                 break
                         if not found:
                             # append arg 
+                            print 'didn\'t find '+tmp_ex_params_v[idx_new]+' in '+','.join(kernelArguments[i])
                             kernelArguments[i].append(tmp_ex_params_t[idx_new]+' '+tmp_ex_params_v[idx_new])
                 #else:
                     #print 'couldn\'t find <'+tmp_fname+'> in <'+kernelDeclsBody[i]+'>'
