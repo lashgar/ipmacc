@@ -146,6 +146,30 @@ extern void acc_memcpy_to_device( void* d_dest, void* h_src, size_t bytes );
 extern void acc_memcpy_from_device( void* h_dest, void* d_src, size_t bytes );
 #endif
 
+/*Compression Additions*/
+#ifdef __cplusplus
+extern "C" void decompression(void* hostptr, size_t bytes);
+extern "C" void*  compression(void* hostPtr, void* devPtr, size_t bytes, char* datatypestring, int compRatio, int structItemNum, int isReadOnly, float inMin, float inMax);
+extern "C" void* acc_compress_create( void* hostptr, size_t bytes, char* datatypestring, void* const_mem_coef, int isReadOnly, double min, double max);
+extern "C" void* acc_compress_present_or_create( void* hostptr, size_t bytes, char* datatypestring, void* const_mem_coef, int isReadOnly, double min, double max);
+extern "C" void* acc_compress_copyin( void* hostptr, size_t bytes, char* datatypestring ,void* const_mem_coef, int isReadOnly, float min, float max);
+extern "C" void* acc_pcompress_copyin ( void*, size_t, char*, void*, int, float ,float );
+extern "C" void acc_decompress_copyout ( void* hostptr, size_t bytes );
+extern "C" void* acc_isComp ( void* );
+extern "C" void* acc_get_coef ( void* );
+#else
+extern void decompression(void* hostptr, size_t bytes);
+extern void*  compression(void* hostPtr, void* devPtr, size_t bytes, char* datatypestring, int compRatio, int structItemNum, int isReadOnly, float inMin, float inMax);
+extern void* acc_compress_create( void* hostptr, size_t bytes, char* datatypestring, void* const_mem_coef, int isReadOnly, double min, double max);
+extern void* acc_compress_present_or_create( void* hostptr, size_t bytes, char* datatypestring, void* const_mem_coef, int isReadOnly, double min, double max);
+extern void* acc_compress_copyin( void* hostptr, size_t bytes, void* );
+extern void* acc_pcompress_copyin ( void*, size_t, void* );
+extern void acc_decompress_copyout ( void* hostptr, size_t bytes );
+extern void* acc_isComp ( void* );
+extern void* acc_get_coef ( void* );
+#endif
+
+
 /* IPM Additions */
 #ifdef __cplusplus
 extern "C" void acc_list_devices_spec( acc_device_t devtype );
