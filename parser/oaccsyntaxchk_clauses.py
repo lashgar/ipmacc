@@ -98,7 +98,11 @@ def sequentialParser(root):
                                 'copy', 'copyin', 'copyout',
                                 'present_or_copy', 'present_or_copyin', 'present_or_copyout', 'present_or_create',
                                 'pcopy', 'pcopyin', 'pcopyout',
-                                'deviceptr']
+                                'deviceptr',
+                                'compression', 'compression_copy', 'compressions_copyin', 'compression_copyout',
+                                'ccopy', 'ccopyin', 'ccopyout',
+                                'present_or_compression_copy', 'present_or_compression_copyin', 'present_or_compression_copyout', 'present_or_compression_create',
+                                'pccopy', 'pccopyin', 'pccopyout']
                 if not lookup(avail_clauses,clause):
                     error(root.attrib.get('directive'),clause,avail_clauses)
 
@@ -113,7 +117,11 @@ def sequentialParser(root):
                                 'copy', 'copyin', 'copyout',
                                 'present_or_copy', 'present_or_copyin', 'present_or_copyout', 'present_or_create',
                                 'pcopy', 'pcopyin', 'pcopyout',
-                                'deviceptr']
+                                'deviceptr',
+                                'compression', 'compression_copy', 'compressions_copyin', 'compression_copyout',
+                                'ccopy', 'ccopyin', 'ccopyout',
+                                'present_or_compression_copy', 'present_or_compression_copyin', 'present_or_compression_copyout', 'present_or_compression_create',
+                                'pccopy', 'pccopyin', 'pccopyout']
                 if not lookup(avail_clauses,clause):
                     error(root.attrib.get('directive'),clause,avail_clauses)
 
