@@ -2,41 +2,22 @@
 #include <stdio.h>
 #include <assert.h>
 #include <openacc.h>
-#define IPMACC_MAX1(A)   (A)
-#define IPMACC_MAX2(A,B) (A>B?A:B)
-#define IPMACC_MAX3(A,B,C) (A>B?(A>C?A:(B>C?B:C)):(B>C?C:B))
-#ifdef __cplusplus
-#include "openacc_container.h"
-#endif
 
 #include <cuda.h>
 
 #include <malloc.h>
 #include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <math.h>
 
-//#define LEN 1024
 #define SIZE LEN * LEN
 
 #define TYPE double
-#define MIN(a, b)    (a < b ? a : b)
-
 
 __global__ void __generated_kernel_region_0(TYPE * a,TYPE * c,TYPE * b, int LEN);
 
 int main(int argc, char *argv[])
 {
     int i;
-#ifdef __NVCUDA__
-    acc_init(acc_device_nvcuda);
-#endif
-#ifdef __NVOPENCL__
-    acc_init(acc_device_nvocl);
-#endif
-
     int LEN = -1;
     if(argc!=2){
         printf("usage: ./matMul <size>\n");
@@ -48,7 +29,7 @@ int main(int argc, char *argv[])
 
 
 
-    TYPE *a, *b, *c;
+    TYPE *a, *b, *c;;;
 
     TYPE *seq;
 
@@ -65,36 +46,23 @@ int main(int argc, char *argv[])
         c [i] = 0.0f;
     }  
 
-    unsigned long long int tic, toc;
+    unsigned long long int tic, toc;;
 
     int k, j, l;
     for (k = 0; k < 3; k++) {
         printf("Calculation on GPU ... ");
         tic = clock();
 
-
-
-        ipmacc_prompt((char*)"IPMACC: memory allocation c\n");
         acc_present_or_create((void*)c,(SIZE+0)*sizeof(TYPE ));
-        ipmacc_prompt((char*)"IPMACC: memory allocation a\n");
         acc_present_or_create((void*)a,(SIZE+0)*sizeof(TYPE ));
-        ipmacc_prompt((char*)"IPMACC: memory allocation b\n");
         acc_present_or_create((void*)b,(SIZE+0)*sizeof(TYPE ));
-        ipmacc_prompt((char*)"IPMACC: memory copyin c\n");
         acc_pcopyin((void*)c,(SIZE+0)*sizeof(TYPE ));
-        ipmacc_prompt((char*)"IPMACC: memory copyin a\n");
         acc_pcopyin((void*)a,(SIZE+0)*sizeof(TYPE ));
-        ipmacc_prompt((char*)"IPMACC: memory copyin b\n");
         acc_pcopyin((void*)b,(SIZE+0)*sizeof(TYPE ));
 
 
         {
-
-
             {
-
-
-
                 /* kernel call statement [0, -1]*/
                 {
                     dim3 __ipmacc_gridDim(1,1,1);
@@ -111,12 +79,12 @@ int main(int argc, char *argv[])
                             LEN);
                 }
                 /* kernel call statement*/
-                if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Synchronizing the region with host\n");
                 {
                     cudaError err=cudaDeviceSynchronize();
                     if(err!=cudaSuccess){
                         printf("Kernel Launch Error! error code (%d)\n",err);
-                        assert(0&&"Launch Failure!\n");}
+                        exit(-1);
+                    }
                 }
 
 
@@ -164,27 +132,9 @@ int main(int argc, char *argv[])
 }
 
 
-/*__forceinline__*/ __device__ TYPE  __smc_select_0_a(int index1, int index2, TYPE * g_array, TYPE  s_array[16+0+0][16+0+16], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){
-    // the pragmas are well-set. do not check the boundaries.
-    return s_array[index1-startptr1][index2-startptr2];
-}
-/*__forceinline__*/ __device__ TYPE  __smc_select_0_b(int index1, int index2, TYPE * g_array, TYPE  s_array[16+0+16][16+0+0], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){
-    // the pragmas are well-set. do not check the boundaries.
-    return s_array[index1-startptr1][index2-startptr2];
-}
-
-__device__ void __smc_write_0_a(int index1, int index2, TYPE * g_array, TYPE  s_array[16+0+0][16+0+16], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, TYPE  value){
-    // the pragmas are well-set. do not check the boundaries.
-    s_array[index1-startptr1][index2-startptr2]=value;
-}
-__device__ void __smc_write_0_b(int index1, int index2, TYPE * g_array, TYPE  s_array[16+0+16][16+0+0], int startptr1, int startptr2, int endptr1, int endptr2, int pitch, TYPE  value){
-    // the pragmas are well-set. do not check the boundaries.
-    s_array[index1-startptr1][index2-startptr2]=value;
-}
 __global__ void __generated_kernel_region_0(TYPE * a,TYPE * c,TYPE * b, int LEN){
     int __kernel_getuid_x=threadIdx.x+blockIdx.x*blockDim.x;
     int __kernel_getuid_y=threadIdx.y+blockIdx.y*blockDim.y;
-    int __kernel_getuid_z=threadIdx.z+blockIdx.z*blockDim.z;
     int  i;
     int  j;
     int  l;
@@ -221,7 +171,6 @@ __global__ void __generated_kernel_region_0(TYPE * a,TYPE * c,TYPE * b, int LEN)
 
                             {
                                 int m;
-                                //for(m = l; m < MIN(l + 16, LEN); m++)
                                 for(m = 0; m < 16; m++)
                                 {
                                     sum += __kernel_smc_var_data_a[threadIdx.y][m] /* replacing a [i * LEN + m]*/  * __kernel_smc_var_data_b[m][threadIdx.x] /* replacing b [m * LEN + j]*/ ;

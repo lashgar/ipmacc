@@ -150,8 +150,45 @@ static float Turbulence(float x, float y, float z, int octaves) {
     return sum * 0.5f;
 }
 
-
 void noise_serial(float x0, float y0, float x1, float y1,
+                  int width, int height, float output[])
+{
+    float dx = (x1 - x0) / width;
+    float dy = (y1 - y0) / height;
+    int i, j;
+
+    for (j = 0; j < height; j++) {
+        for (i = 0; i < width; ++i) {
+            float x = x0 + i * dx;
+            float y = y0 + j * dy;
+
+            int index = (j * width + i);
+            output[index] = Turbulence(x, y, 0.6f, 8);
+        }
+    }
+}
+
+void noise_openacc_single(float x0, float y0, float x1, float y1,
+                  int width, int height, float output[])
+{
+    float dx = (x1 - x0) / width;
+    float dy = (y1 - y0) / height;
+    int i, j;
+
+    #pragma acc kernels pcopyout(output[0:width*height])
+    for (j = 0; j < height; j++) {
+        #pragma acc loop independent 
+        for (i = 0; i < width; ++i) {
+            float x = x0 + i * dx;
+            float y = y0 + j * dy;
+
+            int index = (j * width + i);
+            output[index] = Turbulence(x, y, 0.6f, 8);
+        }
+    }
+}
+
+void noise_openacc_multi(float x0, float y0, float x1, float y1,
                   int width, int height, float output[])
 {
     float dx = (x1 - x0) / width;
@@ -165,7 +202,6 @@ void noise_serial(float x0, float y0, float x1, float y1,
         for (i = 0; i < width; ++i) {
             float x = x0 + i * dx;
             float y = y0 + j * dy;
-            int kk = NoisePerm [12];
 
             int index = (j * width + i);
             output[index] = Turbulence(x, y, 0.6f, 8);

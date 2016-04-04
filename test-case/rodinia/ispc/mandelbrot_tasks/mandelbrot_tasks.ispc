@@ -35,12 +35,12 @@
 
 static inline int
 mandel(float c_re, float c_im, int count) {
+    // 12 lines
     float z_re = c_re, z_im = c_im;
     int i;
     for (i = 0; i < count; ++i) {
         if (z_re * z_re + z_im * z_im > 4.)
             break;
-
         float new_re = z_re*z_re - z_im*z_im;
         float new_im = 2.f * z_re * z_im;
         unmasked {
@@ -48,7 +48,6 @@ mandel(float c_re, float c_im, int count) {
             z_im = c_im + new_im;
         }
     }
-
     return i;
 }
 
@@ -65,6 +64,7 @@ mandelbrot_scanline(uniform float x0, uniform float dx,
                     uniform int span,
 #endif
                     uniform int maxIterations, uniform int output[]) {
+    // 8 lines
 #ifdef _3D_TASKING
     const uniform int xstart = taskIndex0 * xspan;
     const uniform int xend   = min(xstart  + xspan, width);
@@ -92,6 +92,7 @@ mandelbrot_ispc(uniform float x0, uniform float y0,
                 uniform float x1, uniform float y1,
                 uniform int width, uniform int height, 
                 uniform int maxIterations, uniform int output[]) {
+    // 5 lines
     uniform float dx = (x1 - x0) / width;
     uniform float dy = (y1 - y0) / height;
 #ifdef _3D_TASKING

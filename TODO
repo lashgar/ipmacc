@@ -19,6 +19,9 @@ TODO:
 - An issue with atomic pragmas on OpenCL; adding '#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable' should be added to OpenCL kernels.
 - Within the kernels region, if a nested procedure uses a global variable, the variable is not copied in/out.
 - For ISPC backend, pointers passed as arguments of functions called in the kernels region should be identified as `uniform' or `varying'. Currently, we generate multiple functions with the same declaration body to cover all combination of pointers. ispc compiler picks the proper one at the compile time. A similar issue exist in OpenCL < 2.0 backend, private and global pointers. We expect OpenCL >= 2.0 implementations resolve this.
+- Partial copy.
+- Compile time option of write-through cache (default is write-back).
+- Free memory on device when data is copied out (test-case/test/reduction.c)
 
 CHANGES:
 - Replacing pycparser XML generator with srcML generator (delivering faster, plain, and detailed parser)

@@ -90,7 +90,7 @@ int openacc_ipmacc_set_coef(void *src, void *coef)
     }
     return 0 ;
 }
-void* openacc_ipmacc_get(void *src)
+void* openacc_ipmacc_get(const void *src)
 {
     openacc_ipmacc_varmapper_t * temp = openacc_ipmacc_varmapper_head;
     while(temp != NULL)
@@ -885,7 +885,7 @@ void acc_list_devices_spec( acc_device_t devtype ){
 }
 
 //#define DEBUG_LIB 0
-void* acc_deviceptr( void* hostptr )
+void* acc_deviceptr( const void* hostptr )
 {
     return openacc_ipmacc_get(hostptr);
 }
@@ -1143,15 +1143,15 @@ void acc_delete ( void*hostptr, size_t bytes)
             exit(-1);
         }
 #endif 
-        //}else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){\
-        // no OpenCL API found to allow releasing the memory \
-#ifdef __NVOPENCL__ \
+    }else if(__ipmacc_devicetype==acc_device_nvocl || __ipmacc_devicetype==acc_device_intelocl){
+#ifdef __NVOPENCL__ 
+        // no OpenCL API found to allow releasing the memory 
 #endif
-}else{
-    fprintf(stderr,"Unimplemented device type!\n");
-    exit(-1);
-}
-//return openacc_ipmacc_get(hostptr);
+    }else{
+        fprintf(stderr,"Unimplemented device type!\n");
+        exit(-1);
+    }
+        //return openacc_ipmacc_get(hostptr);
 }   
 void acc_copyout ( void* hostptr, size_t bytes )
 {

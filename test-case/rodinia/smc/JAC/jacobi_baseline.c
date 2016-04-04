@@ -1,25 +1,4 @@
-//* */
-
-/*
- *      Copyright 2009-2012, STMicroelectronics, Incorporated.
- *      All rights reserved.
- *
- *        STMICROELECTRONICS, INCORPORATED PROPRIETARY INFORMATION
- * This software is supplied under the terms of a license agreement
- * or nondisclosure agreement with STMicroelectronics and may not be
- * copied or disclosed except in accordance with the terms of that
- * agreement.
- */
-
-/*
- * Jacobi iteration example using OpenACC in C
- * Build with
- *   pgcc -acc -Minfo=accel -fast c3.c 
- */
-
 #include <stdio.h>
-
-
 #include <stdlib.h>
 #include <assert.h>
 #include <openacc.h>
@@ -40,7 +19,7 @@ typedef struct timeval timestruct;
     void
 smooth( float* a, float* b, float w0, float w1, float w2, int n, int m, int niters )
 {
-    int i, j, iter;
+    int i, j, iter;;;
     float* tmp;
     for( iter = 1; iter <= niters; ++iter ){
             #pragma acc kernels copyin(b[0:n*m]) copy(a[0:n*m])
@@ -52,9 +31,7 @@ smooth( float* a, float* b, float w0, float w1, float w2, int n, int m, int nite
                         w1*(b[(i-1)*m+j] + b[(i+1)*m+j] + b[i*m+j-1] + b[i*m+j+1]) +
                         w2*(b[(i-1)*m+j-1] + b[(i-1)*m+j+1] + b[(i+1)*m+j-1] + b[(i+1)*m+j+1]);
                 }
-                
             }
-        
         tmp = a;  a = b;  b = tmp;
     }
 }
@@ -62,7 +39,7 @@ smooth( float* a, float* b, float w0, float w1, float w2, int n, int m, int nite
     void
 smoothhost( float* a, float* b, float w0, float w1, float w2, int n, int m, int niters )
 {
-    int i, j, iter;
+    int i, j, iter;;;
     float* tmp;
     for( iter = 1; iter <= niters; ++iter ){
         for( i = 1; i < n-1; ++i ){
@@ -85,13 +62,13 @@ doprt( char* s, float* a, float* ah, int i, int j, int n, int m )
     int
 main( int argc, char* argv[] )
 {
-    float *aa, *bb, *aahost, *bbhost;
-    int i,j;
-    float w0, w1, w2;
-    int n, m, aerrs, berrs, iters;
-    float dif, rdif, tol;
-    timestruct t1, t2, t3;
-    long long cgpu, chost;
+    float *aa, *bb, *aahost, *bbhost;;;;
+    int i,j;;
+    float w0, w1, w2;;;
+    int n, m, aerrs, berrs, iters;;;;;
+    float dif, rdif, tol;;;
+    timestruct t1, t2, t3;;;
+    long long cgpu, chost;;
 
     n = 0;
     m = 0;
@@ -103,23 +80,6 @@ main( int argc, char* argv[] )
             m = atoi( argv[2] );
             if( argc > 3 ){
                 iters = atoi( argv[3] );
-                /*
-                if( argc > 4 ){
-                    if( !strcmp( argv[4], "host" ) ||
-                            !strcmp( argv[4], "HOST" ) ){
-                        acc_set_device( acc_device_host );
-                        printf( "using host\n" );
-                    }else
-                        if( !strcmp( argv[4], "nvidia" ) ||
-                                !strcmp( argv[4], "NVIDIA" ) ){
-                            acc_set_device( acc_device_nvidia );
-                            acc_init( acc_device_nvidia );
-                            printf( "using nvidia\n" );
-                        }else{
-                            printf( "unknown device: %s\nUsing default\n", argv[4] );
-                        }
-                }
-                */
             }
         }
     }

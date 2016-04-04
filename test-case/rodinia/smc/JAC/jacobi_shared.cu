@@ -2,16 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <openacc.h>
-#define IPMACC_MAX1(A)   (A)
-#define IPMACC_MAX2(A,B) (A>B?A:B)
-#define IPMACC_MAX3(A,B,C) (A>B?(A>C?A:(B>C?B:C)):(B>C?C:B))
-#ifdef __cplusplus
-#include "openacc_container.h"
-#endif
-
 #include <cuda.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <assert.h>
 #include <openacc.h>
 #include <math.h>
@@ -34,18 +25,14 @@ __global__ void __generated_kernel_region_0(float * a,int  m,int  n,float * b,fl
 
 void smooth(float* a, float* b, float w0, float w1, float w2, int n, int m, int niters)
 {
-    int i, j, iter;
+    int i, j, iter;;;
     float* tmp;
     for (iter = 1; iter <= niters; ++iter) {
 
 
-        ipmacc_prompt((char*)"IPMACC: memory allocation a\n");
         acc_create((void*)a,(n*m+0)*sizeof(float ));
-        ipmacc_prompt((char*)"IPMACC: memory allocation b\n");
         acc_create((void*)b,(n*m+0)*sizeof(float ));
-        ipmacc_prompt((char*)"IPMACC: memory copyin a\n");
         acc_copyin((void*)a,(n*m+0)*sizeof(float ));
-        ipmacc_prompt((char*)"IPMACC: memory copyin b\n");
         acc_copyin((void*)b,(n*m+0)*sizeof(float ));
 
         /* kernel call statement [0]*/
@@ -59,16 +46,15 @@ void smooth(float* a, float* b, float w0, float w1, float w2, int n, int m, int 
             if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel 0 > gridDim: (%u,%u,%u)\tblockDim: (%u,%u,%u)\n",__ipmacc_gridDim.x,__ipmacc_gridDim.y,__ipmacc_gridDim.z,__ipmacc_blockDim.x,__ipmacc_blockDim.y,__ipmacc_blockDim.z);
 
 
-            int borderCols = 1;//(pyramid_height)*EXPAND_RATE/2;
-            int borderRows = 1;//(pyramid_height)*EXPAND_RATE/2;
-            int smallBlockCol = 16-2;//(pyramid_height)*EXPAND_RATE;
-            int smallBlockRow = 16-2;//(pyramid_height)*EXPAND_RATE;
+            int borderCols = 1;
+            int borderRows = 1;
+            int smallBlockCol = 16-2;
+            int smallBlockRow = 16-2;
             int blockCols = m/smallBlockCol+((m%smallBlockCol==0)?0:1);
             int blockRows = n/smallBlockRow+((n%smallBlockRow==0)?0:1);
             dim3 gridDimen(blockRows, blockCols);
 
 
-            //__generated_kernel_region_0<<<__ipmacc_gridDim,__ipmacc_blockDim>>>(
             __generated_kernel_region_0<<<gridDimen,__ipmacc_blockDim>>>(
                     (float *)acc_deviceptr((void*)a),
                     m,
@@ -79,14 +65,13 @@ void smooth(float* a, float* b, float w0, float w1, float w2, int n, int m, int 
                     w0);
         }
         /* kernel call statement*/
-        ipmacc_prompt((char*)"IPMACC: memory copyout a\n");
         acc_copyout_and_keep((void*)a,(n*m+0)*sizeof(float ));
-        if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Synchronizing the region with host\n");
         {
             cudaError err=cudaDeviceSynchronize();
             if(err!=cudaSuccess){
                 printf("Kernel Launch Error! error code (%d)\n",err);
-                assert(0&&"Launch Failure!\n");}
+                exit(-1);
+            }
         }
 
         tmp = a;  a = b;  b = tmp;
@@ -95,7 +80,7 @@ void smooth(float* a, float* b, float w0, float w1, float w2, int n, int m, int 
 
 void smoothhost(float* a, float* b, float w0, float w1, float w2, int n, int m, int niters)
 {
-    int i, j, iter;
+    int i, j, iter;;;
     float* tmp;
     for (iter = 1; iter <= niters; ++iter) {
         for (i = 1; i < n - 1; ++i) {
@@ -116,20 +101,13 @@ void doprt(char* s, float* a, float* ah, int i, int j, int n, int m)
 
 int main(int argc, char* argv[])
 {
-    float *aa, *bb, *aahost, *bbhost;
-    int i, j;
-    float w0, w1, w2;
-    int n, m, aerrs, berrs, iters;
-    float dif, rdif, tol;
-    timestruct t1, t2, t3;
-    long long cgpu, chost;
-
-/*
-#ifdef __NVOPENCL__
-    acc_init(acc_device_nvocl);
-
-#endif
-*/
+    float *aa, *bb, *aahost, *bbhost;;;;
+    int i, j;;
+    float w0, w1, w2;;;
+    int n, m, aerrs, berrs, iters;;;;
+    float dif, rdif, tol;;;
+    timestruct t1, t2, t3;;;
+    long long cgpu, chost;;
 
     n = 1024;
     m = 1024;
@@ -141,23 +119,6 @@ int main(int argc, char* argv[])
             m = atoi( argv[2] );
             if( argc > 3 ){
                 iters = atoi( argv[3] );
-                /*
-                if( argc > 4 ){
-                    if( !strcmp( argv[4], "host" ) ||
-                            !strcmp( argv[4], "HOST" ) ){
-                        acc_set_device( acc_device_host );
-                        printf( "using host\n" );
-                    }else
-                        if( !strcmp( argv[4], "nvidia" ) ||
-                                !strcmp( argv[4], "NVIDIA" ) ){
-                            acc_set_device( acc_device_nvidia );
-                            acc_init( acc_device_nvidia );
-                            printf( "using nvidia\n" );
-                        }else{
-                            printf( "unknown device: %s\nUsing default\n", argv[4] );
-                        }
-                }
-                */
             }
         }
     }
@@ -241,7 +202,6 @@ int main(int argc, char* argv[])
 __global__ void __generated_kernel_region_0(float * a,int  m,int  n,float * b,float  w2,float  w1,float  w0){
     int __kernel_getuid_x=threadIdx.x+blockIdx.x*blockDim.x;
     int __kernel_getuid_y=threadIdx.y+blockIdx.y*blockDim.y;
-    int __kernel_getuid_z=threadIdx.z+blockIdx.z*blockDim.z;
     int  i;
     int  j;
 
@@ -290,7 +250,7 @@ __global__ void __generated_kernel_region_0(float * a,int  m,int  n,float * b,fl
        (yidx>0 && yidx<(n-1))){
         //a [i * m + j] = w0 * b [i * m + j] + \
             w1 * (b [(i - 1) * m + j] + b [(i + 1) * m + j] + b [i * m + j - 1] + b [i * m + j + 1]) + \
-            w2 * (b [(i - 1) * m + j - 1] + b [(i - 1) * m + j + 1] + b [(i + 1) * m + j - 1] + b [(i + 1) * m + j + 1]);
+            w2 * (b [(i - 1) * m + j - 1] + b [(i - 1) * m + j + 1] + b [(i + 1) * m + j - 1] + b [(i + 1) * m + j + 1])
         a [yidx * m + xidx] = w0 * btile[ty][tx] +
             w1 * (btile[ty-1][tx] + btile[ty+1][tx] + btile[ty][tx-1] + btile[ty][tx+1]) +
             w2 * (btile[ty-1][tx-1] + btile[ty-1][tx+1] + btile[ty+1][tx-1] + btile[ty+1][tx+1]);

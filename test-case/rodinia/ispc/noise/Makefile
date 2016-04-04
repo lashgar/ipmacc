@@ -1,4 +1,4 @@
-all: directories noise
+all: directories noise_ispc
 
 directories: objs/
 
@@ -18,8 +18,8 @@ objs/noise_serial.o: noise_serial.cpp
 objs/tasksys.o: ../tasksys.cpp
 	clang++ ../tasksys.cpp -Iobjs/ -O2 -m64 -c -o objs/tasksys.o
 
-noise: objs/noise_ispc.o  objs/noise.o objs/noise_serial.o objs/noise_ispc_sse2.o objs/noise_ispc_sse4.o objs/noise_ispc_avx.o objs/noise_ispc_avx2.o
-	clang++ -Iobjs/ -O2 -m64 -o noise objs/noise.o objs/noise_serial.o objs/noise_ispc.o objs/noise_ispc_sse2.o objs/noise_ispc_sse4.o objs/noise_ispc_avx.o objs/noise_ispc_avx2.o -lm -lpthread -lstdc++ `ipmacc --cflags` `ipmacc --ldflags`
+noise_ispc: objs/noise_ispc.o  objs/noise.o objs/noise_serial.o objs/noise_ispc_sse2.o objs/noise_ispc_sse4.o objs/noise_ispc_avx.o objs/noise_ispc_avx2.o
+	clang++ -Iobjs/ -O2 -m64 -o noise_ispc objs/noise.o objs/noise_serial.o objs/noise_ispc.o objs/noise_ispc_sse2.o objs/noise_ispc_sse4.o objs/noise_ispc_avx.o objs/noise_ispc_avx2.o -lm -lpthread -lstdc++ `ipmacc --cflags` `ipmacc --ldflags`
 
 clean:
 	rm noise objs/ *ipmacc* -rf

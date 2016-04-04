@@ -2,14 +2,11 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-//#include <accelmath.h>
 #include <math.h>
 
-//#define LEN 1024
 #define SIZE LEN*LEN
 
 #define TYPE double
-#define MIN(a,b)    (a<b?a:b)
 
 
 int main(int argc, char *argv[])
@@ -31,10 +28,8 @@ int main(int argc, char *argv[])
     }
     assert(LEN>0);
 
-    TYPE *a, *b, *c;
-    //TYPE *kK[10], *jJ[10];
+    TYPE *a, *b, *c;;;
     TYPE *seq;
-    //acc_init( acc_device_nvidia );
     a=(TYPE*)malloc(SIZE*sizeof(TYPE));
     b=(TYPE*)malloc(SIZE*sizeof(TYPE));
     c=(TYPE*)malloc(SIZE*sizeof(TYPE));
@@ -48,9 +43,9 @@ int main(int argc, char *argv[])
         c[i] = 0.0f;
     }// B
 
-    unsigned long long int tic, toc;
+    unsigned long long int tic, toc;;
     // Compute vector Add
-    int k,j,l;
+    int k,j,l;;;
     for(k=0; k<3; k++){
         printf("Calculation on GPU ... ");
         tic = clock();
@@ -79,27 +74,6 @@ int main(int argc, char *argv[])
     // double-check the OpenACC result sequentially on the host
     // ****************
     // Perform the add
-
-    /*
-       printf("A:\n");
-       for (i = 0; i < LEN; ++i) {
-       for(j=0; j<LEN; j++)
-       printf("%6.4f ",a[i*LEN+j]);
-       printf("\n");
-       }
-       printf("B:\n");
-       for (i = 0; i < LEN; ++i) {
-       for(j=0; j<LEN; j++)
-       printf("%6.4f ",b[i*LEN+j]);
-       printf("\n");
-       }
-       printf("C:\n");
-       for (i = 0; i < LEN; ++i) {
-       for(j=0; j<LEN; j++)
-       printf("%6.4f ",c[i*LEN+j]);
-       printf("\n");
-       }
-       */
 
     /*
     printf("Calculation on CPU ... ");

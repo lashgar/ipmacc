@@ -107,7 +107,7 @@ extern "C" void acc_delete ( void*, size_t );
 //acc_update_self   
 extern "C" void acc_map_data( void*hptr, void*dptr, size_t );
 extern "C" void acc_unmap_data( void*hptr );
-extern "C" void* acc_deviceptr( void* hostptr );
+extern "C" void* acc_deviceptr( const void* hostptr );
 extern "C" void* acc_hostptr ( void* );
 extern "C" int acc_is_present ( void*, size_t );
 extern "C" void acc_memcpy_to_device( void* d_dest, void* h_src, size_t bytes );
@@ -139,7 +139,7 @@ extern void acc_delete ( void*, size_t );
 //acc_update_self   
 extern void acc_map_data( void*hptr, void*dptr, size_t );
 extern void acc_unmap_data( void*hptr );
-extern void* acc_deviceptr( void* hostptr );
+extern void* acc_deviceptr( const void* hostptr );
 extern void* acc_hostptr ( void* );
 extern int acc_is_present ( void*, size_t );
 extern void acc_memcpy_to_device( void* d_dest, void* h_src, size_t bytes );

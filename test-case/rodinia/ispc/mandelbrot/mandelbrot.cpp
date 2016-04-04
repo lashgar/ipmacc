@@ -49,6 +49,9 @@ using namespace ispc;
 extern void mandelbrot_serial(float x0, float y0, float x1, float y1,
                               int width, int height, int maxIterations,
                               int output[]);
+extern void mandelbrot_openacc(float x0, float y0, float x1, float y1,
+                              int width, int height, int maxIterations,
+                              int output[]);
 
 /* Write a PPM image file with the image of the Mandelbrot set */
 static void
@@ -68,10 +71,15 @@ writePPM(int *buf, int width, int height, const char *fn) {
     printf("Wrote image file %s\n", fn);
 }
 
+void clear_buf(int* buf, int width, int height){
+    for (unsigned int i = 0; i < width * height; ++i){
+        buf[i] = 0;
+    }
+}
 
 int main(int argc, char *argv[]) {
-    static unsigned int test_iterations[] = {3, 3};
-    unsigned int width = 768;
+    static unsigned int test_iterations[] = {30, 30, 30};
+    unsigned int width  = 768;
     unsigned int height = 512;
     float x0 = -2;
     float x1 = 1;
@@ -85,7 +93,7 @@ int main(int argc, char *argv[]) {
             height *= scale;
         }
     }
-    if ((argc == 3) || (argc == 4)) {
+    if ((argc == 4) || (argc == 5)) {
         for (int i = 0; i < 2; i++) {
             test_iterations[i] = atoi(argv[argc - 2 + i]);
         }
@@ -100,37 +108,64 @@ int main(int argc, char *argv[]) {
     //
     double minISPC = 1e30;
     for (unsigned int i = 0; i < test_iterations[0]; ++i) {
+        // Clear out the buffer
+        clear_buf(buf, width, height);
+
         reset_and_start_timer();
         mandelbrot_ispc(x0, y0, x1, y1, width, height, maxIterations, buf);
-        double dt = get_elapsed_mcycles();
-        printf("@time of ISPC run:\t\t\t[%.3f] million cycles\n", dt);
+        //double dt = get_elapsed_mcycles();
+        double dt = get_elapsed_msec();
+        printf("@time of ISPC run:\t\t\t%.3f msec\n", dt);
         minISPC = std::min(minISPC, dt);
     }
 
-    printf("[mandelbrot ispc]:\t\t[%.3f] million cycles\n", minISPC);
+    printf("[mandelbrot ispc]:\t\t%.3f msec\n", minISPC);
     writePPM(buf, width, height, "mandelbrot-ispc.ppm");
 
-    // Clear out the buffer
-    for (unsigned int i = 0; i < width * height; ++i)
-        buf[i] = 0;
+
+    // 
+    // And run the serial implementation 3 times, again reporting the
+    // minimum time.
+    //
+    double minOpenACC = 1e30;
+    for (unsigned int i = 0; i < test_iterations[1]; ++i) {
+        // Clear out the buffer
+        clear_buf(buf, width, height);
+
+        reset_and_start_timer();
+        mandelbrot_openacc(x0, y0, x1, y1, width, height, maxIterations, buf);
+        //double dt = get_elapsed_mcycles();
+        double dt = get_elapsed_msec();
+        printf("@time of openacc run:\t\t\t%.3f msec\n", dt);
+        minOpenACC = std::min(minOpenACC, dt);
+    }
+
+    printf("[mandelbrot openacc]:\t\t%.3f msec\n", minOpenACC);
+    writePPM(buf, width, height, "mandelbrot-openacc.ppm");
+
 
     // 
     // And run the serial implementation 3 times, again reporting the
     // minimum time.
     //
     double minSerial = 1e30;
-    for (unsigned int i = 0; i < test_iterations[1]; ++i) {
+    for (unsigned int i = 0; i < test_iterations[2]; ++i) {
+        // Clear out the buffer
+        clear_buf(buf, width, height);
+
         reset_and_start_timer();
         mandelbrot_serial(x0, y0, x1, y1, width, height, maxIterations, buf);
-        double dt = get_elapsed_mcycles();
-        printf("@time of serial run:\t\t\t[%.3f] million cycles\n", dt);
+        //double dt = get_elapsed_mcycles();
+        double dt = get_elapsed_msec();
+        printf("@time of serial run:\t\t\t%.3f msec\n", dt);
         minSerial = std::min(minSerial, dt);
     }
 
-    printf("[mandelbrot serial]:\t\t[%.3f] million cycles\n", minSerial);
+    printf("[mandelbrot serial]:\t\t%.3f msec\n", minSerial);
     writePPM(buf, width, height, "mandelbrot-serial.ppm");
 
-    printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
+    printf("\t\t\t\t(%.2fx speedup from hand-written ISPC)\n", minSerial/minISPC);
+    printf("\t\t\t\t(%.2fx speedup from OpenACC-over-ISPC)\n", minSerial/minOpenACC);
 
     return 0;
 }

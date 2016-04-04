@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.8.8b
+VERSION=0.8.9b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
@@ -355,7 +355,11 @@ if [ "$?" == "0" ] ; then
               ld -r /tmp/launcher.o $ISPCKERNELOBJ -o $TARGETOBJ
              fi
             else
+             if [ "$TARGETOBJ" != "" ] ; then 
+              $CXX -o $TARGETOBJ $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+             else
               $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+             fi
             fi
             #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
             if [ "$?" != "0" ] ; then

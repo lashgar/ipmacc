@@ -1,0 +1,9 @@
+JAC_cuda
+JAC_nosmc
+JAC_smc
+JAC_smcfalse
+JAC_smctrue
+jacobi_baseline_ipmacc.cu
+jacobi_smc_ipmacc.cu
+logs/
+

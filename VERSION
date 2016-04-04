@@ -304,6 +304,12 @@ Generating a CUDA code corresponding to the given XML file.
 -Supporting global variables (scalar or array) in the functions called from the kernels region.
 -Three automated test cases are added under test-case/test
 
+0.8.8b
+-Support for compression directive proposed.
+
+0.8.9b
+-BUGFIX: invalid dimension size for the third dimension of the thread block in CUDA
+
 =========================
 Component Description:
 preprocessor-<version>.py

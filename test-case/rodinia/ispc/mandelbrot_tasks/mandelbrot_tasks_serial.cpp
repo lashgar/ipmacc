@@ -31,8 +31,10 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
 */
 
+#include "../timing.h"
 
 static int mandel(float c_re, float c_im, int count) {
+    // 11 lines
     float z_re = c_re, z_im = c_im;
     int i;
     for (i = 0; i < count; ++i) {
@@ -55,10 +57,7 @@ void mandelbrot_serial(float x0, float y0, float x1, float y1,
     float dx = (x1 - x0) / width;
     float dy = (y1 - y0) / height;
     
-    #pragma acc kernels pcopyout(output[0:height*width])
-    #pragma acc loop independent 
     for (int j = 0; j < height; j++) {
-        #pragma acc loop independent 
         for (int i = 0; i < width; ++i) {
             float x = x0 + i * dx;
             float y = y0 + j * dy;
@@ -68,4 +67,35 @@ void mandelbrot_serial(float x0, float y0, float x1, float y1,
         }
     }
 }
+
+void mandelbrot_openacc(float x0, float y0, float x1, float y1,
+                       int width, int height, int maxIterations,
+                       int output[])
+{
+    // 12 lines
+    float dx = (x1 - x0) / width;
+    float dy = (y1 - y0) / height;
+    
+
+    #pragma acc data pcopyout(output[0:height*width])
+    {
+        // memory transfers are measured to be less than 5% of total time in this function
+        //reset_and_start_timer();
+        #pragma acc kernels 
+        #pragma acc loop independent 
+        for (int j = 0; j < height; j++) {
+            #pragma acc loop independent 
+            for (int i = 0; i < width; ++i) {
+                float x = x0 + i * dx;
+                float y = y0 + j * dy;
+
+                int index = (j * width + i);
+                output[index] = mandel(x, y, maxIterations);
+            }
+        }
+        //double dt = get_elapsed_msec();
+        //printf("@time of openacc-transfer run:\t\t\t%.3f msec\n", dt); 
+    }
+}
+
 

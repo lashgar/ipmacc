@@ -32,6 +32,7 @@
 */
 
 static inline int mandel(float c_re, float c_im, int count) {
+    // 12 lines
     float z_re = c_re, z_im = c_im;
     int i;
     for (i = 0; i < count; ++i) {
@@ -55,6 +56,7 @@ export void mandelbrot_ispc(uniform float x0, uniform float y0,
                             uniform int maxIterations,
                             uniform int output[])
 {
+    // 9 lines
     float dx = (x1 - x0) / width;
     float dy = (y1 - y0) / height;
 

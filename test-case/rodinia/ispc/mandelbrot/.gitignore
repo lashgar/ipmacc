@@ -1,3 +1,4 @@
 mandelbrot
 *.ppm
 objs
+.perflog*

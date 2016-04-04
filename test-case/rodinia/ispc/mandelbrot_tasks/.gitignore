@@ -1,2 +1,3 @@
 mandelbrot
 *.ppm
+.perflog*

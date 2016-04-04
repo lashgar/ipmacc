@@ -1,0 +1,20 @@
+//* */
+
+/*
+ *      Copyright 2009-2012, STMicroelectronics, Incorporated.
+ *      All rights reserved.
+ *
+ *        STMICROELECTRONICS, INCORPORATED PROPRIETARY INFORMATION
+ * This software is supplied under the terms of a license agreement
+ * or nondisclosure agreement with STMicroelectronics and may not be
+ * copied or disclosed except in accordance with the terms of that
+ * agreement.
+ */
+
+/*
+ * Jacobi iteration example using OpenACC in C
+ * Build with
+ *   pgcc -acc -Minfo=accel -fast c3.c 
+ */
+
+

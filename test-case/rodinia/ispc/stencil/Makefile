@@ -1,5 +1,5 @@
 
-all: directories objs/stencil_ispc.o objs/stencil.o objs/stencil_serial.o objs/tasksys.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o stencil
+all: directories objs/stencil_ispc.o objs/stencil.o objs/stencil_serial.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o stencil_ispc
 
 directories: objs/
 
@@ -18,8 +18,8 @@ objs/stencil_serial.o: stencil_serial.cpp
 objs/tasksys.o: ../tasksys.cpp
 	clang++ ../tasksys.cpp -Iobjs/ -O2 -m64 -c -o objs/tasksys.o
 
-stencil: objs/stencil.o objs/stencil_serial.o objs/tasksys.o objs/stencil_ispc.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o
-	clang++ -Iobjs/ -O2 -m64 -o stencil objs/stencil.o objs/stencil_serial.o objs/stencil_ispc.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o -lm -lpthread -lstdc++ `ipmacc --cflags` `ipmacc --ldflags`
+stencil_ispc: objs/stencil.o objs/stencil_serial.o objs/stencil_ispc.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o
+	clang++ -Iobjs/ -O2 -m64 -o stencil_ispc objs/stencil.o objs/stencil_serial.o objs/stencil_ispc.o objs/stencil_ispc_sse2.o objs/stencil_ispc_sse4.o objs/stencil_ispc_avx.o objs/stencil_ispc_avx2.o -lm -lpthread -lstdc++ `ipmacc --cflags` `ipmacc --ldflags`
 
 clean:
-	rm objs/ stencil *_ipmacc* -rf
+	rm objs/ stencil_ispc *_ipmacc* -rf

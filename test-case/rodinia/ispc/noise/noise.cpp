@@ -46,7 +46,15 @@
 #include <string.h>
 using namespace ispc;
 
+#ifdef __NVOPENCL__ 
+#include "openacc.h"
+#endif
+
 extern void noise_serial(float x0, float y0, float x1, float y1,
+                         int width, int height, float output[]);
+extern void noise_openacc_single(float x0, float y0, float x1, float y1,
+                         int width, int height, float output[]);
+extern void noise_openacc_multi(float x0, float y0, float x1, float y1,
                          int width, int height, float output[]);
 
 /* Write a PPM image file with the image */
@@ -68,7 +76,7 @@ writePPM(float *buf, int width, int height, const char *fn) {
 
 
 int main(int argc, char *argv[]) {
-    static unsigned int test_iterations[] = {3, 1};
+    static unsigned int test_iterations[] = {10, 10, 10, 10};
     unsigned int width = 768;
     unsigned int height = 768;
     float x0 = -10;
@@ -83,12 +91,16 @@ int main(int argc, char *argv[]) {
             height *= scale;
         }
     }
-    if ((argc == 3) || (argc == 4)) {
+    if ((argc == 5) || (argc == 6)) {
         for (int i = 0; i < 2; i++) {
             test_iterations[i] = atoi(argv[argc - 2 + i]);
         }
     }
     float *buf = new float[width*height];
+
+    #ifdef __NVOPENCL__
+    acc_init( acc_device_nvocl );
+    #endif 
 
     //
     // Compute the image using the ispc implementation; report the minimum
@@ -98,12 +110,12 @@ int main(int argc, char *argv[]) {
     for (unsigned int i = 0; i < test_iterations[0]; ++i) {
         reset_and_start_timer();
         noise_ispc(x0, y0, x1, y1, width, height, buf);
-        double dt = get_elapsed_mcycles();
-        printf("@time of ISPC run:\t\t\t[%.3f] million cycles\n", dt);
+        double dt = get_elapsed_msec();
+        printf("@time of ISPC run:\t\t\t%.3f msec\n", dt);
         minISPC = std::min(minISPC, dt);
     }
 
-    printf("[noise ispc]:\t\t\t[%.3f] million cycles\n", minISPC);
+    printf("[noise ispc]:\t\t\t[%.3f] msec\n", minISPC);
     writePPM(buf, width, height, "noise-ispc.ppm");
 
     // Clear out the buffer
@@ -114,17 +126,52 @@ int main(int argc, char *argv[]) {
     // And run the serial implementation 3 times, again reporting the
     // minimum time.
     //
+    double minOACC = 1e30;
+    for (unsigned int i = 0; i < test_iterations[2]; ++i) {
+        reset_and_start_timer();
+        noise_openacc_single(x0, y0, x1, y1, width, height, buf);
+        double dt = get_elapsed_msec();
+        printf("@time of openacc-s run:\t\t\t%.3f msec\n", dt);
+        minOACC = std::min(minOACC, dt);
+    }
+
+    printf("[noise openacc-s]:\t\t\t[%.3f] msec\n", minOACC);
+    writePPM(buf, width, height, "noise-openacc-s.ppm");
+
+    // 
+    // And run the serial implementation 3 times, again reporting the
+    // minimum time.
+    //
+    double minOACCm = 1e30;
+    for (unsigned int i = 0; i < test_iterations[3]; ++i) {
+        reset_and_start_timer();
+        noise_openacc_multi(x0, y0, x1, y1, width, height, buf);
+        double dt = get_elapsed_msec();
+        printf("@time of openacc-m run:\t\t\t%.3f msec\n", dt);
+        minOACCm = std::min(minOACCm, dt);
+    }
+
+    printf("[noise openacc-m]:\t\t\t[%.3f] msec\n", minOACCm);
+    writePPM(buf, width, height, "noise-openacc-m.ppm");
+
+    // 
+    // And run the serial implementation 3 times, again reporting the
+    // minimum time.
+    //
     double minSerial = 1e30;
     for (unsigned int i = 0; i < test_iterations[1]; ++i) {
         reset_and_start_timer();
         noise_serial(x0, y0, x1, y1, width, height, buf);
-        double dt = get_elapsed_mcycles();
-        printf("@time of serial run:\t\t\t[%.3f] million cycles\n", dt);
+        double dt = get_elapsed_msec();
+        printf("@time of serial run:\t\t\t%.3f msec\n", dt);
         minSerial = std::min(minSerial, dt);
     }
 
-    printf("[noise serial]:\t\t\t[%.3f] million cycles\n", minSerial);
+    printf("[noise serial]:\t\t\t[%.3f] msec\n", minSerial);
     writePPM(buf, width, height, "noise-serial.ppm");
+
+
+
 
     printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
 

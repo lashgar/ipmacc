@@ -1,3 +1,4 @@
 noise
 *.ppm
 objs
+.perflog*

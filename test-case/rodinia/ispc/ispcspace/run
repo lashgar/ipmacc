@@ -1,0 +1,66 @@
+#!/bin/bash
+
+export ACC_DEVICE_TYPE="Intel(R) OpenCL"
+
+# vector friendly sizes
+echo 'exponential sequence size'
+for mult in 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192
+do
+  export size=`expr $mult \* 8192`
+  for bin in opencl_add_1d ispc_add_1d
+  do
+    echo -en "$size $bin "
+    ./$bin $size 1 1 | grep harmonic | awk '{print $5}'
+  done
+
+  export sizex=8192
+  export sizey=$mult
+  for bin in opencl_add_2d ispc_add_2d_task ispc_add_2d_foreach_tile ; 
+  do
+    echo -en "${sizex}x${sizey} $bin "
+    ./$bin $sizex $sizey 1 | grep harmonic | awk '{print $5}'
+  done
+
+  export sizey=8192
+  export sizex=$mult
+  for bin in opencl_add_2d ispc_add_2d_task ispc_add_2d_foreach_tile ; 
+  do
+    echo -en "${sizex}x${sizey} $bin "
+    ./$bin $sizex $sizey 1 | grep harmonic | awk '{print $5}'
+  done
+done
+
+
+# random numbers
+echo 'fibonachi sequence size'
+fn=1
+fn1=1
+for iter in 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192
+do
+  mult=`expr $fn \+ $fn1`
+  fn=$fn1
+  fn1=$mult
+
+  export size=`expr $mult \* 8191`
+  for bin in opencl_add_1d ispc_add_1d
+  do
+    echo -en "$size $bin "
+    ./$bin $size 1 1 | grep harmonic | awk '{print $5}'
+  done
+
+  export sizex=8191
+  export sizey=$mult
+  for bin in opencl_add_2d ispc_add_2d_task ispc_add_2d_foreach_tile ; 
+  do
+    echo -en "${sizex}x${sizey} $bin "
+    ./$bin $sizex $sizey 1 | grep harmonic | awk '{print $5}'
+  done
+
+  export sizey=8191
+  export sizex=$mult
+  for bin in opencl_add_2d ispc_add_2d_task ispc_add_2d_foreach_tile ; 
+  do
+    echo -en "${sizex}x${sizey} $bin "
+    ./$bin $sizex $sizey 1 | grep harmonic | awk '{print $5}'
+  done
+done
