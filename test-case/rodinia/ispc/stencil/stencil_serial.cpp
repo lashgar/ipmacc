@@ -91,7 +91,9 @@ void loop_stencil_openacc_single(int t0, int t1,
     }
 }
 
-
+#define VECTORZ 2
+#define VECTORY 1
+#define VECTORX 32
 
 static void
 stencil_step_multi(int x0, int x1,
@@ -99,20 +101,22 @@ stencil_step_multi(int x0, int x1,
              int z0, int z1,
              int Nx, int Ny, int Nz,
              const float coef[4], const float vsq[],
-             const float Ain[], float Aout[]) {
+             const float Ain[], float Aout[])
+{
     // 10 + 4 lines
     int Nxy = Nx * Ny;
 
     #pragma acc kernels present(coef,vsq,Ain,Aout)
-    #pragma acc loop independent vector(8)
+    #pragma acc loop independent vector(VECTORZ)
     for (int z = z0; z < z1; ++z) {
-        #pragma acc loop independent vector(8)
+        #pragma acc loop independent vector(VECTORY)
         for (int y = y0; y < y1; ++y) {
-            #pragma acc loop independent vector(8)
+            #pragma acc loop independent vector(VECTORX)
             for (int x = x0; x < x1; ++x) {
                 int index = (z * Nxy) + (y * Nx) + x;
 #define A_cur(x, y, z) Ain[index + (x) + ((y) * Nx) + ((z) * Nxy)]
 #define A_next(x, y, z) Aout[index + (x) + ((y) * Nx) + ((z) * Nxy)]
+
                 float div = coef[0] * A_cur(0, 0, 0) +
                             coef[1] * (A_cur(+1, 0, 0) + A_cur(-1, 0, 0) +
                                        A_cur(0, +1, 0) + A_cur(0, -1, 0) +

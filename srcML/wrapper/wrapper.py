@@ -221,61 +221,118 @@ class srcML:
             name=v
         return [name.strip(), array]
 
-    def getVarDetails(self, root, fname):
+    def getVarDetails_core(self, fcn, root):
         e_vnames=[]
         e_vsizes=[]
         e_vtypes=[]
         vnames=[]
         vtypes=[]
-        for fcn in root.findall(".//function"):
-            ch=fcn.find("name")
-            if ch.text==fname:
-                #<parameter_list>(<param><decl><type>
-                if USEALT2:
-                    # ALT 2
-                    for stm in fcn.findall(".//parameter_list/param") + fcn.findall(".//for"):
-                        for ch in stm.findall(".//decl"):
-                            arg_stmt=self.getAllText(ch).strip()+';'
-                            #print arg_stmt
-                            [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
-                            e_vnames+=e_vars
-                            e_vsizes+=e_sizes
-                            e_vtypes+=e_types
-                    decls=fcn.findall(".//decl_stmt") #local variables
-                    decls+=root.findall("./decl_stmt") #global variables
-                    for ch in decls:
-                        stmt=self.getAllText(ch).strip()
-                        [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
-                        if DEBUGST:
-                            print '==== statement: '+stmt
-                        e_vnames+=e_vars
-                        e_vsizes+=e_sizes
-                        e_vtypes+=e_types
-                else:
-                    # ALT 1
-                    decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param")
-                    for ch in decls:
-                        #stmt=self.getAllText(ch).strip()
-                        #[e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
-                        #if DEBUGST:
-                        #    print '==== statement: '+stmt
-                        #e_vnames+=e_vars
-                        #e_vsizes+=e_sizes
-                        #e_vtypes+=e_types
-                        type=self.getAllText(ch.find(".//decl/type")).strip()
-                        vlist=ch.findall(".//decl/name")
-                        for v in vlist:
-                            [vname,arr]=self.cleanVarName(self.getAllText(v))
-                            type+=arr.count('[')*'*'
-                            if DEBUG: print 'vname('+type+')> '+vname+(' array '+arr if arr!='' else '')
-                            # clear up the type from keywords like `static`
-                            clearType=''
-                            for mT in type.strip().split():
-                                 if mT!='static':
-                                     clearType+=mT+' '
-                            vtypes.append(clearType.strip())
-                            vnames.append(vname.strip())
-                break
+        if USEALT2:
+            # ALT 2
+            for stm in fcn.findall(".//parameter_list/param") + fcn.findall(".//for"):
+                for ch in stm.findall(".//decl"):
+                    arg_stmt=self.getAllText(ch).strip()+';'
+                    #print arg_stmt
+                    [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
+                    e_vnames+=e_vars
+                    e_vsizes+=e_sizes
+                    e_vtypes+=e_types
+            decls=fcn.findall(".//decl_stmt") #local variables
+            if tostring(fcn).strip()=='<dummy />':
+                decls+=root.findall(".//decl_stmt") #get all variables you see
+                decls+=root.findall(".//decl") #get all variables you see
+                # print tostring(root)
+                # print len(decls)
+            else:
+                decls+=root.findall("./decl_stmt") #global variables
+            for ch in decls:
+                stmt=self.getAllText(ch).strip()
+                [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
+                if DEBUGST:
+                    print '==== statement: '+stmt
+                e_vnames+=e_vars
+                e_vsizes+=e_sizes
+                e_vtypes+=e_types
+        else:
+            # ALT 1
+            decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param")
+            for ch in decls:
+                #stmt=self.getAllText(ch).strip()
+                #[e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
+                #if DEBUGST:
+                #    print '==== statement: '+stmt
+                #e_vnames+=e_vars
+                #e_vsizes+=e_sizes
+                #e_vtypes+=e_types
+                type=self.getAllText(ch.find(".//decl/type")).strip()
+                vlist=ch.findall(".//decl/name")
+                for v in vlist:
+                    [vname,arr]=self.cleanVarName(self.getAllText(v))
+                    type+=arr.count('[')*'*'
+                    if DEBUG: print 'vname('+type+')> '+vname+(' array '+arr if arr!='' else '')
+                    # clear up the type from keywords like `static`
+                    clearType=''
+                    for mT in type.strip().split():
+                         if mT!='static':
+                             clearType+=mT+' '
+                    vtypes.append(clearType.strip())
+                    vnames.append(vname.strip())
+        return [e_vnames, e_vsizes, e_vtypes, root, vnames, vtypes] 
+
+    def getVarDetails(self, root, fname):
+        if fname=='':
+            [e_vnames, e_vsizes, e_vtypes, root, vnames, vtypes] = self.getVarDetails_core(ET.Element('dummy'), root)
+        else:
+            for fcn in root.findall(".//function"):
+                ch=fcn.find("name")
+                if ch.text==fname:
+                    [e_vnames, e_vsizes, e_vtypes, root, vnames, vtypes] = self.getVarDetails_core(fcn, root)
+                    # #<parameter_list>(<param><decl><type>
+                    # if USEALT2:
+                    #     # ALT 2
+                    #     for stm in fcn.findall(".//parameter_list/param") + fcn.findall(".//for"):
+                    #         for ch in stm.findall(".//decl"):
+                    #             arg_stmt=self.getAllText(ch).strip()+';'
+                    #             #print arg_stmt
+                    #             [e_vars, e_types, e_sizes]=get_variable_size_type(arg_stmt)
+                    #             e_vnames+=e_vars
+                    #             e_vsizes+=e_sizes
+                    #             e_vtypes+=e_types
+                    #     decls=fcn.findall(".//decl_stmt") #local variables
+                    #     decls+=root.findall("./decl_stmt") #global variables
+                    #     for ch in decls:
+                    #         stmt=self.getAllText(ch).strip()
+                    #         [e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
+                    #         if DEBUGST:
+                    #             print '==== statement: '+stmt
+                    #         e_vnames+=e_vars
+                    #         e_vsizes+=e_sizes
+                    #         e_vtypes+=e_types
+                    # else:
+                    #     # ALT 1
+                    #     decls=fcn.findall(".//decl_stmt")+fcn.findall(".//parameter_list/param")
+                    #     for ch in decls:
+                    #         #stmt=self.getAllText(ch).strip()
+                    #         #[e_vars, e_types, e_sizes]=get_variable_size_type(stmt)
+                    #         #if DEBUGST:
+                    #         #    print '==== statement: '+stmt
+                    #         #e_vnames+=e_vars
+                    #         #e_vsizes+=e_sizes
+                    #         #e_vtypes+=e_types
+                    #         type=self.getAllText(ch.find(".//decl/type")).strip()
+                    #         vlist=ch.findall(".//decl/name")
+                    #         for v in vlist:
+                    #             [vname,arr]=self.cleanVarName(self.getAllText(v))
+                    #             type+=arr.count('[')*'*'
+                    #             if DEBUG: print 'vname('+type+')> '+vname+(' array '+arr if arr!='' else '')
+                    #             # clear up the type from keywords like `static`
+                    #             clearType=''
+                    #             for mT in type.strip().split():
+                    #                  if mT!='static':
+                    #                      clearType+=mT+' '
+                    #             vtypes.append(clearType.strip())
+                    #             vnames.append(vname.strip())
+                    break
         # compares old and new:
         if DEBUGST:
             print '== previous detection:'

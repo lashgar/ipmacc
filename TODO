@@ -22,6 +22,11 @@ TODO:
 - Partial copy.
 - Compile time option of write-through cache (default is write-back).
 - Free memory on device when data is copied out (test-case/test/reduction.c)
+- Optimize OpenCL compile-time constants like:
+    sprintf(buildOptions, “-DEXPONENT=%u”, exponent_val);
+    clBuildProgram(program, <...>, buildOptions, <...>);
+- Apply OpenCL optimization available here: https://software.intel.com/sites/landingpage/opencl/optimization-guide/
+- private clause to support subarray
 
 CHANGES:
 - Replacing pycparser XML generator with srcML generator (delivering faster, plain, and detailed parser)

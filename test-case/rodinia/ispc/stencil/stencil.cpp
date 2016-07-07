@@ -222,11 +222,12 @@ int main(int argc, char *argv[]) {
            minTimeSerial / minTimeISPC, minTimeSerial / minTimeISPCTasks);
 
     // Check for agreement
+    /*
     int offset = 0;
     int n_errors = 0;
-    for (int z = 0; z < Nz; ++z)
-        for (int y = 0; y < Ny; ++y)
-            for (int x = 0; x < Nx; ++x, ++offset) {
+    for (int z = 0; z < Nz; ++z){
+        for (int y = 0; y < Ny; ++y){
+            for (int x = 0; x < Nx; ++x, ++offset){
                 float error = fabsf((Aserial[1][offset] - Aispc[1][offset]) /
                                     Aserial[1][offset]);
                 if (error > 1e-4){
@@ -245,6 +246,11 @@ int main(int argc, char *argv[]) {
                     n_errors++;
                 }
             }
+        }
+    }
+
     if(n_errors) printf("%d errors found out of %d.\n", n_errors, Nz*Ny*Nx);
+    */
+
     return 0;
 }
