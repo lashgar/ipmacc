@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 if [ "$IPMACCROOT" == "" ] ; then
     echo 'warning: IPMACCROOT is not set'
     echo 'please refer to the README before starting the compilation'
@@ -23,7 +22,6 @@ echo -en '.'
 make install > /dev/null
 ln -s $ROOTDIR/uncrustify/avalon.cfg $ROOTDIR/uncrustify/build/bin/avalon.cfg
 echo '. done'
-
 
 # Parser
 # pycparser
@@ -56,7 +54,6 @@ echo -en '~ compiling OpenACC API .'
 cd $ROOTDIR/src/
 make > /dev/null
 echo '. done'
-
 
 # set environment
 #export LD_LIBRARY_PATH=$ROOTDIR/lib:$LD_LIBRARY_PATH

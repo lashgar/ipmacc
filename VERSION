@@ -311,7 +311,11 @@ Generating a CUDA code corresponding to the given XML file.
 -BUGFIX: invalid dimension size for the third dimension of the thread block in CUDA
 
 0.9.0b
--Implementing algorithm directive
+-Implementing algorithm directive, sort clause
+
+1.0.0b
+-Implementing algorithm directive, find clause
+
 
 =========================
 Component Description:
