@@ -71,7 +71,7 @@ If you had any question or thinking of any issue, create a new issue thread here
 
 **[2]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Translating OpenACC API to OpenCL"**, To be appeared in The 3rd International Workshop on OpenCL (IWOCL), Stanford University, California, USA, May 11-13, 2015.
 
-**[3]** Ahmad Lashgar and Amirali Baniasadi, **"Employing Software-Managed Caches in OpenACC: Opportunities and Benefits"**, To appear in ACM Transactions on Modeling and Performance Evaluation of Computing Systems (ToMPECS), Accepted on June 28, 2015.
+**[3]** Ahmad Lashgar and Amirali Baniasadi, **"Employing Software-Managed Caches in OpenACC: Opportunities and Benefits"**, ACM Transactions on Modeling and Performance Evaluation of Computing Systems (ToMPECS), Volume 1 Issue 1, March 2016.
 
 **[4]** Ebad Salehi, Ahmad Lashgar, and Amirali Baniasadi, **"Employing Compression Solutions under OpenACC"**, To appear in proceedings of 21st International Workshop on High-Level Parallel Programming Models and Supportive Environments (HIPC 2016), (in conjunction with IPDPS 2016) ,Chicago, Illinois, USA, May 23-27, 2016.
 
