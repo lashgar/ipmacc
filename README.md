@@ -58,7 +58,7 @@ Current version of IPMACC has several limitations in fully implementing OpenACC 
 # Contributors:
 * Ahmad Lashgar from Institute for Research in Fundamental Sciences (now at University of Victoria)
 * Alireza Majidi from Institute for Research in Fundamental Sciences (now at Texas A&M University)
-* Ebad Salehi from University of Victoria
+* Ebad Salehi from University of Victoria (now at Bloomberg L.P.)
 
 # About IPMACC:
 IPMACC is originally developed at Institute for Research in Fundamental Sciences (IPM), Tehran, Iran. We had an old outdated website on IPM page here http://hpc.ipm.ac.ir/ipmacc/. Follow our latest updates on https://github.com/lashgar/ipmacc
@@ -72,6 +72,8 @@ If you had any question or thinking of any issue, create a new issue thread here
 **[2]** Ahmad Lashgar, Alireza Majidi, and Amirali Baniasadi, **"IPMACC: Translating OpenACC API to OpenCL"**, To be appeared in The 3rd International Workshop on OpenCL (IWOCL), Stanford University, California, USA, May 11-13, 2015.
 
 **[3]** Ahmad Lashgar and Amirali Baniasadi, **"Employing Software-Managed Caches in OpenACC: Opportunities and Benefits"**, To appear in ACM Transactions on Modeling and Performance Evaluation of Computing Systems (ToMPECS), Accepted on June 28, 2015.
+
+**[4]** Ebad Salehi, Ahmad Lashgar, and Amirali Baniasadi, **"Employing Compression Solutions under OpenACC"**, To appear in proceedings of 21st International Workshop on High-Level Parallel Programming Models and Supportive Environments (HIPC 2016), (in conjunction with IPDPS 2016) ,Chicago, Illinois, USA, May 23-27, 2016.
 
 # References:
 **[1]** Mark Hariss. Available: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
