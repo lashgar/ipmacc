@@ -120,6 +120,7 @@ class codegen(object):
         self.oacc_atomicReg=[] # per call list of atomic regions
         self.oacc_algoReg=[] # per call list of algorithm directives
         self.oacc_algoSort_Types2Overload = [] # list of data types to overload compare function of sorts for
+        self.oacc_algoFind_Types2Overload = [] # list of data types to overload compare function of finds for
         self.oacc_extra_symbols=[] # per kernel list of symbol names which should be known in the kernels region, but are skipped for some reasons
         
         self.code='' # intermediate generated C code
@@ -2883,6 +2884,19 @@ class codegen(object):
                     range_low = config.split(':')[0]
                     range_hig = config.split(':')[1]
                     self.algorithm_execution_width.append([kernel_id, '('+range_hig+'-'+range_low+')'])
+            elif i0.strip()=='find':
+                code=''
+                code+="""// """+i3+"""\n"""
+                findargs = i3.split(',')  # FIXME: this stuck on complex range specifiers, like (suba[0:foo(1,2,3)],subb[0:foo(3,4,5)])
+                variable = findargs[0]
+                vname  = variable.split('[')[0]
+                config = variable.split('[')[1].split(']')[0]
+                range_low = config.split(':')[0]
+                range_hig = config.split(':')[1]
+                self.algorithm_execution_width.append([kernel_id, '('+range_hig+'-'+range_low+')'])
+            else:
+                print 'unknown clause for algorithm directive: ', i0.strip()
+                exit(-1)
 
     def algo_cuda(self, algoBody, algoClause, kernelId, revdepnest):
         for [i0, i3] in clauseDecomposer_break(algoClause):
@@ -2990,6 +3004,74 @@ class codegen(object):
                     sort_dev_fname = ''
                     sort_dev_prototype = ''
                     sort_dev_decl = ''
+                return [decl, code]
+            elif i0.strip()=='find':
+                code=''
+                code+="""// """+i3+"""\n"""
+                findargs = i3.split(',') # FIXME: this stuck on complex range specifiers, like (suba[0:foo(1,2,3)],subb[0:foo(3,4,5)])
+                subarray = findargs[0]
+                vname  = subarray.split('[')[0]
+                config = subarray.split('[')[1].split(']')[0]
+                range_low = config.split(':')[0]
+                range_hig = config.split(':')[1]
+                searchkey = findargs[1]
+                searchret = findargs[2]
+
+                try:
+                    varNameList=self.oacc_kernelsLocalVarNams[kernelId]+self.oacc_kernelsVarNams[kernelId]
+                    varTypeList=self.oacc_kernelsLocalVarTyps[kernelId]+self.oacc_kernelsVarTyps[kernelId]
+                    vtype = varTypeList[varNameList.index(vname)]
+                except:
+                    print 'error: unable to specify the type of variable in algorithm directive: '+vname
+                    print 'aborting()'
+                    exit(-1)
+                vtype_ispointer = vtype.count('*')
+                if vtype_ispointer!=1:
+                    print 'error: only single dimensional find is supported!'
+                    print 'aborting()'
+                    exit(-1)
+                vtype_noptr = vtype.replace('*','')
+                self.oacc_algoFind_Types2Overload.append(vtype_noptr)
+                code+="""// """+vname+"""\n"""
+                code+="""// """+vtype+"""\n"""
+                code+="""// """+config+"""\n"""
+                code+="""// """+range_low+"""\n"""
+                code+="""// """+range_hig+"""\n"""
+                code+="""// """+vtype_noptr+"""\n"""
+                # remap the variable to __shared__ scope
+                #bdx = self.oacc_kernelsConfig[kernelId]['blockDimx']
+                #bdy = self.oacc_kernelsConfig[kernelId]['blockDimy']
+                #bdz = self.oacc_kernelsConfig[kernelId]['blockDimz']
+                [nctadim, bdx, bdy, bdz]=self.oacc_kernelsConfig_getDecl(kernelId)
+                try:
+                    bdx_i = int(bdx)
+                    bdy_i = int(bdy)
+                    bdz_i = int(bdz)
+                except:
+                    print 'warning: cannot specify the value of vector clause statically, nvcc may fail to compile the code.'
+                if bdy=='1' and bdz=='1':
+                    offset = '0'
+                else:
+                    offset = '((blockDim.y*threadIdx.z+threadIdx.y)*)'
+                #_find_global_size = '('+bdy+')*('+bdz+')*('+range_hig+'-'+range_low+')'
+                _find_global_size = '1' # total shared memory allocated per thread block
+                _find_global_size_in_bytes = '('+_find_global_size+')*sizeof('+vtype_noptr+')' # total shared memory allocated per thread block
+                _find_local_size  = '1' # size of shared memory independently processed
+                self.cuda_shared_memory_dynamic_alloc.append(_find_global_size_in_bytes)
+                _find_local_offset = '(blockDim.y*threadIdx.z+threadIdx.y)*('+_find_local_size+')'
+                decl ='extern __shared__ '+vtype_noptr+' __ptr_dynamic_shared_allocation[];\n' #FIXME: SHOULD BE MOVED earlier in the kernel
+                #decl+=vtype_noptr+' *'+vname+'_find_localcache = ('+vtype_noptr+'*)&__ptr_dynamic_shared_allocation['+_find_local_offset+'];\n'
+                decl+='int *'+vname+'_find_localcache = (int*)&__ptr_dynamic_shared_allocation['+_find_local_offset+'];\n'
+                decl+='// initialize the '+vname+'_find_localcache array'
+                _init_value='-1' #'1<<30'
+                decl+="""
+                      {
+                         if(threadIdx.x){"""+vname+"""_find_localcache[0] = """+_init_value+""";}
+                      }
+                      """
+                code+="""// find
+                     """+searchret+""" = algorithmFind<"""+vtype_noptr+""">("""+','.join([vname, range_low, range_hig, searchkey, vname+"_find_localcache[0]"])+""");
+                  """
                 return [decl, code]
             else:
                 print 'unimplemented atomic clause: '+algoClause

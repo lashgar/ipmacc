@@ -7,3 +7,19 @@ jacobi_baseline_ipmacc.cu
 jacobi_smc_ipmacc.cu
 logs/
 
+assembly/
+oldbin_doublersqrt/
+devleffort/
+logs/
+*.o
+bodysystemcpu_impl_ipmacc.cu
+bodysystemcpu_impl_ipmacc_true.cu
+nbody
+nbody_nosmc
+nbody_smcfalse
+nbody_smctrue
+.testlog*
+.perflog*
+log*
+*sass
+*ptx

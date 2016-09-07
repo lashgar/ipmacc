@@ -2,3 +2,6 @@ mandelbrot
 *.ppm
 objs
 .perflog*
+getKernel
+*_ipmacc*
+run

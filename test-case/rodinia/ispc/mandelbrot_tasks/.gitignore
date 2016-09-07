@@ -1,3 +1,9 @@
 mandelbrot
 *.ppm
 .perflog*
+*_ipmacc*
+mandelbrot_tasks
+mandelbrot_tasks_ispc
+mandelbrot_tasks_ocl
+getKernel
+objs/

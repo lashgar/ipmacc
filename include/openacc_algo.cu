@@ -126,3 +126,24 @@ __device__ void mergeSortSharedCall(
     __syncthreads();
 }
 
+// FIND A KEY IN A SUBARRAY, USE CACHE AS A SHARED RESOURCE
+// BETWEEN THREADS.
+template<class DATATYPE>
+__device__ int algorithmFind(
+    DATATYPE *s_key,
+    uint arrayStartIndex,
+    uint arrayLength,
+    DATATYPE search_key,
+    int &cache
+)
+{
+    for (uint i = arrayStartIndex+threadIdx.x; i < arrayLength; i+=blockDim.x){
+        if(s_key[i]==search_key){
+            cache = i;
+            // FIXME: key's found. terminate all threads in rank X.
+        }
+        __syncthreads();
+    }
+    return cache;
+}
+

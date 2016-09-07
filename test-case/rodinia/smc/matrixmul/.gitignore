@@ -21,3 +21,24 @@ matrixMul_ipmacc_working.cu
 matrixMul_t_ipmacc.cu
 ptxsass/
 
+assembly/
+oldbin_doublersqrt/
+devleffort/
+logs/
+*.o
+bodysystemcpu_impl_ipmacc.cu
+bodysystemcpu_impl_ipmacc_true.cu
+nbody
+nbody_nosmc
+nbody_smcfalse
+nbody_smctrue
+.testlog*
+.perflog*
+log*
+*sass
+*ptx
+bin_*
+*_ipmacc*
+assert
+noassert
+matMul_nosmc

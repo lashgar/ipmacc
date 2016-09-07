@@ -9,4 +9,9 @@ nbody
 nbody_nosmc
 nbody_smcfalse
 nbody_smctrue
-
+.testlog*
+.perflog*
+log*
+*sass
+*ptx
+assert_*

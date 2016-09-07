@@ -44,13 +44,13 @@ int main()
         maX=-1;
 #pragma acc data copy(a,b,c)
         {
-                    #pragma acc kernels
-                    #pragma acc loop independent 
-                    for (i = 0; i < SIZE; ++i) {
-                        float x=0;
-                        x = a[i] + b[i] ;
-                        c[i] = x;
-                    }
+            #pragma acc kernels
+            #pragma acc loop independent 
+            for (i = 0; i < SIZE; ++i) {
+                float x=0;
+                x = a[i] + b[i] ;
+                c[i] = x;
+            }
         }
         toc = clock();
         printf(" %6.4f ms\n",(toc-tic)/(float)1000);

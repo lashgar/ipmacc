@@ -1,1 +1,1 @@
-run
+./OpenCL/bin/linux/release/oclNbody --qatest --n=4096

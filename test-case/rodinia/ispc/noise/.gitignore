@@ -2,3 +2,10 @@ noise
 *.ppm
 objs
 .perflog*
+*_ipmacc*
+getKernel
+linecount.cpp
+noise_cuda
+noise_ispc
+noise_ocl
+
