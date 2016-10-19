@@ -12,7 +12,7 @@ using namespace std;
 int main(){
 	int sum = 0 ;
 	int sum2 = 0 ;
-    int size1 = 16, size2 = 16, size3 = 16;
+    int size1 = 16, size2 = 16, size3 = 16, size4=16;
     int total_iter = 32;
 	int arr_size = (size1+total_iter)*(size2+total_iter)*(size3+total_iter);
 	int *arr=(int*)malloc(sizeof(int)*arr_size);
@@ -46,6 +46,10 @@ int main(){
                 #pragma acc loop independent vector(4)
                 for(int k=0; k<size3; ++k){
     			    sum += arr[i*size2*size3+j*size3+k];
+                }
+                #pragma acc loop independent vector(4)
+                for(int k2=0; k2<size4; ++k2){
+    			    float a = arr[i*size2*size3+j*size3+k2];
                 }
             }
 		}

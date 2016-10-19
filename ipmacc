@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=1.0.0b
+VERSION=1.0.1b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
@@ -30,7 +30,7 @@ function usage()
 
 function version()
 {
-    echo "IPMACC $VERSION"
+    echo "IPMACC $VERSION (last update: `stat -c %y "$1" | awk '{print $1}'`)"
     #echo "This tool is originally developed by Ahmad Lashgar and Alireza Majidi at IPM."
 }
 
@@ -218,7 +218,7 @@ if [ "$LISTANDEXIT" != "" ] ; then
             echo 'ISPC backend   [Disabled]'
         fi
     elif [ "$LISTANDEXIT" == "version" ] ; then
-        version
+        version $path/codegen.py
     fi
     exit 1
 fi

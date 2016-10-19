@@ -13,7 +13,7 @@ DEBUGTEMPLATE=False
 DEBUGFWD=False
 DEBUGKA=False
 DEBUGDETAILPROC=False
-KAVERBOSE=True
+KAVERBOSE=False
 
 WARNING=False
 # configuration
@@ -159,12 +159,12 @@ def get_variable_size_type(statement):
             for mT in type: #.strip().split():
                  if mT!='static': # filter out keywords
                      clearType+=mT+' '
-            types.append(clearType+('*'*(len(arr))))
+            types.append((clearType+('*'*(len(arr)))).strip())
             #types.append(' '.join(type)+('*'*(len(arr)-1)))
             # size 
             #arr.append('sizeof('+' '.join(type)+')')
             arr.append('sizeof('+clearType+')')
-            varsizes.append('*'.join(arr))
+            varsizes.append(('*'.join(arr)).strip())
             vname=''
             vardeclr=False
         nextinit= sep=='='
@@ -1092,6 +1092,25 @@ class srcML:
         print csv
         return [arraccs,indecis,dependt]
 
+    def is_written(self,root,vnm):
+        #print 'srcml:debug: ', vnm
+        for no in root.findall(".//expr_stmt/expr"):
+            #print 'srcml:debug:', 'expression:', self.getAllText(no), no
+            try:
+                #print 'srcml:debug: ', 'name:', no.find(".//name").text
+                #self.recursivePrint(no, 0)
+                if self.getAllText(no).split('=')[0].split('[')[0].strip()==vnm:
+                    return True
+            except:
+                nop=1
+        for no in root.findall(".//decl_stmt"):
+            # print '   parsing '+self.getAllText(no)+' for '+vnm
+            [dclWhole,dclType,dclVars]=self.transDeclAnalyze(no)
+            # print '   declVars here: '+dclVars
+            if string_found(vnm,dclVars) and len(dclVars.split(vnm))>1 and dclVars.split(vnm)[1].find('=')!=-1:
+                return True
+        return False
+
     def getAllVarDependencies(self,root,arrnames):
         arraccs=[]
         indecis=[]
@@ -1334,6 +1353,9 @@ def srcml_selftest():
         print 'function names: '+fcn
         [vnames, vtypes]=srcml_sample.getVarDetails(root,fcn)
         fcalls=srcml_sample.getFunctionCalls(root,fcn)
+def srcml_is_written(root,vname):
+    srcml_sample = srcML()
+    return srcml_sample.is_written(root,vname)
 
 # kernel analyzer additions
 def srcml_get_kernelargs(root):

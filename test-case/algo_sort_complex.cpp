@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -5,8 +6,68 @@
 #include <time.h>
 
 
-#define datatype float
+#ifdef __CUDACC__
+#define QUALIFIERS __inline__ __device__ __host__
+#else
+#define QUALIFIERS __inline
+#endif
+
+struct pixel_s {
+    double intensity;
+    double transparency;
+    QUALIFIERS bool operator<(const pixel_s &a) const {
+        if(intensity<a.intensity){
+            return true;
+        }else if(intensity>a.intensity){
+            return false;
+        }else{
+            return transparency<a.transparency;
+        }
+    }
+    QUALIFIERS bool operator<=(const pixel_s &a) const {
+        if(intensity<a.intensity){
+            return true;
+        }else if(intensity>a.intensity){
+            return false;
+        }else{
+            return transparency<=a.transparency;
+        }
+    }
+    QUALIFIERS bool operator>(const pixel_s &a) const {
+        if(intensity>a.intensity){
+            return true;
+        }else if(intensity<a.intensity){
+            return false;
+        }else{
+            return transparency>a.transparency;
+        }
+    }
+    QUALIFIERS bool operator>=(const pixel_s &a) const {
+        if(intensity>a.intensity){
+            return true;
+        }else if(intensity<a.intensity){
+            return false;
+        }else{
+            return transparency>=a.transparency;
+        }
+    }
+    QUALIFIERS bool operator==(const pixel_s &a) const{
+        return intensity==a.intensity && transparency==a.transparency;
+    }
+    QUALIFIERS bool operator!=(const pixel_s &a) const{
+        return intensity!=a.intensity || transparency!=a.transparency;
+    }
+    QUALIFIERS const pixel_s& operator=(const pixel_s &a) {
+        intensity=a.intensity;
+        transparency=a.transparency;
+        return (*this);
+    }
+
+};
+
+#define datatype pixel_s
 #define MAXTILESIZE 1024
+
 
 void shell_sort (datatype *a, int n) {
     int h, i, j;
@@ -25,16 +86,16 @@ void shell_sort (datatype *a, int n) {
 
 void gnome_sort(datatype *a, int n)
 {
-    int i=1, j=2;
-    datatype t;
+  int i=1, j=2;
+  datatype t;
 #define swap(i, j) { t = a[i]; a[i] = a[j]; a[j] = t; } 
-    while(i < n) {
-        if (a[i - 1] > a[i]) {
-            swap(i - 1, i);
-            if (--i) continue;
-        }
-        i = j++;
+  while(i < n) {
+    if (a[i - 1] > a[i]) {
+      swap(i - 1, i);
+      if (--i) continue;
     }
+    i = j++;
+  }
 #undef swap
 }
 void selection_sort (datatype *a, int n) {
@@ -74,7 +135,7 @@ int max (datatype *a, int n, int i, int j, int k) {
     }
     return m;
 }
-
+ 
 void downheap (datatype *a, int n, int i) {
     while (1) {
         int j = max(a, n, i, 2 * i + 1, 2 * i + 2);
@@ -87,7 +148,7 @@ void downheap (datatype *a, int n, int i) {
         i = j;
     }
 }
-
+ 
 void heap_sort (datatype *a, int n) {
     int i;
     for (i = (n - 2) / 2; i >= 0; i--) {
@@ -142,7 +203,8 @@ void init(datatype *a, unsigned int ydim, unsigned int xdim, unsigned int value)
     for(i = 0; i<ydim; i++){
         for(j = 0; j<xdim; j++){
             unsigned int idx = i*xdim+j;
-            a[idx] = 1.0 * (rand());
+            a[idx].intensity = 1.0 * (rand());
+            a[idx].transparency = 1.0 * (rand());
             //a[idx] = 1.0 * (idx%value);
         }
     }
@@ -168,14 +230,15 @@ void compare(datatype *a, datatype *b, unsigned int ydim, unsigned int xdim)
     for(i = 0; i<ydim; i++){
         for(j = 0; j<xdim; j++){
             unsigned int idx = i*xdim+j;
-            if(a[idx]!=b[idx] && ++nmismatch<20){
-                printf("mismatch #%d [%d][%d] %6.4f != %6.4f\n", ++nmismatch, i, j, a[idx], b[idx]);
+            if(a[idx]!=b[idx]){
+                if(++nmismatch<20){
+                    printf("mismatch #%d [%d][%d] %6.4f != %6.4f\n", nmismatch, i, j, a[idx].intensity, b[idx].intensity);
+                }
                 //exit(-1);
             }
         }
     }
     if(nmismatch==0) printf("test passed!\n");
-    else printf("test failed w/ %d mismatch\n", nmismatch);
 }
 
 int main(int argc, char *argv[]){
@@ -188,7 +251,7 @@ int main(int argc, char *argv[]){
     unsigned int verify = 0;
     if(argc!=6){
         printf("usage: %s imgsizex imgsizey boardersizex boardersizey verify\n",
-                argv[0]);
+            argv[0]);
         exit(-1);
     }else{
         sscanf(argv[1], "%d", &imgsizex);
@@ -223,30 +286,42 @@ int main(int argc, char *argv[]){
     #pragma acc data copyin(m_img_in[0:(imgsizex*imgsizey)]) copyout(m_img_out[0:(imgsizex*imgsizey)])
     {
         #pragma acc kernels 
-        #pragma acc loop independent vector(1)
+        #pragma acc loop independent vector(16)
         for(j=0; j<imgsizey; ++j){
-            #pragma acc loop independent vector(1)
+            #pragma acc loop independent vector(16)
             for(i=0; i<imgsizex; ++i){
                 datatype list[MAXTILESIZE];
                 unsigned int k = 0;
-                #pragma acc loop independent vector(16)
                 for(k=0; k<(tilesizey*tilesizex); ++k){
-                    list[k] = 1<<30;
+                    list[k].intensity = (double)(1<<30);
+                    list[k].transparency = (double)(1<<30);
                 }
                 unsigned int idx = j*imgsizex + i;
+                /*
+                if(!(idx< imgsizex*imgsizey)){
+                    printf("failed: %d %d %d %d %d\n", idx, j, i, imgsizex, imgsizey);
+                    exit(-1);
+                }
+                */
                 int jt, it;
-                #pragma acc loop independent vector(16)
                 for(jt = -boardersizey; jt<=(boardersizey); ++jt){
                     for(it = -boardersizex; it<=(boardersizex); ++it){
                         if( (j+jt)<imgsizey && (i+it)<imgsizex &&
-                                (j+jt)>=0       && (i+it)>=0 ){
+                            (j+jt)>=0       && (i+it)>=0 ){
+                            //printf("updating\n");
                             list[(jt+boardersizey)*tilesizex+(it+boardersizex)] = m_img_in[(j+jt)*imgsizex+(i+it)];
                         }
                     }
                 }
-                #pragma acc algorithm sort(list[0:(tilesizex*tilesizey)])
+                //printf(" LIST at %dx%d:\n", jt, it);
+                //print(list, tilesizey, tilesizex, "partial list:");
+                //#pragma acc algorithm sort(list[0:(tilesizex*tilesizey)])
                 //gnome_sort(list, tilesizex*tilesizey);
+                //shell_sort(list, tilesizex*tilesizey);
+                bubble_sort(list, tilesizex*tilesizey);
                 m_img_out[idx] = list[0];
+                // m_img_out[idx].intensity = 1; //list[0];
+                // m_img_out[idx].transparency = 2; //list[0];
             }
         }
     }
@@ -258,20 +333,21 @@ int main(int argc, char *argv[]){
                 datatype list[MAXTILESIZE];
                 unsigned int k = 0;
                 for(k=0; k<(tilesizey*tilesizex); ++k){
-                    list[k] = 1<<30;
+                    list[k].intensity = (double)(1<<30);
+                    list[k].transparency = (double)(1<<30);
                 }
                 unsigned int idx = j*imgsizex + i;
                 /*
-                   if(!(idx< imgsizex*imgsizey)){
-                   printf("failed: %d %d %d %d %d\n", idx, j, i, imgsizex, imgsizey);
-                   exit(-1);
-                   }
-                   */
+                if(!(idx< imgsizex*imgsizey)){
+                    printf("failed: %d %d %d %d %d\n", idx, j, i, imgsizex, imgsizey);
+                    exit(-1);
+                }
+                */
                 int jt, it;
                 for(jt = -boardersizey; jt<=(boardersizey); ++jt){
                     for(it = -boardersizex; it<=(boardersizex); ++it){
                         if( (j+jt)<imgsizey && (i+it)<imgsizex &&
-                                (j+jt)>=0       && (i+it)>=0 ){
+                            (j+jt)>=0       && (i+it)>=0 ){
                             //printf("updating\n");
                             list[(jt+boardersizey)*tilesizex+(it+boardersizex)] = m_img_in[(j+jt)*imgsizex+(i+it)];
                         }
@@ -281,6 +357,7 @@ int main(int argc, char *argv[]){
                 //print(list, tilesizey, tilesizex, "partial list:");
                 //#pragma acc algorithm sort(list[0:(tilesizex*tilesizey)])
                 quick_sort(list, tilesizex*tilesizey);
+                //shell_sort(list, tilesizex*tilesizey);
                 //bubble_sort(list, tilesizex*tilesizey);
                 m_img_out_host[idx] = list[0];
             }

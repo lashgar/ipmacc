@@ -316,6 +316,8 @@ Generating a CUDA code corresponding to the given XML file.
 1.0.0b
 -Implementing algorithm directive, find clause
 
+1.0.1b
+-Clean cache directive implementation
 
 =========================
 Component Description:

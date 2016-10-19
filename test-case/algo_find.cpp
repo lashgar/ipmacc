@@ -88,9 +88,9 @@ int main(int argc, char *argv[]){
     #pragma acc data copyin(m_img_in[0:(imgsizex*imgsizey)]) copyout(m_img_out[0:(imgsizex*imgsizey)])
     {
         #pragma acc kernels 
-        #pragma acc loop independent
+        #pragma acc loop independent vector(4)
         for(j=0; j<imgsizey; ++j){
-            #pragma acc loop independent
+            #pragma acc loop independent vector(8)
             for(i=0; i<imgsizex; ++i){
                 datatype list[(tilesizey)*(tilesizex)];
                 unsigned int k = 0;
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]){
                 int value_idx = -1;
                 datatype value = 12;
                 #pragma acc algorithm find(list[0:(tilesizex*tilesizey)],value,value_idx)
-                //sort(list, tilesizex*tilesizey);
+                //find(list, tilesizex*tilesizey, value, value_idx);
                 m_img_out[idx] = value_idx!=-1?1:0;
             }
         }

@@ -19,7 +19,7 @@ typedef struct timeval timestruct;
     void
 smooth( float* a, float* b, float w0, float w1, float w2, int n, int m, int niters )
 {
-    int i, j, iter;;;
+    int i, j, iter;
     float* tmp;
     for( iter = 1; iter <= niters; ++iter ){
         #pragma acc kernels copyin(b[0:n*m]) copy(a[0:n*m])
@@ -27,12 +27,14 @@ smooth( float* a, float* b, float w0, float w1, float w2, int n, int m, int nite
         for( i = 0; i < n; ++i ){
             #pragma acc loop independent
             for( j = 0; j < m; ++j ){
-                #pragma acc cache (b[0:n:0:m:FETCH_CHANNEL:i:1:1:j:1:1:false:0:0:0:0])
+                //#pragma acc cache (b[i-1:i+1][j-1:j+1]) 
+                //#pragma acc cache (b[0:n:0:m:FETCH_CHANNEL:i:1:1:j:1:1:false:0:0:0:0])
                 {
                     int j1 = j+1;
                     int jm1= j-1;
                     int i1 = i+1;
                     int im1= i-1;
+                    #pragma acc cache (b[im1:3][jm1:3])
                     if(i>0 && i<(n-1) && j>0 && j<(m-1))
                     {
                         a[i*m+j] = w0 * b[i*m+j] + 

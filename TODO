@@ -27,6 +27,7 @@ TODO:
     clBuildProgram(program, <...>, buildOptions, <...>);
 - Apply OpenCL optimization available here: https://software.intel.com/sites/landingpage/opencl/optimization-guide/
 - private clause to support subarray
+- BUGFIX: recursive functions cause crash during compiler.
 
 CHANGES:
 - Replacing pycparser XML generator with srcML generator (delivering faster, plain, and detailed parser)
@@ -49,3 +50,4 @@ CHANGES:
 - [September 2015] Support Intel ISPC backend.
 - BUGFIX: '\n' character in for statement cause XML crash.
 - [Januray 2016] Nested type declaration supported on CUDA, OpenCL, and ISPC.
+- [September 2016] cache directive fully implemented.
