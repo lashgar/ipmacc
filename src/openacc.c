@@ -301,7 +301,7 @@ void acc_set_device_num( int devnum, acc_device_t devtype ){
 #endif 
             __ipmacc_devicenum=devnum;
         }else{
-            fprintf(stderr,"The specified device does not exists!\naborting\n");
+            fprintf(stderr,"acc_set_device_num: The specified device does not exists!\ndevice #%d from %d devices\naborting\n",devnum,acc_get_num_devices(devtype));
             exit(-1);
         }
     }else{
@@ -370,7 +370,7 @@ void acc_init( acc_device_t devtype ){
             cudaSetDevice(0);
 #endif 
         }else{
-            fprintf(stderr,"The specified device type does not exists!\naborting\n");
+            fprintf(stderr,"acc_init: The specified device type does not exists!\naborting\n");
             exit(-1);
         }
         if(getenv("IPMACCLIB_VERBOSE")) printf("CUDA: device init.\n");

@@ -928,7 +928,7 @@ class srcML:
         dclVars=dclWhole.replace(dclType,'')
         return [dclWhole, dclType, dclVars]
 
-    def getAllArrayAccesses(self,root,arrnames):
+    def getAllArrayAccesses(self, root, arrnames):
         arraccs=[]
         indecis=[]
         dependt=[]
@@ -943,17 +943,19 @@ class srcML:
                 for nm in np.findall(".//type"):
                     print 'type> '+self.getAllText(nm)
         # find all array accesses
+        #  print self.getAllText(root)
         for nl in root.findall(".//name"):
             for nm in nl.findall(".//index"):
                 arrname=self.getAllText(nl).strip().split()[0]
                 for a in arrnames:
-                    if arrname==a:
+                    if arrname==a or a=='__ipmacc_dummy__':
+                        # print len(arraccs), self.getAllText(nl), self.getAllText(nm).strip() 
                         ambigVars=set([])
                         ambigString=False
                         # if we are looking for this array access,
                         #  book the dependencies
                         indexString=self.getAllText(nm).strip()
-                        print 'array> '+arrname+' index> '+indexString
+                        if DEBUGKA: print 'array> '+arrname+' index> '+indexString
                         csv+=str(rowid)+','+arrname+','
                         rowid+=1
                         # list all directly dependent variables
@@ -1083,13 +1085,13 @@ class srcML:
                                         indexString=re.sub(r'\b%s\b'%vnm,'('+allValuesOfDependingVariables[idx]+')',indexString)
                                         #indexString=indexString.replace(vnm,'('+allValuesOfDependingVariables[idx]+')')
                                     idx=idx+1
-                        print '\tindex string> '+indexString.replace(' ','')
+                        if DEBUGKA: print '\tindex string> '+indexString.replace(' ','')
                         csv+=indexString.replace(' ','')+','+('ambig' if ambigString else '')+',\n'
                         #vnms=set(vnms)
-                        arraccs.append(a)
+                        arraccs.append(arrname)
                         indecis.append(self.getAllText(nm).strip())
                         dependt.append(allNamesDependingOnThisVariable)
-        print csv
+        if DEBUGKA: print csv
         return [arraccs,indecis,dependt]
 
     def is_written(self,root,vnm):
@@ -1363,7 +1365,7 @@ def srcml_get_kernelargs(root):
     return srcml_sample.getAllKernelArgs(root)
 def srcml_get_arrayaccesses(root,arrnames):
     srcml_sample = srcML()
-    return srcml_sample.getAllArrayAccesses(root,arrnames)
+    return srcml_sample.getAllArrayAccesses(root, arrnames if len(arrnames)>0 else ['__ipmacc_dummy__'])
 def srcml_get_dependentVars(root,varNames):
     srcml_sample = srcML()
     return srcml_sample.getAllVarDependencies(root,varNames)

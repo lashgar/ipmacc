@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=1.0.1b
+VERSION=1.0.2b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
@@ -26,6 +26,8 @@ function usage()
     echo "   get link flags for linking to ipmacc runtime library."
     echo " ipmacc --enable <optimizations>"
     echo "   enables particular optimizations. available are: readonlycache"
+    echo " ipmacc --perforation-config <fix-type>"
+    echo "   enables fix for perforation. available are: fixcpy,fixavg,fixwav,fixmin,fixmax"
 }
 
 function version()
@@ -83,6 +85,7 @@ NARG=${#ARGS[@]}
 #echo $ARGS $NARG
 NVCCARGS=
 OPTIMIZATION= #optimization swtiches
+PERFORATION="non" #perforation switch
 COMPILEONLY=0
 TARGETOBJ=
 
@@ -101,6 +104,10 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
     elif [ "$pendingoptimization" == "1" ] ; then
         OPTIMIZATION=${ARGS[i]}
         pendingoptimization="0"
+        continue
+    elif [ "$pendingperforation" == "1" ] ; then
+        PERFORATION=${ARGS[i]}
+        pendingperforation="0"
         continue
     elif [ "$pendingobject" == "1" ] ; then
         TARGETOBJ=${ARGS[i]}
@@ -128,6 +135,8 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         pendingaccfile="1"
     elif [ "${ARGS[i]}" == "--enable" ] ; then
         pendingoptimization="1"
+    elif [ "${ARGS[i]}" == "--perforation-config" ] ; then
+        pendingperforation="1"
     elif [ "${ARGS[i]}" == "-o" ] ; then
         pendingobject="1"
     elif [ "$i" != "0" ] ; then
@@ -292,7 +301,7 @@ if [ "$?" == "0" ] ; then
     if [ "$VERBOSE" == "1" ] ; then
      echo -en "\n========CODE GENERATOR LOGS=========\n"
     fi
-    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION"
+    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             # 5.a Call NVCC to compile the CUDA

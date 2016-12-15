@@ -129,7 +129,7 @@ def sequentialParser(root):
 #                valid_clauses=['collapse', 'gang', 'worker', 'vector', 'seq', 'independent', 'private', 'reduction']
                 avail_clauses=['gang', 'vector', 'seq', 'independent', 'private', 'reduction',
                                 # ipmacc additions
-                                'smc' ]
+                                'smc', 'perforation' ]
                 if not lookup(avail_clauses,clause):
                     error(root.attrib.get('directive'),clause,avail_clauses)
 

@@ -223,7 +223,7 @@ int main(int argc, char *argv[]){
     #pragma acc data copyin(m_img_in[0:(imgsizex*imgsizey)]) copyout(m_img_out[0:(imgsizex*imgsizey)])
     {
         #pragma acc kernels 
-        #pragma acc loop independent vector(1)
+        #pragma acc loop independent vector(8)
         for(j=0; j<imgsizey; ++j){
             #pragma acc loop independent vector(1)
             for(i=0; i<imgsizex; ++i){
@@ -235,7 +235,7 @@ int main(int argc, char *argv[]){
                 }
                 unsigned int idx = j*imgsizex + i;
                 int jt, it;
-                #pragma acc loop independent vector(16)
+                //#pragma acc loop independent vector(16)
                 for(jt = -boardersizey; jt<=(boardersizey); ++jt){
                     for(it = -boardersizex; it<=(boardersizex); ++it){
                         if( (j+jt)<imgsizey && (i+it)<imgsizex &&

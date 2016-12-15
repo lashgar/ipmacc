@@ -319,6 +319,9 @@ Generating a CUDA code corresponding to the given XML file.
 1.0.1b
 -Clean cache directive implementation
 
+1.0.2b
+-perforation clause
+
 =========================
 Component Description:
 preprocessor-<version>.py
