@@ -1113,10 +1113,11 @@ class srcML:
                 return True
         return False
 
-    def getAllVarDependencies(self,root,arrnames):
+    def getAllVarDependencies(self,root,varnames):
         arraccs=[]
         indecis=[]
         dependt=[]
+        assigExpr=[]
         csv=''
         rowid=0
         # find all types
@@ -1130,154 +1131,160 @@ class srcML:
                     print 'type> '+self.getAllText(nm)
         # find all array accesses
         for nl in root.findall(".//name"):
-            if True: #for nm in nl.findall(".//index"):
-                arrname=self.getAllText(nl).strip().split()[0]
-                for a in arrnames:
-                    if DEBUGKA: print arrname+'!='+a
-                    if arrname==a:
-                        ambigVars=set([])
-                        ambigString=False
-                        # if we are looking for this array access,
-                        #  book the dependencies
-                        indexString=self.getAllText(nl).strip()
-                        if DEBUGKA: print 'variable> '+arrname+' matched-name> '+indexString
-                        csv+=str(rowid)+','+arrname+','
-                        rowid+=1
-                        # list all directly dependent variables
-                        vnms=[arrname]
-                        #for nn in nm.findall(".//name"):
-                        #    vnms.append(self.getAllText(nn).split()[0])
-                        vnms=set(vnms)
-                        # recuresively, find the dependency tree
-                        allNamesDependingOnThisVariable=[]
-                        while len(allNamesDependingOnThisVariable)!=len(vnms):
-                            if DEBUGKA: print ' round of variable tree construction: '+','.join(vnms)
-                            allNamesDependingOnThisVariable=set(vnms)
-                            for vnm in allNamesDependingOnThisVariable:
-                                #print '\t'+vnm
-                                # list all previous writes to this variable
-                                # first, check declarations
-                                if DEBUGKA: print '  parsing decl_stmts for '+vnm
-                                for no in root.findall(".//decl_stmt"):
-                                    # 1
-                                    if DEBUGKA: print '   parsing '+self.getAllText(no)+' for '+vnm
-                                    [dclWhole,dclType,dclVars]=self.transDeclAnalyze(no)
-                                    if DEBUGKA: print '   declVars here: '+dclVars
-                                    # 2 
-                                    #if string_found(vnm,self.getAllText(no)) and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
-                                    if string_found(vnm,dclVars) and len(dclVars.split(vnm))>1 and dclVars.split(vnm)[1].find('=')!=-1:
-                                        if DEBUGKA: print '    '+dclVars
-                                        # ALT 1
-                                        for np in no.findall(".//name"):
-                                            if DEBUGKA: print '     adding '+self.getAllText(np).split()[0]+' to set' 
-                                            vnms.add(self.getAllText(np).split()[0])
-                                        # ALT 2
-                                        #for np in dclVars.split(','):
-                                        #    vnms.add(np.split()[0])
-                                        #    if DEBUGKA: print '     adding '+np.split()[0]+' to set' 
-                                        if DEBUGKA: print '    '+','.join(vnms)
-                                # then, check all assignments 
-                                for no in root.findall(".//expr_stmt/expr"):
-                                    try:
-                                        if DEBUGKA: print '    '+no.find("name").text
-                                        if no.find("name").text==vnm and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
-                                            if DEBUGKA: print '    '+self.getAllText(no)
-                                            for np in no.findall(".//name"):
-                                                vnms.add(self.getAllText(np).split()[0])
-                                                if DEBUGKA: print '     adding '+np.split()[0]+' to set' 
-                                    except:
-                                        nop=1
-                        # remove data types from the list
-                        ignoreSet=set(['int','float','double','char'])
-                        for vnm in ignoreSet:
-                            try:
-                                allNamesDependingOnThisVariable.remove(vnm)
-                            except:
-                                keyNotFound=True
-                        # we found all the dependent variables
-                        if DEBUGKA: print ' Deps<>> '+','.join(set(allNamesDependingOnThisVariable))
-                        csv+='&'.join(set(allNamesDependingOnThisVariable))+','
-                        # report writes to dependent variables 
-                        allWritesTodependingVars=[]
-                        for vnm in allNamesDependingOnThisVariable:
-                            writes=[]
-                            #print '\t'+vnm
-                            # first, check declarations
-                            for no in root.findall(".//decl_stmt"):
-                                [dclWhole,dclType,dclVars]=self.transDeclAnalyze(no)
+            arrname=self.getAllText(nl).strip().split()[0]
+            try:
+                operator=self.getAllText(nl).strip().split()[1]
+                if operator!='=':
+                    # this is not an assignment
+                    continue
+            except:
+                continue
+            # this is an assignment
+            if arrname in varnames:
+                ambigVars=set([])
+                ambigString=False
+                # if we are looking for this array access,
+                #  book the dependencies
+                indexString=self.getAllText(nl).strip().split('=')[0].strip()
+                if DEBUGKA: print 'variable> '+arrname+' matched-name> '+indexString
+                csv+=str(rowid)+','+arrname+','
+                rowid+=1
+                # list all directly dependent variables
+                vnms=[arrname]
+                #for nn in nm.findall(".//name"):
+                #    vnms.append(self.getAllText(nn).split()[0])
+                vnms=set(vnms)
+                # recuresively, find the dependency tree
+                allNamesDependingOnThisVariable=[]
+                while len(allNamesDependingOnThisVariable)!=len(vnms):
+                    if DEBUGKA: print ' round of variable tree construction: '+','.join(vnms)
+                    allNamesDependingOnThisVariable=set(vnms)
+                    for vnm in allNamesDependingOnThisVariable:
+                        #print '\t'+vnm
+                        # list all previous writes to this variable
+                        # first, check declarations
+                        if DEBUGKA: print '  parsing decl_stmts for '+vnm
+                        for no in root.findall(".//decl_stmt"):
+                            # 1
+                            if DEBUGKA: print '   parsing '+self.getAllText(no)+' for '+vnm
+                            [dclWhole,dclType,dclVars]=self.transDeclAnalyze(no)
+                            if DEBUGKA: print '   declVars here: '+dclVars
+                            # 2 
+                            #if string_found(vnm,self.getAllText(no)) and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
+                            if string_found(vnm,dclVars) and len(dclVars.split(vnm))>1 and dclVars.split(vnm)[1].find('=')!=-1:
+                                if DEBUGKA: print '    '+dclVars
                                 # ALT 1
-                                #if string_found(vnm,self.getAllText(no)) and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
-                                #    writes.append(self.getAllText(no))
-                                #   print '\t\t'+self.getAllText(no)
+                                for np in no.findall(".//name"):
+                                    if DEBUGKA: print '     adding '+self.getAllText(np).split()[0]+' to set' 
+                                    vnms.add(self.getAllText(np).split()[0])
                                 # ALT 2
-                                for np in dclVars.split(','):
-                                    if string_found(vnm,np) and len(np.split(vnm))>1 and np.split(vnm)[1].find('=')!=-1:
-                                        #writes.append(np)
-                                        writes.append(np.split('=')[1])
-                                        if DEBUGKA: print '   extracting '+vnm+' from '+np+'. found value> '+np.split('=')[1]
-                            # then, check all assignments 
-                            for no in root.findall(".//expr_stmt/expr"):
-                                try:
-                                    #print '\t\t'+no.find("name").text
-                                    if no.find("name").text==vnm and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
-                                        tmpwrt=self.getAllText(no).split('=')[1]
-                                        if DEBUGKA: print '   appending write <'+tmpwrt+'> for <'+vnm+'>'
-                                        writes.append(tmpwrt)
-                                        #print '\t\t'+self.getAllText(no)
-                                except:
-                                    nop=1
-                            allWritesTodependingVars.append(writes)
-                        if len(allNamesDependingOnThisVariable)!=len(allWritesTodependingVars):
-                            print 'Fatal Error!'
-                            exit(-1)
+                                #for np in dclVars.split(','):
+                                #    vnms.add(np.split()[0])
+                                #    if DEBUGKA: print '     adding '+np.split()[0]+' to set' 
+                                if DEBUGKA: print '    '+','.join(vnms)
+                        # then, check all assignments 
+                        for no in root.findall(".//expr_stmt/expr"):
+                            try:
+                                if DEBUGKA: print '    '+no.find("name").text
+                                if no.find("name").text==vnm and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
+                                    if DEBUGKA: print '    '+self.getAllText(no)
+                                    for np in no.findall(".//name"):
+                                        vnms.add(self.getAllText(np).split()[0])
+                                        if DEBUGKA: print '     adding '+np.split()[0]+' to set' 
+                            except:
+                                nop=1
+                # remove data types from the list
+                ignoreSet=set(['int','float','double','char'])
+                for vnm in ignoreSet:
+                    try:
+                        allNamesDependingOnThisVariable.remove(vnm)
+                    except:
+                        keyNotFound=True
+                # we found all the dependent variables
+                if DEBUGKA: print ' Deps<>> '+','.join(set(allNamesDependingOnThisVariable))
+                csv+='&'.join(set(allNamesDependingOnThisVariable))+','
+                # report writes to dependent variables 
+                allWritesTodependingVars=[]
+                for vnm in allNamesDependingOnThisVariable:
+                    writes=[]
+                    #print '\t'+vnm
+                    # first, check declarations
+                    for no in root.findall(".//decl_stmt"):
+                        [dclWhole,dclType,dclVars]=self.transDeclAnalyze(no)
+                        # ALT 1
+                        #if string_found(vnm,self.getAllText(no)) and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
+                        #    writes.append(self.getAllText(no))
+                        #   print '\t\t'+self.getAllText(no)
+                        # ALT 2
+                        for np in dclVars.split(','):
+                            if string_found(vnm,np) and len(np.split(vnm))>1 and np.split(vnm)[1].find('=')!=-1:
+                                #writes.append(np)
+                                writes.append(np.split('=')[1])
+                                if DEBUGKA: print '   extracting '+vnm+' from '+np+'. found value> '+np.split('=')[1]
+                    # then, check all assignments 
+                    for no in root.findall(".//expr_stmt/expr"):
+                        try:
+                            #print '\t\t'+no.find("name").text
+                            if no.find("name").text==vnm and len(self.getAllText(no).split(vnm))>1 and self.getAllText(no).split(vnm)[1].find('=')!=-1:
+                                tmpwrt=self.getAllText(no).split('=')[1]
+                                if DEBUGKA: print '   appending write <'+tmpwrt+'> for <'+vnm+'>'
+                                writes.append(tmpwrt)
+                                #print '\t\t'+self.getAllText(no)
+                        except:
+                            nop=1
+                    allWritesTodependingVars.append(writes)
+                if len(allNamesDependingOnThisVariable)!=len(allWritesTodependingVars):
+                    print 'Fatal Error!'
+                    exit(-1)
+                else:
+                    # post-process writes and extract single self-included statement for the index
+                    allValuesOfDependingVariables=[]
+                    idx=0
+                    for vnm in allNamesDependingOnThisVariable:
+                        values=allWritesTodependingVars[idx]
+                        if DEBUGKA: print '  checking writes to '+vnm
+                        if DEBUGKA: print '   '+'   \n'.join(values)
+                        # select a proper value.
+                        # currently we assume there is only one.
+                        # else we should check the variable scopes FIXME
+                        appendingWrite=''
+                        if len(values)==0:# or values[0].find('=')==-1:
+                            appendingWrite=vnm.replace(' ','').replace(';','')
                         else:
-                            # post-process writes and extract single self-included statement for the index
-                            allValuesOfDependingVariables=[]
-                            idx=0
-                            for vnm in allNamesDependingOnThisVariable:
-                                values=allWritesTodependingVars[idx]
-                                if DEBUGKA: print '  checking writes to '+vnm
-                                if DEBUGKA: print '   '+'   \n'.join(values)
-                                # select a proper value.
-                                # currently we assume there is only one.
-                                # else we should check the variable scopes FIXME
-                                appendingWrite=''
-                                if len(values)==0:# or values[0].find('=')==-1:
-                                    appendingWrite=vnm.replace(' ','').replace(';','')
-                                else:
-                                    if len(values)>1:
-                                        ambigVars.add(vnm)
-                                        if KAVERBOSE:
-                                            print '   warning! selecting one of the multiple values: '+vnm
-                                            print '    '+'","'.join(values)
-                                    #appendingWrite=values[0].split('=')[1].replace(' ','').replace(';','')
-                                    appendingWrite=values[0].replace(' ','').replace(';','')
-                                if DEBUGKA: print '   '+'appending '+appendingWrite
-                                allValuesOfDependingVariables.append(appendingWrite)
-                                idx=idx+1
-                            stringUpdated=True
-                            if DEBUGKA: print ' starting string replacer:'
-                            while stringUpdated:
-                                stringUpdated=False
-                                idx=0
-                                if DEBUGKA: print '  processing string reconstruction... stringindex> '+indexString
-                                for vnm in allNamesDependingOnThisVariable:
-                                    if DEBUGKA: print '   checking <'+vnm+'> value <'+allValuesOfDependingVariables[idx]+'>'
-                                    if re.search(r'\b%s\b'%vnm,indexString) and allValuesOfDependingVariables[idx]!=vnm:
-                                        if vnm in ambigVars: ambigString=True
-                                    #if indexString.find(vnm)!=-1 and allValuesOfDependingVariables[idx]!=vnm:
-                                        stringUpdated=True
-                                        indexString=re.sub(r'\b%s\b'%vnm,'('+allValuesOfDependingVariables[idx]+')',indexString)
-                                        #indexString=indexString.replace(vnm,'('+allValuesOfDependingVariables[idx]+')')
-                                    idx=idx+1
-                        if DEBUGKA: print '\tindex string> '+indexString.replace(' ','')
-                        csv+=indexString.replace(' ','')+','+('ambig' if ambigString else '')+',\n'
-                        #vnms=set(vnms)
-                        arraccs.append(a)
-                        indecis.append(self.getAllText(nl).strip())
-                        dependt.append(allNamesDependingOnThisVariable)
+                            if len(values)>1:
+                                ambigVars.add(vnm)
+                                if KAVERBOSE:
+                                    print '   warning! selecting one of the multiple values: '+vnm
+                                    print '    '+'","'.join(values)
+                            #appendingWrite=values[0].split('=')[1].replace(' ','').replace(';','')
+                            appendingWrite=values[0].replace(' ','').replace(';','')
+                        if DEBUGKA: print '   '+'appending '+appendingWrite
+                        allValuesOfDependingVariables.append(appendingWrite)
+                        idx=idx+1
+                    stringUpdated=True
+                    if DEBUGKA: print ' starting string replacer:'
+                    while stringUpdated:
+                        stringUpdated=False
+                        idx=0
+                        if DEBUGKA: print '  processing string reconstruction... stringindex> '+indexString
+                        for vnm in allNamesDependingOnThisVariable:
+                            if DEBUGKA: print '   checking <'+vnm+'> value <'+allValuesOfDependingVariables[idx]+'>'
+                            if re.search(r'\b%s\b'%vnm,indexString) and allValuesOfDependingVariables[idx]!=vnm:
+                                if vnm in ambigVars: ambigString=True
+                            #if indexString.find(vnm)!=-1 and allValuesOfDependingVariables[idx]!=vnm:
+                                stringUpdated=True
+                                indexString=re.sub(r'\b%s\b'%vnm,'('+allValuesOfDependingVariables[idx]+')',indexString)
+                                #indexString=indexString.replace(vnm,'('+allValuesOfDependingVariables[idx]+')')
+                            idx=idx+1
+                if DEBUGKA: print '\tindex string> '+indexString.replace(' ','')
+                csv+=indexString.replace(' ','')+','+('ambig' if ambigString else '')+',\n'
+                #vnms=set(vnms)
+                arraccs.append(arrname)
+                indecis.append(self.getAllText(nl).strip())
+                dependt.append(allNamesDependingOnThisVariable)
+                assigExpr.append(indexString)
         if DEBUGKA: print csv
-        return [arraccs,indecis,dependt]
+        return [arraccs,indecis,dependt,assigExpr]
 
 
 #           try:
