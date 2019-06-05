@@ -1,11 +1,37 @@
 #!/bin/bash
 
 if [ "$IPMACCROOT" == "" ] ; then
-    echo 'warning: IPMACCROOT is not set'
-    echo 'please refer to the README before starting the compilation'
+ echo 'warning: IPMACCROOT is not set'
+ echo 'please refer to the README before starting the compilation'
+ exit -1
+fi
+PARALLELBUILD="-j 1"
+if [ "$IPMACCBUILDNCORE" != "" ] ; then
+ PARALLELBUILD="-j $IPMACCBUILDNCORE"
 fi
 
+
 ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# libxml2 (the compatible version for srcML)
+echo -en '~ compiling libxml2-2.7.6'
+cd $ROOTDIR/libxml2
+tar xzf libxml2-2.7.6.tar.gz 
+cd libxml2-2.7.6/
+./configure --prefix=$IPMACCROOT/libxml2/libxml2-2.7.6/build/ > /dev/null 
+make $PARALLELBUILD > /dev/null 
+make install > /dev/null
+echo 'done'
+
+# libxslt (the compatble version for srcML)
+echo -en '~ compiling libxslt-1.1.26'
+cd $ROOTDIR/libxml2
+tar xzf libxslt-1.1.26.tar.gz
+cd libxslt-1.1.26/
+./configure --prefix=$IPMACCROOT/libxml2/libxslt-1.1.26/build --with-libxml-prefix=$IPMACCROOT/libxml2/libxml2-2.7.6/build/ > /dev/null 
+make $PARALLELBUILD > /dev/null
+make install > /dev/null
+echo 'done'
 
 # Code standardazing
 cd $ROOTDIR/uncrustify/
@@ -17,7 +43,7 @@ make clean > /dev/null
 echo -en '.'
 ./configure --prefix=$ROOTDIR/uncrustify/build/ > /dev/null
 echo -en '.'
-make > /dev/null 
+make $PARALLELBUILD > /dev/null 
 echo -en '.'
 make install > /dev/null
 ln -s $ROOTDIR/uncrustify/avalon.cfg $ROOTDIR/uncrustify/build/bin/avalon.cfg
@@ -27,14 +53,14 @@ echo '. done'
 # pycparser
 echo -en '~ compiling pycparser .'
 cd $ROOTDIR/parser/
-make
+make 
 echo -en '.'
 ln -s $ROOTDIR/src/utils_clause.py $ROOTDIR/parser/
 echo '. done'
 # srcML
 echo -en '~ compiling srcML parser .'
 cd $ROOTDIR/srcML/
-tar xvzf srcml.tar.gz > /dev/null
+tar xzf srcml.tar.gz > /dev/null
 cd src/
 make > /dev/null
 #ln -s $ROOTDIR/srcML/wrapper/wrapper.py $ROOTDIR/wrapper.py

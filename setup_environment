@@ -1,7 +1,8 @@
 
 # IPMACC environment
 #set the following variable to the location of IPMACC, where `ipmacc' script exists
-export IPMACCROOT=/home/lashgar/opt/ipmacc
+export IPMACCROOT=/media/seconddisk/src/ipmacc
+export IPMACCBUILDNCORE=4 # number of cores to use for building
 
 # CUDA environment
 # comment the following line to disable CUDA integration in libopenacc, else set CUDAHOME properly
@@ -11,16 +12,16 @@ export CUDAHOME=/usr/local/cuda/
 # OpenCL environment
 # comment the following line to disable OpenCL integration in libopenacc, else set OPENCLLIB and OPENCLINC properly
 # Notice: OpenCL 1.2 is the minimum requirement. otherwise, set OPENCLSUPPORT to 0.
-export OPENCLSUPPORT=1
+export OPENCLSUPPORT=0
 export OPENCLLIB=/opt/intel/opencl/lib64/
 export OPENCLINC=/opt/intel/opencl/include/
 #export OPENCLINC=/opt/intel/opencl/include/
 
 # ISPC
-export ISPCSUPPORT=1
+export ISPCSUPPORT=0
 export ISPCHOME=/home/lashgar/src/ispc/ispc-v1.8.2knl-linux/
 
 # no modification is needed for the following lines
-export LD_LIBRARY_PATH=$IPMACCROOT/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$IPMACCROOT/lib:$IPMACCROOT/libxml2/libxml2-2.7.6/build/lib/:$IPMACCROOT/libxml2/libxslt-1.1.26/build/lib/:$LD_LIBRARY_PATH
 export PATH=$IPMACCROOT/:$PATH
 

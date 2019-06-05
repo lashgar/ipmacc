@@ -36,4 +36,4 @@ arraybench_$(IDA): $(ARRAYOBJS) arraybench.c
 	$(CC) $(ARRAYOBJS) -lm -o $@ `ipmacc --ldflags`
 
 clean: 
-	rm *.o arraybench_*
+	rm *.o arraybench_* -f

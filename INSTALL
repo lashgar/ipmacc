@@ -23,7 +23,9 @@ Requirements:
     on RedHat-like systems:
         $ yum install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel boost boost-devel java
     on ubuntu-like systems:
-        $ sudo apt-get install libxml2 libxml2-dev antlr libantlr-dev libarchive-dev ia32-libs libxslt-dev libboost-dev
+        $ sudo apt-get install libxml2 libxml2-dev antlr libantlr-dev libarchive-dev libxslt-dev libboost-dev
+		on 18.04 LTS: sudo apt-get install lib32ncurses5 lib32z1
+		on older: sudo apt-get install ia32-libs
     on SUSE-like systems:
         $ zypper install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel
 
@@ -44,8 +46,7 @@ Step 1:
 
 Step 2:
     Start compilation by:
-    $ chmod +x ./compile-all
-    $ ./compile-all
+    $ make
     
     may see several warnings but there shouldn't be any error! Compilation successfully terminates with the following prompt:
     ~ compiling OpenACC API .. done
@@ -119,8 +120,7 @@ IPMACC translates OpenACC API (function calls or directives) in the input C-file
 
 ====================
 Known issues:
--srcML, the parser which is used in IPMACC, has a compatibility issue with latest version of libxml2. In future release of IPMACC, we plan to include the compatible version of libxml2 in the package. To resolve this issue, use libxml2-2.7.6 which can be downloaded from here:
-ftp://gd.tuwien.ac.at/pub/libxml/
+-srcML, the parser which is used in IPMACC, has a compatibility issue with latest version of libxml2. We have included compatible version of libxml2 and libxslt in ipmacc (can be found under libxml2/) and integrated in the build.
 
 
 

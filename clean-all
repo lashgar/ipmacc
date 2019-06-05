@@ -2,6 +2,10 @@
 
 ROOTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# libxml2
+cd $ROOTDIR
+rm libxml2/libxml2-2.7.6  libmlx2/libxslt-1.1.26 -rf
+
 # Code standardazing
 cd $ROOTDIR/uncrustify/
 rm uncrustify/ -rf
