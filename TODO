@@ -29,6 +29,9 @@ TODO:
 - private clause to support subarray
 - BUGFIX: recursive functions cause crash during compiler.
 - Using user-defined datatypes in the functions called in the kernel region generates error (e.g. nbody)
+- Move to CMake build system
+- Add UnitTesting
+- Add HIP backend
 
 CHANGES:
 - Replacing pycparser XML generator with srcML generator (delivering faster, plain, and detailed parser)
