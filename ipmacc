@@ -48,7 +48,7 @@ path=$DIR/
 export PYTHONPATH=$path/:$path/pycparser/:$PYTHONPATH
 #echo $PYTHONPATH
 # activate python path for lxml compatibility
-source $path/venv/bin/activate
+source $path/build/venv/bin/activate
 # set python executable
 export PYTHON_EXECUTABLE=`which python2`
 if [[ "$PYTHON_EXECUTABLE" == "" ]] ; then
