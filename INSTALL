@@ -21,13 +21,13 @@ Requirements:
 - GCC/G++ 4.4 or later
 - For srcML:
     on RedHat-like systems:
-        $ yum install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel boost boost-devel java
+        $ yum install antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel boost boost-devel java
     on ubuntu-like systems:
-        $ sudo apt-get install libxml2 libxml2-dev antlr libantlr-dev libarchive-dev libxslt-dev libboost-dev
+        $ sudo apt-get install antlr libantlr-dev libarchive-dev libxslt-dev libboost-dev virtualenv
 		on 18.04 LTS: sudo apt-get install lib32ncurses5 lib32z1
 		on older: sudo apt-get install ia32-libs
     on SUSE-like systems:
-        $ zypper install libxml2 libxml2-devel antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel
+        $ zypper install antlr antlr-devel libarchive-devel libarchive libxslt libxslt-devel
 
 Optional:
 - GNU indent (disbled by default)

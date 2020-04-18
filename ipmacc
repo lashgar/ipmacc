@@ -47,6 +47,14 @@ path=$DIR/
 # 2. set python path for openacc parser and pycparser
 export PYTHONPATH=$path/:$path/pycparser/:$PYTHONPATH
 #echo $PYTHONPATH
+# activate python path for lxml compatibility
+source $path/venv/bin/activate
+# set python executable
+export PYTHON_EXECUTABLE=`which python2`
+if [[ "$PYTHON_EXECUTABLE" == "" ]] ; then
+  echo "error: unable to locate python2 from virtualenv"
+  exit 255
+fi
 
 # 3. Compile/Link flags for CUDA/OpenCL destination
 export CFLAG="-I$path/include "
@@ -287,7 +295,7 @@ if [ "$?" != "0" ] ; then
 fi
 
 # 2. running scanner to generate intermediate xml (file is stored under $PWD/__inter.xml)
-python2 $path/scanner.py --file $INFILE.uncrustify -k -q
+$PYTHON_EXECUTABLE $path/scanner.py --file $INFILE.uncrustify -k -q
 if [ "$?" != "0" ] ; then
     exit 255
 fi
@@ -301,7 +309,7 @@ if [ "$?" == "0" ] ; then
     if [ "$VERBOSE" == "1" ] ; then
      echo -en "\n========CODE GENERATOR LOGS=========\n"
     fi
-    python2 $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
+    $PYTHON_EXECUTABLE $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             # 5.a Call NVCC to compile the CUDA

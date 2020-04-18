@@ -31,3 +31,4 @@ pycparser/pycparser/ply/__init__.pyc
 pycparser/pycparser/ply/lex.pyc
 pycparser/pycparser/ply/yacc.pyc
 pycparser/pycparser/plyparser.pyc
+venv

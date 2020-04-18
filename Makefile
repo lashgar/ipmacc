@@ -23,8 +23,16 @@ apilib=lib/libopenacc.so
 pycparser=parser/utils_clause.py
 
 
-all: $(uncrustifybin) pycparser $(src2srcmlbin) core $(apilib)
+all: venv/bin/activate $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser
 	echo 'all done'
+
+venv/bin/activate:
+	# use the python on the path to create virtualenv
+	virtualenv -p `which python` $(ROOTDIR)/venv
+	# install modules in env and exit
+	. $(ROOTDIR)/venv/bin/activate; \
+	pip install -r $(ROOTDIR)/requirements.txt; \
+	deactivate
 
 $(libxml2lib): # (the compatible version for srcML)
 	echo '~ compiling libxml2-2.7.6'
@@ -60,10 +68,9 @@ $(uncrustifybin): $(ROOTDIR)/uncrustify/uncrustify.tar.gz
 	echo '. done' 
 
 # Parser
-pycparser:
+parser/oaccparser:
 	echo -en '~ compiling pycparser .'
-	cd $(ROOTDIR)/parser/; \
-	make
+	make -C $(ROOTDIR)/parser/
 	echo -en '.'
 	ln -s $(ROOTDIR)/src/utils_clause.py $(ROOTDIR)/parser/
 	echo '. done'
@@ -94,6 +101,8 @@ $(apilib):
 	echo '. done'
 
 clean:
+	# python env
+	rm $(ROOTDIR)/venv -rf
 	# libxml2 libxslt
 	rm $(ROOTDIR)/libxml2/libxml2-2.7.6 -rf
 	rm $(ROOTDIR)/libxml2/libxslt-1.1.26 -rf
