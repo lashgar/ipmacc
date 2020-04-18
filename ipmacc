@@ -237,7 +237,7 @@ if [ "$LISTANDEXIT" != "" ] ; then
     elif [ "$LISTANDEXIT" == "version" ] ; then
         version $path/codegen.py
     fi
-    exit 1
+    exit 0
 fi
 
 # File naming
