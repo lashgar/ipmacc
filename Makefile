@@ -15,6 +15,14 @@ ifeq ($(ROOTDIR), "")
  $(error "unable to locate Makefile!!")
 endif
 
+ifneq (, $(shell which ccache) )
+CC="ccache gcc"
+CXX="ccache g++"
+else
+CC=gcc
+CXX=g++
+endif
+
 libxml2lib=libxml2/libxml2-2.7.6/build/lib/libxml2.so
 libxsltlib=libxml2/libxslt-1.1.26/build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
@@ -39,7 +47,7 @@ $(libxml2lib): # (the compatible version for srcML)
 	cd $(ROOTDIR)/libxml2; \
 	tar xzf libxml2-2.7.6.tar.gz ; \
 	cd libxml2-2.7.6/; \
-	./configure --prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null; \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null; \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
 	echo 'done'
@@ -49,7 +57,7 @@ $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
 	cd $(ROOTDIR)/libxml2; \
 	tar xzf libxslt-1.1.26.tar.gz; \
 	cd libxslt-1.1.26/; \
-	./configure --prefix=$(IPMACCROOT)/libxml2/libxslt-1.1.26/build --with-libxml-prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null;  \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/libxml2/libxslt-1.1.26/build --with-libxml-prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null;  \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
 	echo 'done'
@@ -61,7 +69,7 @@ $(uncrustifybin): $(ROOTDIR)/uncrustify/uncrustify.tar.gz
 	tar xvzf uncrustify.tar.gz > /dev/null; \
 	cd uncrustify/; \
 	make clean > /dev/null; \
-	./configure --prefix=$(ROOTDIR)/uncrustify/build/ > /dev/null; \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(ROOTDIR)/uncrustify/build/ > /dev/null; \
 	make $(PARALLELBUILD) > /dev/null;  \
 	make install > /dev/null; 
 	ln -s $(ROOTDIR)/uncrustify/avalon.cfg $(ROOTDIR)/uncrustify/build/bin/avalon.cfg 
