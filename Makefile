@@ -23,7 +23,7 @@ CC=gcc
 CXX=g++
 endif
 
-libxml2lib=build/liblibxml2.so
+libxml2lib=build/lib/libxml2.so
 libxsltlib=build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
 uncrustifybin=build/bin/uncrustify
@@ -32,7 +32,7 @@ pycparser=parser/utils_clause.py
 listdevices=src/listdevices
 venv=venv/bin/activate
 
-all: $(venv) $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser $(listdevices)
+all: $(venv) $(uncrustifybin) $(src2srcmlbin) preprocessor.py scanner.py codegen.py $(apilib) parser/oaccparser $(listdevices)
 	@echo 'all done'
 
 $(venv):
@@ -84,13 +84,16 @@ $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
 	make > /dev/null # too shaky for parellel build
 
 # Scanner and CUDA code generator
-core:
-	cd $(ROOTDIR) ; \
-	rm $(ROOTDIR)/preprocessor.py -f ; \
-	ln -s $(ROOTDIR)/src/preprocessor-0.1.7b.py $(ROOTDIR)/preprocessor.py ; \
-	rm $(ROOTDIR)/scanner.py -f ; \
-	ln -s $(ROOTDIR)/src/scanner-0.2.4b.py $(ROOTDIR)/scanner.py ; \
-	rm $(ROOTDIR)/codegen.py -f ; \
+preprocessor.py:
+	rm $(ROOTDIR)/preprocessor.py -f
+	ln -s $(ROOTDIR)/src/preprocessor-0.1.7b.py $(ROOTDIR)/preprocessor.py
+
+scanner.py:
+	rm $(ROOTDIR)/scanner.py -f
+	ln -s $(ROOTDIR)/src/scanner-0.2.4b.py $(ROOTDIR)/scanner.py 
+
+codegen.py:
+	rm $(ROOTDIR)/codegen.py -f 
 	ln -s $(ROOTDIR)/src/codegen-0.4.2b.py $(ROOTDIR)/codegen.py
 
 # API
