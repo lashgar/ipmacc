@@ -1,7 +1,7 @@
 #!/bin/bash
 
-ifeq ($(IPMACCROOT),"")
- $(error 'warning: IPMACCROOT is not set, please refer to the README before starting the compilation')
+ifeq ($(IPMACCROOT),)
+ $(error 'IPMACCROOT is not set, please refer to the README before starting the compilation')
 endif
 
 PARALLELBUILD=-j 1
@@ -11,7 +11,7 @@ endif
 
 ROOTDIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-ifeq ($(ROOTDIR), "")
+ifeq ($(ROOTDIR),)
  $(error "unable to locate Makefile!!")
 endif
 
