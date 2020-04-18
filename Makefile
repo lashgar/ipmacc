@@ -90,11 +90,11 @@ preprocessor.py:
 
 scanner.py:
 	rm $(ROOTDIR)/scanner.py -f
-	ln -s $(ROOTDIR)/src/scanner-0.2.4b.py $(ROOTDIR)/scanner.py 
+	ln -s $(ROOTDIR)/src/scanner-0.2.9b.py $(ROOTDIR)/scanner.py 
 
 codegen.py:
 	rm $(ROOTDIR)/codegen.py -f 
-	ln -s $(ROOTDIR)/src/codegen-0.4.2b.py $(ROOTDIR)/codegen.py
+	ln -s $(ROOTDIR)/src/codegen-1.0.3b.py $(ROOTDIR)/codegen.py
 
 # API
 $(apilib):
