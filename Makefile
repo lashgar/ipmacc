@@ -26,7 +26,7 @@ endif
 libxml2lib=build/liblibxml2.so
 libxsltlib=build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
-uncrustifybin=$(ROOTDIR)/uncrustify/build/bin/uncrustify
+uncrustifybin=build/bin/uncrustify
 apilib=lib/libopenacc.so
 pycparser=parser/utils_clause.py
 listdevices=src/listdevices
