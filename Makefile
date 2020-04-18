@@ -30,17 +30,16 @@ uncrustifybin=$(ROOTDIR)/uncrustify/build/bin/uncrustify
 apilib=lib/libopenacc.so
 pycparser=parser/utils_clause.py
 listdevices=src/listdevices
+venv=venv/bin/activate
 
-all: venv/bin/activate $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser $(listdevices)
+all: $(venv) $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser $(listdevices)
 	echo 'all done'
 
-venv/bin/activate:
+$(venv):
 	# use the python on the path to create virtualenv
 	virtualenv -p `which python` $(ROOTDIR)/venv
 	# install modules in env and exit
-	. $(ROOTDIR)/venv/bin/activate; \
-	pip install -r $(ROOTDIR)/requirements.txt; \
-	deactivate
+	. $(ROOTDIR)/venv/bin/activate && pip install -r $(ROOTDIR)/requirements.txt && deactivate
 
 $(libxml2lib): # (the compatible version for srcML)
 	echo '~ compiling libxml2-2.7.6'
