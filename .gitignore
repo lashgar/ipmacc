@@ -17,3 +17,4 @@ srcML/src/
 build
 venv
 *.pyc
+test-case/*.c.cuda

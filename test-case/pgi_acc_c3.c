@@ -177,7 +177,7 @@ main( int argc, char* argv[] )
         }
     }
     if( aerrs == 0 && berrs == 0 ){
-        fprintf(stderr, "no errors found\n" );
+        fprintf(stderr, "OpenACC Jacobi iteration test was successful\n" );
         return 0;
     }else{
         fprintf( stderr,"%d ERRORS found\n", aerrs + berrs );
