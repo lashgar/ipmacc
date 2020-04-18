@@ -1,10 +1,7 @@
-codegen.py
 lib/
 parser/oaccparser
 parser/oaccparser.tab.c
 parser/utils_clause.py
-preprocessor.py
-scanner.py
 src/libopenacc.so
 src/listdevices
 src/openacc.o

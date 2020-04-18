@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=1.0.3b
+VERSION=1.2.0b
 function usage()
 {
     echo "    IPMACC version $VERSION, Copyright (C) 2015 Ahmad Lashgar"
@@ -79,13 +79,6 @@ fi
 # GENERATE SOFTLINK IN CASE THE COMPILATION WAS NOT SUCCESSFUL
 rm $path/parser/utils_clause.py -f
 ln -s $path/src/utils_clause.py $path/parser/
-# GENERATE SOFTLINK FOR VERSION MANAGEMENT
-rm $path/preprocessor.py $path/preprocessor.pyc -f
-ln -s $path/src/preprocessor-0.1.7b.py $path/preprocessor.py
-rm $path/scanner.py -f
-ln -s $path/src/scanner-0.2.9b.py $path/scanner.py
-rm $path/codegen.py -f
-ln -s $path/src/codegen-${VERSION}.py $path/codegen.py
 
 # 4. find the arguments and pass proper args to nvcc directly
 ARGS=(${@})
@@ -295,7 +288,7 @@ if [ "$?" != "0" ] ; then
 fi
 
 # 2. running scanner to generate intermediate xml (file is stored under $PWD/__inter.xml)
-$PYTHON_EXECUTABLE $path/scanner.py --file $INFILE.uncrustify -k -q
+$PYTHON_EXECUTABLE $path/src/scanner.py --file $INFILE.uncrustify -k -q
 if [ "$?" != "0" ] ; then
     exit 255
 fi
@@ -309,7 +302,7 @@ if [ "$?" == "0" ] ; then
     if [ "$VERBOSE" == "1" ] ; then
      echo -en "\n========CODE GENERATOR LOGS=========\n"
     fi
-    $PYTHON_EXECUTABLE $path/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
+    $PYTHON_EXECUTABLE $path/src/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             # 5.a Call NVCC to compile the CUDA

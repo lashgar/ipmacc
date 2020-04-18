@@ -1,3 +1,5 @@
+# version info: 0.2.0b
+
 import sys
 import os
 from optparse import OptionParser
@@ -15,7 +17,12 @@ class preprocr(object):
         self.foname = foname  #path to the output XML file
         self.fohandle = open(self.foname,'w') #handler to the output XML file
         self.fohandle.write('\n') #initial the output XML file
-        self.lastchar = self.fhandle.read(1)    #last token character by the scanner, not parsed yet
+        self.fcontent = self.fhandle.read() # read entire file
+        self.fcontent = self.fcontent.replace('\\\n','')
+        self.fcontent = self.fcontent.replace('\\\r\n','')
+        self.findex=0
+        self.lastchar = self.fcontent[self.findex]    #last token character by the scanner, not parsed yet
+        self.findex+=1
         self.plastchar = '' # the previous value of lastchar
         self.tagbody = ""   #store the last read characters, soon will be popped as a c, cuda, or acc pragma code
         self.tagbodytemp = ""   #store the last read characters, soon will be appended to tagbody
@@ -51,12 +58,20 @@ class preprocr(object):
         # append the last read character to tagbody and read a new character from fhandle 
         self.tagbody = self.tagbody+self.lastchar
         self.plastchar = self.lastchar
-        self.lastchar = self.fhandle.read(1)
+        if self.findex<len(self.fcontent):
+            self.lastchar = self.fcontent[self.findex]
+            self.findex+=1
+        else:
+            self.lastchar=''
 
     def temp_read(self):
         self.tagbodytemp = self.tagbodytemp+self.lastchar
         self.plastchar = self.lastchar
-        self.lastchar = self.fhandle.read(1)
+        if self.findex<len(self.fcontent):
+            self.lastchar = self.fcontent[self.findex]
+            self.findex+=1
+        else:
+            self.lastchar=''
 
     def temp_ignorewst(self):
         # similar to read, but ignores white spaces (' '), '\t', and '\n'
@@ -89,7 +104,7 @@ class preprocr(object):
             tagtoprint="#pragma acc "
             tagtoprint=tagtoprint+directive+" "
             tagtoprint=tagtoprint+clause+"\n{\n"
-            if (directive=="kernels" or directive=="data" or directive=="loop"):
+            if (directive=="kernels" or directive=="data" or directive=="loop" or directive=="cache" or directive=="atomic"):
                 # find the region
                 self.pendingpragma = self.pendingpragma + 1
             else:
@@ -119,8 +134,16 @@ class preprocr(object):
 
     def labeling(self):
         loopid=1
+        linefeed=False
         while self.lastchar:
             #print self.lastchar
+            #if self.lastchar=='\\' and self.lcomment==False and self.bcomment==False and self.inquota==False:
+            #    # ignore next \n
+            #    self.temp_read()
+            #    if self.lastchar=='\n' or self.lastchar=='\r':
+            #        self.temp_clear()
+            #    else:
+            #        self.temp_append()
             if self.lastchar=='/' and self.lcomment==False and self.bcomment==False and self.inquota==False:
                 #potentially comment
                 self.temp_read()

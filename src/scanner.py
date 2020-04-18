@@ -1,8 +1,11 @@
+# version info: 0.3.0b
+
 from lxml.builder import E
 from lxml import etree
 import sys
 import os
 import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import tostring
 import tempfile
 import re
 
@@ -12,7 +15,7 @@ sys.path.extend(['.', '..', './pycparser/'])
 from pycparser import c_parser, c_ast
 from preprocessor import preprocr
 
-DEBUG=True
+DEBUG=False
 DEBUGUFL=False
 TOSDTOUT=0
 VERBOSE=0
@@ -26,7 +29,7 @@ class scanner(object):
         if DEBUG==3: print(self.fcontent)
         self.foname = foname  #path to the output XML file
         self.fohandle = open(self.foname,'w') #handler to the output XML file
-        self.fohandle.write('<scanner version=\'0.2.2b\'>\n') #initial the output XML file
+        self.fohandle.write('<scanner version=\'0.2.8b\'>\n') #initial the output XML file
         self.fcounter = 0 #index of last read character
         self.flinecount = 0 #number of line read
         if len(self.fcontent)>0:
@@ -83,7 +86,12 @@ class scanner(object):
         if (directive=="loop" or
             directive=="kernels" or
             directive=="data" or
-            directive=="parallel") :
+            directive=="cache" or
+            directive=="algorithm" or
+            directive=="enter" or
+            directive=="exit" or
+            directive=="atomic"):
+            #directive=="parallel") :
             return True
         else:
             self.error("undefined directive: "+directive)
@@ -178,9 +186,12 @@ class scanner(object):
             # construct tag
             tagtoprint="<pragma "
             tagtoprint=tagtoprint+"directive='"+directive+"' "
-            tagtoprint=tagtoprint+"clause='"+clause+"' "
+            #if directive=="cache":
+            #tagtoprint=tagtoprint+"clause='"+clause.strip()[1:-1]+"' "
+            #else:
+            tagtoprint=tagtoprint+"clause='"+clause.strip()+"' "
             tagtoprint=tagtoprint+">"
-            if (directive=="kernels" or directive=="data" or directive=="loop"):
+            if (directive=="kernels" or directive=="data" or directive=="loop" or directive=="cache" or directive=="atomic"):
                 # find the region
                 self.pendingpragma = self.pendingpragma + 1
             else:
@@ -278,7 +289,8 @@ class scanner(object):
             #[afc_flag, f_i, f_expr] = self.analyze_forloop_condition(self.decode(f_iterator.strip()), self.pycparser_getAstTree(self.decode(f_condition)))
             [afc_flag, f_i, f_expr] = self.analyze_forloop_condition(self.decode(f_iterator.strip()), root_cond)
             f_expr      =self.removeall_wrd(f_expr, [self.decode(f_iterator)])
-            f_terminate =self.removeall_ops(f_expr, ['<=', '>=', '<', '>'])
+	    
+            f_terminate =self.removeall_ops(f_expr.replace('->','__ipmacc_pointer_operator'), ['<=', '>=', '<', '>']).replace('__ipmacc_pointer_operator','->')
             if DEBUG:
                 print '===condition=='+str(f_i)+' '+f_terminate+(' with ambiguity!' if afc_flag else '')
             [itcount, afi_flag, operator, step] = self.analyze_forloop_step(self.decode(f_iterator.strip()), root_incr, 0)
@@ -524,6 +536,12 @@ class scanner(object):
         except:
             return False
     def analyze_forloop_condition(self,iterator,root):
+	#print tostring(root)
+	#try:
+ 	#    #print '=========='+root.tag.strip()+'    '+root.attrib['uid']
+	#    print tostring(root)
+	#except:
+	#    ign=True
         if root.tag.strip()=='ID':
             return [False, (True if iterator==root.get('uid').strip() else False), root.get('uid').strip()]
         elif root.tag.strip()=='Constant':
@@ -555,6 +573,20 @@ class scanner(object):
                 code=op2
                 flag=True
             ambig = am1 or am2 or (cr1 and cr2)
+        elif root.tag.strip()=='StructRef':
+            [am1, cr1, op1]=self.analyze_forloop_condition(iterator,root[0])
+            opt=root.get('uid')
+	    #print '=========='+root.tag.strip()+'    '+root.attrib['uid']
+	    #print tostring(root)
+            [am2, cr2, op2]=self.analyze_forloop_condition(iterator,root[1])
+	    joint="->" if root.attrib['uid'].strip()=="->" else "."
+            code='('+op1.strip()+joint+op2.strip()+')'
+            #code='('+op1+'.'+op2+')'
+        elif root.tag.strip()=='ArrayRef':
+            [am1, cr1, op1]=self.analyze_forloop_condition(iterator,root[0])
+            opt=root.get('uid')
+            [am2, cr2, op2]=self.analyze_forloop_condition(iterator,root[1])
+            code=(op1+'['+op2+']')
         else:
             for it in root:
                 [am, cr, cd] = self.analyze_forloop_condition(iterator, it)

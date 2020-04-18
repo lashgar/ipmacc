@@ -1,3 +1,5 @@
+# version info: 1.1.0b
+
 import sys
 import re
 import xml.etree.ElementTree as ET
@@ -10,7 +12,7 @@ ipmaccprefix=os.path.dirname(os.path.realpath(__file__))+"/../"
 sys.path.extend(['.', '..', ipmaccprefix+'./pycparser/', ipmaccprefix+"/srcML/wrapper/"])
 from pycparser import c_parser, c_ast
 from utils_clause import clauseDecomposer,clauseDecomposer_break
-from wrapper import srcml_code2xml, srcml_get_fcn_calls, srcml_get_var_details, srcml_get_parent_fcn, srcml_get_all_ids, srcml_get_declared_vars, srcml_find_var_size, srcml_get_fwdecls, srcml_prefix_functions,srcml_get_dependentVars,srcml_get_active_types
+from wrapper import srcml_code2xml, srcml_get_fcn_calls, srcml_get_var_details, srcml_get_parent_fcn, srcml_get_all_ids, srcml_get_declared_vars, srcml_find_var_size, srcml_get_fwdecls, srcml_prefix_functions,srcml_get_dependentVars,srcml_get_active_types,srcml_get_arrayaccesses,srcml_is_written
 
 from subprocess import call, Popen, PIPE
 import tempfile
@@ -61,6 +63,27 @@ DEBUGENTEREXIT=False
 DEBUGSCALRVAR=False
 DEBUGDETAILPROC=False #debug procedures providing detailed analysis of procedure calls
 DEBUGCOMPRESSION=False # debug compression directive
+DEBUGPRFR=False
+
+# CACHE IMPLEMENTATION CONFIGURATION
+CACHE_IMPL_MATHOD_RBI = 0
+CACHE_IMPL_MATHOD_RBC = 1
+CACHE_IMPL_MATHOD_EHC = 2 # not implemented
+CACHE_IMPL_MATHOD = CACHE_IMPL_MATHOD_RBI
+CACHE_RBX_POINTER_TYPE_COMMUN  = 0
+CACHE_RBX_POINTER_TYPE_PRIVATE = 1
+CACHE_RBX_POINTER_TYPE = CACHE_RBX_POINTER_TYPE_COMMUN
+CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_SYNC  = 0
+CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_ARG   = 1
+CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_FIXED = 2
+CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD = CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_FIXED
+
+def print_error(err_msg, details):
+    print 'internal error:', err_msg
+    for s in details:
+        print s
+    print 'aborting()'
+    exit(-1)
 
 class bcolors:
     HEADER = '\033[95m'
@@ -86,7 +109,9 @@ class compVar(object):
         self.scope=""
         self.compLevel=""
 class codegen(object):
-    def __init__(self, target, foname, nvcc_args, optimizations):
+
+
+    def __init__(self, target, foname, nvcc_args, optimizations, perforationconf):
         self.oacc_kernelId=0     # number of kernels which are replaced by function calls
         self.oacc_kernels=[]     # array of kernels' roots (each element of array is ElementTree)
         self.oacc_kernelsParent=[]   # array of functions name, indicating which function is the parent of kernel (associated with each elemnt in self.oacc_kernels)
@@ -198,22 +223,32 @@ class codegen(object):
 
         self.code_kernels=[] # list of code generated for kernels
         self.nvcc_args=nvcc_args
+        # configure codegenerator to enable optimizations 
         self.optimizations=optimizations
-        self.optimizations_valid=['readonlycache']
+        self.optimizations_valid=['readonlycache'
+                                  ]
         for opt1 in optimizations.split(','):
-            found=False
-            for opt2 in self.optimizations_valid:
-                if opt1.strip()==opt2.strip():
-                    found=True
+            found= opt1.strip() in self.optimizations_valid
             if not found and opt1.strip()!='':
                 print 'invalid optimization switch: '+opt1
                 exit(-1)
-        self.opt_readonlycache=False
-        try:
-            optimizations.split(',').index('readonlycache')
-            self.opt_readonlycache=True
-        except:
-            self.opt_readonlycache=False
+        self.opt_readonlycache= 'readonlycache' in optimizations.split(',')
+        # configure codegenerator to enable perforations
+        perforationfixtp = perforationconf.split(',')[0]
+        perforationgrids = perforationconf.find('shrink')!=-1
+
+        self.perforationshrink = perforationgrids
+        self.perforationfixtyp = perforationfixtp if perforationfixtp!='' else 'non'
+        self.perforationfixtyp_valid=['non',
+                                      'fixcpy',
+                                      'fixavg',
+                                      'fixmin',
+                                      'fixmax',
+                                      'fixwav'
+                                      ]
+        self.perforationrates = [] # list of pair of perforation rate and kernel id
+        if self.perforationfixtyp.strip()!='' and (not self.perforationfixtyp in self.perforationfixtyp_valid):
+            print_error('invalid perforation type '+self.perforationfixtyp, [])
 
         # variable mapper
         self.varmapper=[]   # tuple of (function_name, host_variable_name, device_variable_name)
@@ -564,8 +599,21 @@ class codegen(object):
             for v in vars:
                 varsT+=v.split(op)
             vars=varsT
-        [srcmlO1, srcmlO2, srcmlO3] = srcml_get_dependentVars(srcml_code2xml(kernelB),vars)
+        [srcmlO1, srcmlO2, srcmlO3, srcmlO4] = srcml_get_dependentVars(srcml_code2xml(kernelB),vars)
+        # print 'iterators:', ','.join(listOfIterators)
+        # print 'statement:', statement
+        # print 'vars:', vars
+        # print srcmlO1
+        # print srcmlO2
+        # print srcmlO3
+        # print srcmlO4
+        # print 'kernel:', kernelB
+
         for v1 in listOfIterators:
+            for v2 in vars:
+                if v1.strip()==v2.strip():
+                    if WARNINGSMC: print 'SMC warning: found pivot element dependent on loop iterators!\n\t'+v1+'\t'+v2
+                    return True
             for vList in srcmlO3:
                 for v2 in vList:
                     #print v1+' '+v2
@@ -748,7 +796,14 @@ class codegen(object):
             self.code=self.code+('\t'*depth)+self.prefix_datacpin+str(self.oacc_copyId)+'();'
             copyoutId=self.oacc_copyId
             self.oacc_copyId=self.oacc_copyId+1
-            self.oacc_copys.append([self.oacc_kernelId,expressionAll])
+            regex = re.compile(r'([a-zA-Z0-9_]*)([=])(\")([a-zA-Z0-9_:/\+\^\|\&\(\)\*\ \[\]\.><-]*)(\")')
+            d_copydetails = []
+            for expr in expressionAll.split('\n'):
+                dicent = {}
+                for (a, b, c, d, e) in regex.findall(expr):
+                    dicent[a] = d
+                d_copydetails.append(dicent)
+            self.oacc_copys.append([self.oacc_kernelId,d_copydetails])
             return copyoutId
 
     def oacc_data_dynamicAllowed(self, clause):
@@ -1332,6 +1387,7 @@ class codegen(object):
         #self.cuda_kernelproto+=kerPro
         self.cuda_kerneldecl +=kerDec
         [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kerId)
+        args_last_grid_details = []
         if nctadim>1 or GENMULTIDIMTB:
             if DEBUGMULTIDIMTB:
                 print 'injecting thread-block code:'
@@ -1357,12 +1413,14 @@ class codegen(object):
                 #dim3_gridblock+='__ipmacc_blockDim.'+ch+'='+self.blockDim_cuda_xyz+';\n'
                 padgrid='(((int)ceil('+forDims[f]+')%('+dimension+'))==0?0:1)'
                 dim3_gridblock+='__ipmacc_gridDim.'+ch+'=(('+forDims[f]+')/__ipmacc_blockDim.'+ch+')+('+padgrid+');\n'
+                args_last_grid_details.append('\n((int)'+forDims[f]+')%('+dimension+')==0?'+dimension+':((int)'+forDims[f]+')%('+dimension+')')
             if DEBUGMULTIDIMTB:
                 print dim3_gridblock
         else:
             blockDim=ctadimx #self.blockDim_cuda
             padgrid='(((int)ceil('+forDims+')%('+blockDim+'))==0?0:1)'
             gridDim='('+forDims+')/'+blockDim+'+'+padgrid
+            args_last_grid_details.append('\n((int)'+forDims+')%('+blockDim+')==0?'+blockDim+':((int)'+forDims+')%('+blockDim+')')
 
         callArgs=[]
         atomicRegion=False
@@ -1392,6 +1450,12 @@ class codegen(object):
                 callArgs.append( '\n'+argName)
             else:
                 callArgs.append( ('\n('+argType+')acc_deviceptr((void*)'+argName+')') if argType.find('*')!=-1 else '\n'+argName)
+
+        if CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD==CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_ARG:
+            for i in range(len(args_last_grid_details),3):
+                args_last_grid_details.append('\n1')
+            callArgs+=args_last_grid_details
+
         kernelInvoc='\n/* kernel call statement '+str(self.oacc_kernelsAssociatedCopyIds[kerId])+'*/\n{\n'
         if atomicRegion:
             if DEBUGATOMIC: print 'atomic found!'
@@ -1408,7 +1472,7 @@ class codegen(object):
             kernelInvoc+='if (getenv("IPMACC_VERBOSE")){\nprintf("IPMACC: Launching kernel '+str(kerId)+' > gridDim: (%u,%u,%u)\\tblockDim: (%u,%u,%u) shared memory size (bytes): %d\\n",__ipmacc_gridDim.x,__ipmacc_gridDim.y,__ipmacc_gridDim.z,__ipmacc_blockDim.x,__ipmacc_blockDim.y,__ipmacc_blockDim.z, '+dynamic_shared_memory_size+');\n}\n'
             if PROFILER:
                 kernelInvoc+='acc_profiler_start();\n'
-            #kernelInvoc+=self.prefix_kernel_gen+str(kerId)+'<<<__ipmacc_gridDim,__ipmacc_blockDim>>>('+(','.join(callArgs))+');' # Before adding compression.
+            kernelInvoc += self.perforation_gen_expansion(kerId)
             kernelInvoc+=self.prefix_kernel_gen+str(kerId)+('_compression' if len(self.oacc_kernelsComp[kerId])!=0 else '')+'<<<__ipmacc_gridDim,__ipmacc_blockDim,'+ dynamic_shared_memory_size +'>>>('+(','.join(callArgs))+');'
             if PROFILER:
                 kernelInvoc+='acc_profiler_end(0);\n'
@@ -1423,6 +1487,7 @@ class codegen(object):
             dynamic_shared_memory_size = '0' 
             #dynamic_shared_memory_size = '0' if len(self.cuda_shared_memory_dynamic_alloc)==0 else '(' + ')*('.join(self.cuda_shared_memory_dynamic_alloc) + ')'
             #dynamic_shared_memory_size = dynamic_shared_memory_size.replace('blockDim', blockDim)
+            kernelInvoc += self.perforation_gen_expansion(kerId)
             kernelInvoc+=self.prefix_kernel_gen+str(kerId)+('_compression' if len(self.oacc_kernelsComp[kerId])!=0 else '')+'<<< griddim_x, '+blockDim+', '+dynamic_shared_memory_size+'>>>('+(','.join(callArgs))+');'
             if PROFILER:
                 kernelInvoc+='acc_profiler_end(0);\n'
@@ -1616,8 +1681,16 @@ class codegen(object):
             code+='//^D end global critical secion\n'
         code+='}\n'
         return code
+
+
+
     def constructKernel_cuda(self, args, decl, kernelB, kernelId, privinfo, reduinfo, ctasize, forDims, template, smcinfo, compInfo):
         [nctadim, ctadimx, ctadimy, ctadimz]=ctasize
+        # append SMC arguments
+        args_extra = []
+        if CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD==CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_ARG:
+            for ch in ['x', 'y', 'z']:
+                args_extra.append('unsigned int __ipmacc_last_blockdim_'+ch)
         ############ After adding compression
         compCodeInit=''
         simpleCodeInit=''
@@ -1630,6 +1703,7 @@ class codegen(object):
                     if arg.replace('*',' ').split()[-1].replace('__ipmacc_deviceptr','').replace('__ipmacc_opt_readonlycache','')==str(compVarObj.varName):
                         coefArgs.append(('__compress_constant_'+str(compVarObj.varName)).join(arg.rsplit(str(compVarObj.varName),1)))
                         compCodeInit+='#define '+str(compVarObj.varName)+'(index) decompress_'+arg.replace('*',' ').split()[0]+'((void*)'+str(compVarObj.varName)+', index, __compress_constant_main_'+str(compVarObj.varName)+')\n'
+                        print 'warning: might not work if', arg, 'type is greater than one word.'
                         compVarObj.type=arg.replace('*',' ').split()[0]
             compCodeInit+=template+' __global__ void '+self.prefix_kernel_gen+str(kernelId)+'_compression'
             #compCodeInit+='('+(','.join(args+coefArgs)).replace('__ipmacc_deviceptr','')+')'
@@ -1648,9 +1722,9 @@ class codegen(object):
         #print "lashgar goft:"+simpleCodeInit
         #simpleCodeInit+='('+(','.join(args)).replace('__ipmacc_deviceptr','')+')'
         if self.opt_readonlycache:
-            simpleCodeInit+='('+(','.join(args)).replace('__ipmacc_deviceptr','').replace('__ipmacc_container','')+')'
+            simpleCodeInit+='('+(','.join(args+args_extra)).replace('__ipmacc_deviceptr','').replace('__ipmacc_container','')+')'
         else:
-            simpleCodeInit+='('+(','.join(args)).replace('__ipmacc_deviceptr','').replace('__ipmacc_container','').replace('__ipmacc_opt_readonlycache','')+')'
+            simpleCodeInit+='('+(','.join(args+args_extra)).replace('__ipmacc_deviceptr','').replace('__ipmacc_container','').replace('__ipmacc_opt_readonlycache','')+')'
         proto+='\n'+simpleCodeInit+';\n\n'
         #################
 
@@ -1674,8 +1748,8 @@ class codegen(object):
         for sc in args:
             if sc.find('__ipmacc_scalar')!=-1:
                 vname=sc.split(' ')[-1]
-                type=sc.replace(vname,'').replace('*','')
-                code+=type+' '+vname.replace('__ipmacc_scalar','')+' = '+vname+'[0];\n'
+                s_type=sc.replace(vname,'').replace('*','')
+                code+=s_type+' '+vname.replace('__ipmacc_scalar','')+' = '+vname+'[0];\n'
                 code+='bool '+vname.replace('__ipmacc_scalar','')+'__ipmacc_guard = false;\n'
         #code+='if('+self.prefix_kernel_uid_x+'>='+forDims+'){\nreturn;\n}\n'
         if len(reduinfo+privinfo)>0:
@@ -1764,14 +1838,28 @@ class codegen(object):
             if DEBUGSMC: print 'found smc clause'
             pfreelist=[]
             fusionSMC=[]
-            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range] in smcinfo:
+            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range, vcode] in smcinfo:
+
+                if DEBUGSMC:
+                    self.debug_dump_smcInfo([[v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range, vcode]])
+                # skip if the pivot is not in the normal form or
+                # the directive is called from a `potentially' divergent path
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
-                try:
-                    tagbasedcache_size = str(int(div.replace('tag','')))
-                    tagbasedcache_datp = ' int '
-                except:
-                    tagbasedcache_size = ''
-                    tagbasedcache_datp = ' int '
+                if (not (self.smc_cache_base_is_normal(p, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB) and\
+                         self.smc_cache_base_is_normal(pivot2, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB)))\
+                        or self.smc_cache_is_divergent(fcall, kernelB):
+                    fcallst=self.prefix_kernel_smc_fetch+str(a)+'();'
+                    fcallen=self.prefix_kernel_smc_fetchend+str(a)+'();'
+                    kernelB = kernelB.replace(fcallst,'').replace(fcallen,'')
+                    print 'warning: skipping cache directive;', 'cannot perform effective optimizations.'
+                    continue
+
+                # try:
+                #     tagbasedcache_size = str(int(div.replace('tag','')))
+                #     tagbasedcache_datp = ' int '
+                # except:
+                #     tagbasedcache_size = ''
+                #     tagbasedcache_datp = ' int '
 
                 # can it be merged with previous smc code?
                 isfusion=False
@@ -1791,122 +1879,124 @@ class codegen(object):
                 if dim2high=='' and dim2low=='':
                     # for 1D SMC
                     [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kernelId)
-                    length=ctadimx+'+'+dw+'+'+up
-                    #length=self.blockDim_cuda+'+'+dw+'+'+up
-                    # declare local memories
-                    decl+='\n/* declare the shared memory of '+v+' */\n'
-                    decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+'];\n'
-                    decl+='//__shared__ unsigned char '+self.prefix_kernel_smc_tagpref+v+'['+length+'];\n'
-                    decl+='int '+self.prefix_kernel_smc_startpointer+v+';\n'
-                    decl+='int '+self.prefix_kernel_smc_endpointer+v+';\n'
-                    decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
-                    decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
-                    decl+='/*{\n'
-                    decl+='int iterator_of_smc=0;\n'
-                    decl+='for(iterator_of_smc=threadIdx.x; iterator_of_smc<('+length+'); iterator_of_smc+=blockDim.x){\n'
-                    decl+='//'+self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
-                    decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc]=0;\n'
-                    decl+='}\n__syncthreads();\n'
-                    decl+='}*/\n'
+                    [f_is_stataic_p, f_is_stataic_p2, length, length_2, smc_decl_part]\
+                        = self.oacc_smc_codegen_declaration(kernelId, kernelB, p, pivot2,\
+                                                            v, up, dw, up2range, dw2range,\
+                                                            ctadimx, ctadimy, t, 1)
+                    decl += smc_decl_part
+                    # print decl
                     if st=='READ_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL':
-                        # fetch data to local memory
-                        datafetch ='{ // fetch begins\n'
-                        datafetch +=' // FIXME: this region should be unmasked, having all threads of the thread-block active,\n'
-                        datafetch +=' //        this is not the case always.\n'
-                        # specify the boundry 
-                        # start address
-                        #  ALT 1: #turn start/end variables to shared
-                        #datafetch+='__syncthreads();\n'
-                        #datafetch+='if(threadIdx.x==0){\n'
-                        #datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
-                        #datafetch+='}\n'
-                        #  ALT 2: 
-                        if (self.is_function_of_iterator_var(kernelId,kernelB,p)):
-                            datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+'-threadIdx.x;\n'
-                        else:
-                            datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
-                        #  end address 
-                        datafetch+='int __ipmacc_stride=blockDim.x;\n'
-                        # ALT 1: 
-                        #datafetch+='if(blockIdx.x==(gridDim.x-1)){\n'
-                        #datafetch+='    __ipmacc_stride=__syncthreads_count(1);\n'
-                        #datafetch+='}else{\n'
-                        #datafetch+='    __ipmacc_stride=blockDim.x;\n'
-                        #datafetch+='}\n'
-                        #datafetch+='if(threadIdx.x==(__ipmacc_stride-1)){\n'
-                        #datafetch+=self.prefix_kernel_smc_endpointer+v+'='+p+'+'+up+';\n'
-                        #datafetch+='}\n'
-                        #if div=='false':
-                        #    datafetch+='if(threadIdx.x==('+self.blockDim_cuda+'-1)){\n'
-                        #else:
-                        #    datafetch+='int __ipmacc_end_thread=__syncthreads_count(1)-1;\n'
-                        #    datafetch+='if(threadIdx.x==__ipmacc_end_thread){\n'
-                        #datafetch+=self.prefix_kernel_smc_endpointer+v+'='+p+'+'+up+';\n'
-                        #datafetch+='}\n'
-                        #datafetch+='if(threadIdx.x==0){\n'+self.prefix_kernel_smc_startpointer+v+'=(blockIdx.x*'+self.blockDim_cuda+')-'+dw+'+'+p+';\n}\n'
-                        #datafetch+='__syncthreads();\n'
-                        # ALT 2: 
-                        datafetch+="bool lastcol= blockIdx.x==(gridDim.x-1);\n"
-                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastcol)?'+dimhi+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
-                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(('+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1)<=('+length+'))?('+self.prefix_kernel_smc_endpointer+v+'):(blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1);\n'
-                        # fetch the data in using parallel available threads of thread-block
-                        datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
-                        if GENDEBUGCODE:
-                            datafetch+='assert((__ipmacc_length)<=(256+'+dw+'+'+up+'));\n' #FIXME
-                        #datafetch+='assert('+self.prefix_kernel_smc_startpointer+v+'>0);\n'
-                        #datafetch+='assert('+self.prefix_kernel_smc_endpointer+v+'>0);\n'
-                        #if div=='false':
-                        #    datafetch+='int __ipmacc_stride=blockDim.x;\n__syncthreads();\n'
-                        #else:
-                        #    datafetch+='int __ipmacc_stride=__syncthreads_count(1);\n'
-                        datafetch+='int kk=0;\n'
-                        if dw.strip()=='0' and up.strip()=='0':
-                            datafetch+="kk=threadIdx.x;\n";
-                        else:
-                            datafetch+='for(int kk=threadIdx.x; kk<__ipmacc_length; kk+=__ipmacc_stride)\n'
-                        #datafetch+='for(int kk=threadIdx.x; kk<('+length+'); kk+=stride)\n'
-                        #datafetch+='for(int kk=threadIdx.x; kk<('+length+'); kk+=blockDim.x)\n'
-                        datafetch+='{\n'
-                        datafetch+='int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
-                        #datafetch+='int idx=blockIdx.x*'+self.blockDim_cuda+'+kk-'+dw+'+'+p+';\n'
-                        datafetch+='if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
-                        datafetch+='{\n'
-                        datafetch+=self.prefix_kernel_smc_varpref+v+'[kk]='+v+'[idx];\n'
-                        datafetch+='//'+self.prefix_kernel_smc_tagpref+v+'[kk]=1;\n'
-                        datafetch+='}\n'
-                        datafetch+='}\n'
-                        datafetch+='__syncthreads();\n'
-                        datafetch+='} // end of fetch\n'
-                        # pragma to replace global memory access with smc 
-                        datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_endpointer+v+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
-                        #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
-                        kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
+                        pre_region ='__syncthreads();\n'
+                        pre_region+='{ // fetch begins\n'
+                        # 1. specify the boundry 
+                        [set_boundary_pointers, kernelB] = self.oacc_smc_codegen_set_boundary_pointers(\
+                                        kernelId, kernelB, p, pivot2, v, up, dw,\
+                                        up2range, dw2range, ctadimx, ctadimy, t,\
+                                        isfusion, fusionIdx, fusionSMC,\
+                                        f_is_stataic_p, f_is_stataic_p2, 1)
+                        # 2. fetch the data in using parallel available threads of thread-block
+                        [datafetch, kernelB] = self.oacc_smc_codegen_initial_fetch(\
+                                        kernelId, kernelB, p, pivot2, v, up, dw,\
+                                        up2range, dw2range, ctadimx, ctadimy, t,\
+                                        dimlo, dimhi, dim2low, dim2high,\
+                                        isfusion, fusionIdx, fusionSMC,\
+                                        f_is_stataic_p, f_is_stataic_p2, 1)
+                        post_region='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_endpointer+v+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
+                        code_to_inject = pre_region+set_boundary_pointers+datafetch+post_region+'\n'+fcall
+                        kernelB = kernelB.replace(fcall, code_to_inject)
+
+
+
+                    # [nctadim, ctadimx, ctadimy, ctadimz]=self.oacc_kernelsConfig_getDecl(kernelId)
+                    # # print type(ctadimx), type(dw), type(up)
+                    # length=ctadimx+'+'+dw+'+'+up
+                    # #length=self.blockDim_cuda+'+'+dw+'+'+up
+                    # # declare local memories
+                    # decl+='\n/* declare the shared memory of '+v+' */\n'
+                    # decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+'];\n'
+                    # decl+='//__shared__ unsigned char '+self.prefix_kernel_smc_tagpref+v+'['+length+'];\n'
+                    # if CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_COMMUN:  
+                    #     decl+='__shared__ int '+self.prefix_kernel_smc_startpointer+v+';\n'
+                    #     decl+='__shared__ int '+self.prefix_kernel_smc_endpointer+v+';\n'
+                    # elif CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_PRIVATE:
+                    #     decl+='int '+self.prefix_kernel_smc_startpointer+v+';\n'
+                    #     decl+='int '+self.prefix_kernel_smc_endpointer+v+';\n'
+                    # else:
+                    #     print_error('cache: unknown pointer calculation method!', [])
+                    # decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
+                    # decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
+                    # decl+='/*{\n'
+                    # decl+='int iterator_of_smc=0;\n'
+                    # decl+='for(iterator_of_smc=threadIdx.x; iterator_of_smc<('+length+'); iterator_of_smc+=blockDim.x){\n'
+                    # decl+='//'+self.prefix_kernel_smc_varpref+v+'[iterator_of_smc]=0;\n'
+                    # decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc]=0;\n'
+                    # decl+='}\n__syncthreads();\n'
+                    # decl+='}*/\n'
+                    # if st=='READ_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL':
+                    #     # fetch data to local memory
+                    #     datafetch ='{ // fetch begins\n'
+                    #     datafetch +=' // FIXME: this region should be unmasked, having all threads of the thread-block active,\n'
+                    #     datafetch +=' //        this is not the case always.\n'
+                    #     if CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_COMMUN:  
+                    #         datafetch +="""int __ipmacc_stride=__syncthreads_count(true);
+                    #                        if(threadIdx.x==0){
+                    #                            """+self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+""";
+                    #                        }
+                    #                        if(threadIdx.x==(__ipmacc_stride-1)){
+                    #                            """+self.prefix_kernel_smc_endpointer+v+'='+p+'+'+dw+'+'+up+""";
+                    #                        }
+                    #                        __syncthreads();
+                    #                     """
+                    #     elif CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_PRIVATE:
+                    #         datafetch+='int __ipmacc_stride=blockDim.x;\n'
+                    #         datafetch+="bool lastcol= blockIdx.x==(gridDim.x-1);\n"
+                    #         if (self.is_function_of_iterator_var(kernelId,kernelB,p)):
+                    #             datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+'-threadIdx.x;\n'
+                    #             datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
+                    #         else:
+                    #             datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
+                    #             datafetch+=self.prefix_kernel_smc_endpointer+v+'='+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+';\n'
+                    #     else:
+                    #         print_error('cache: unknown pointer calculation method!', [])
+                    #     datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
+                    #     if GENDEBUGCODE:
+                    #         datafetch+='assert((__ipmacc_length)<=(256+'+dw+'+'+up+'));\n' #FIXME
+                    #     datafetch+='int kk=0;\n'
+                    #     if dw.strip()=='0' and up.strip()=='0':
+                    #         datafetch+="kk=threadIdx.x;\n";
+                    #     else:
+                    #         datafetch+='for(int kk=threadIdx.x; kk<__ipmacc_length; kk+=__ipmacc_stride)\n'
+                    #     datafetch+='{\n'
+                    #     datafetch+='int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
+                    #     datafetch+='if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
+                    #     datafetch+='{\n'
+                    #     datafetch+=self.prefix_kernel_smc_varpref+v+'[kk]='+v+'[idx];\n'
+                    #     datafetch+='//'+self.prefix_kernel_smc_tagpref+v+'[kk]=1;\n'
+                    #     datafetch+='}\n'
+                    #     datafetch+='}\n'
+                    #     datafetch+='__syncthreads();\n'
+                    #     datafetch+='} // end of fetch\n'
+                    #     # pragma to replace global memory access with smc 
+                    #     datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_endpointer+v+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
+                    #     kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
                     # construct the smc_select_ per array for READ
                     smc_select_calls+='__forceinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index, '+t+' g_array, '+t+' s_array, int startptr, int endptr, int diff){\n'
                     if div=='false':
                         smc_select_calls+='// the pragmas are well-set. do not check the boundaries.\n'
-                        #smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
                         if GENDEBUGCODE:
                             smc_select_calls+='assert((index-startptr)>=0);\n' #FIXME
                             smc_select_calls+='assert((index-startptr)<260);\n' #FIXME
                             smc_select_calls+='assert(index>=lbnd);\n'
                             smc_select_calls+='assert(index>=down);\n'
                             smc_select_calls+='assert(index<ubnd);\n'
-                            #smc_select_calls+='printf("tid: %d index: %d down: %d up: %d\\n",threadIdx.x,index,down,up);\n'
                             smc_select_calls+='assert(index<=up);\n'
                         smc_select_calls+='return s_array[index-startptr];\n'
                     else:
                         smc_select_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                         smc_select_calls+='// dynamic runtime performs the check\n'
-                        #smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
-                        #smc_select_calls+='bool b=index<=up && index<ubnd;\n'
-                        #smc_select_calls+='bool d=a&b;\n'
                         smc_select_calls+=t.replace('*','')+' ret = s_array[diff];\n'
                         smc_select_calls+='if(!(startptr<=index && index<=endptr)){\n'
-                        #smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
-                        #smc_select_calls+='return s_array[diff];\n' #FIXME seriously
                         smc_select_calls+=' ret = g_array[index];\n' #FIXME seriously
-                        #smc_select_calls+='}else{ ret = s_array[diff];\n' #FIXME seriously
                         smc_select_calls+='}\n'
                         smc_select_calls+='return ret;\n'
                     smc_select_calls+='}\n'
@@ -1915,7 +2005,6 @@ class codegen(object):
                     if div=='false':
                         smc_write_calls+='// the pragmas are well-set. do not check the boundaries.\n'
                         smc_write_calls+='s_array[index-startptr]=value;\n'
-                        #smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
                     else:
                         smc_write_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
                         smc_write_calls+='// dynamic runtime performs the check\n'
@@ -1924,7 +2013,6 @@ class codegen(object):
                         smc_write_calls+='bool d=a&b;\n'
                         smc_write_calls+='if(d){\n'
                         smc_write_calls+='s_array[index-startptr]=value;\n'
-                        #smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
                         smc_write_calls+='}\n'
                         smc_write_calls+='g_array[index]=value;\n'
                     smc_write_calls+='}\n'
@@ -1943,17 +2031,14 @@ class codegen(object):
                         [idx_s, idx_e]=readIdxStartEndPtrs[idx_num]
                         if DEBUGSMCPRECALCINDEX:
                             print '> '+kernelB[idx_s:idx_e]
-                        #kernelB=kernelB[:idx_s]+self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']'+' /* replacing '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
                         if div=='false':
                             kernelB=kernelB[:idx_s]+self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']'+' /* replacing '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
-                            #kernelB=kernelB[:idx_s]+self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim2'+']'+' /* replacing '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
                         else:
                             [tmp_idx1, tmp_idx2] = self.decompose1Dindexto2D(unifiedIdxSet[unifiedIdxList[idx_num]], '0', '', '1D')
                             tmp_diff1=tmp_idx1+'-'+self.prefix_kernel_smc_startpointer+v
                             access_tmp='__smc_select_'+str(a)+'_'+v+'('+tmp_idx1+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_endpointer+v+', '+tmp_diff1+')'
                             kernelB=kernelB[:idx_s]+access_tmp+'/* '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
 
-                    #[writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
                     indexCalculationCode=self.smc_get_indexCalculation(readIdxSet, readIdxList, v, dim2high, writeIdxSet, writeIdxList, unifiedIdxSet, unifiedIdxList, '1D')
                     kernelB=kernelB.replace(fcall,indexCalculationCode+fcall)
                     changeRangeIdx_start=kernelB.find(fcallst)
@@ -1965,98 +2050,10 @@ class codegen(object):
                         [v, a, p, dw, up, wst, wen, asgidx]=writeIdxStartEndPtrs[wi]
                         writeIdx_loc=']'.join('['.join(kernelB[wst:asgidx].split('[')[1:]).split(']')[:-1])
                         writeIdx_val=kernelB[asgidx+1:wen]
-                        #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+','+self.prefix_kernel_smc_startpointer+v+');\n'
-                        # ALT1: 
-                        #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+', '+writeIdx_val[:-1]+');\n'
-                        #writeIdx_replacer+='__syncthreads();\n'
-                        # ALT2: 
                         writeIdx_replacer ='__syncthreads();\n'
                         writeIdx_replacer+=self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim1'+']='+writeIdx_val[:-1]+';\n'
                         writeIdx_replacer+='__syncthreads();\n'
                         kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
-                    """
-                    # replace array-ref [] with function call ()
-                    fcallst=self.prefix_kernel_smc_fetch+str(a)+'();'
-                    fcallen=self.prefix_kernel_smc_fetchend+str(a)+'();'
-                    changeRangeIdx_start=kernelB.find(fcallst)
-                    changeRangeIdx_end=kernelB.find(fcallen)
-                    #print kernelB[changeRangeIdx_start:changeRangeIdx_end]
-                    if (changeRangeIdx_start==-1 ) or (changeRangeIdx_end==-1) or (changeRangeIdx_start>changeRangeIdx_end):
-                        print 'fatal error! could not determine the smc range for '+v
-                        exit(-1)
-                    # for each arrayReference of 'v', replace [] with ()
-                    writeIdxList=[]
-                    for arrayRef in re.finditer('\\b'+v+'[\\ \\t\\n\\r]*\[',kernelB[changeRangeIdx_start:changeRangeIdx_end]):
-                        #skip to the end of variable
-                        arrayRef_it=changeRangeIdx_start+arrayRef.start(0)
-                        arrayRef_pcnt=0
-                        done=False
-                        while not done:
-                            if kernelB[arrayRef_it]=='[':
-                                #if arrayRef_pcnt==0:
-                                    #kernelB[arrayRef_it]='('
-                                    #kernelB=kernelB[:arrayRef_it]+'('+kernelB[arrayRef_it+1:]
-                                arrayRef_pcnt+=1
-                            elif kernelB[arrayRef_it]==']':
-                                arrayRef_pcnt-=1
-                                if arrayRef_pcnt==0:
-                                    #kernelB[arrayRef_it]=')'
-                                    #kernelB=kernelB[:arrayRef_it]+')'+kernelB[arrayRef_it+1:]
-                                    done=True
-                            arrayRef_it+=1
-                        # check whether it is a write access
-                        iswrite=False
-                        assignmentIdx=-1
-                        assignmentOpr='='
-                        while True:
-                            if kernelB[arrayRef_it]==';':
-                                break
-                            elif kernelB[arrayRef_it]=='=' and kernelB[arrayRef_it+1]!='=' and (kernelB[arrayRef_it-1]==' ' or kernelB[arrayRef_it-1]=='\t' or kernelB[arrayRef_it-1]=='\n' or kernelB[arrayRef_it-1]=='+' or kernelB[arrayRef_it-1]=='|' or kernelB[arrayRef_it-1]=='&' or kernelB[arrayRef_it-1]=='-' or kernelB[arrayRef_it-1]=='\\' or kernelB[arrayRef_it-1]=='*' or kernelB[arrayRef_it-1]=='^' or kernelB[arrayRef_it-1]=='%' or kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
-                                iswrite=True
-                                assignmentIdx=arrayRef_it
-                                if not (kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
-                                    assignmentOpr=(kernelB[arrayRef_it-1]+'=').strip()
-                            arrayRef_it+=1
-                        # keep the track of write accesses 
-                        if iswrite and (st=='WRITE_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL'):
-                            writeIdx_str=changeRangeIdx_start+arrayRef.start(0)
-                            writeIdx_end=arrayRef_it+1
-                            writeIdx_loc=']'.join('['.join(kernelB[writeIdx_str:assignmentIdx].split('[')[1:]).split(']')[:-1])
-                            writeIdx_val=kernelB[assignmentIdx+1:writeIdx_end]
-                            #writeIdx_replacer='__smc_write_'+str(a)+'_'+v+'('+v+','+self.prefix_kernel_smc_varpref+v+','+writeIdx_loc+','+writeIdx_val[:-1]+');'
-                            #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', ('+self.prefix_kernel_smc_startpointer+v+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+', '+self.prefix_kernel_smc_startpointer+v+');\n'
-                            writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+', '+self.prefix_kernel_smc_startpointer+v+');\n'
-                            writeIdx_replacer+='__syncthreads();\n'
-                            writeIdxList.append([v, a, p, dw, up, writeIdx_str, writeIdx_end, assignmentIdx])
-                            print 'smc: write-access on ->\n\tlocation:'+writeIdx_loc+'\n\tstart-in-kernelB:'+str(writeIdx_str)+'\n\tend-in-kernelB:'+str(writeIdx_end)+'\n\tvalue-in-kernelB:'+writeIdx_val+'\n\tend-to-end-statement:<<'+kernelB[writeIdx_str:writeIdx_end]+'>> \n\treplacer:'+writeIdx_replacer
-                            #kernelB[changeRangeIdx_start+arrayRef.start(0):assignmentIdx]+')('+kernelB[assignmentIdx+1:arrayRef_it]+')'
-                        if (st=='READ_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL') and not iswrite:
-                            #replace [ and ] with ( and )
-                            arrayRef_it=changeRangeIdx_start+arrayRef.start(0)
-                            arrayRef_pcnt=0
-                            done=False
-                            while not done:
-                                if kernelB[arrayRef_it]=='[':
-                                    if arrayRef_pcnt==0:
-                                        #kernelB[arrayRef_it]='('
-                                        kernelB=kernelB[:arrayRef_it]+'('+kernelB[arrayRef_it+1:]
-                                    arrayRef_pcnt+=1
-                                elif kernelB[arrayRef_it]==']':
-                                    arrayRef_pcnt-=1
-                                    if arrayRef_pcnt==0:
-                                        #kernelB[arrayRef_it]=')'
-                                        kernelB=kernelB[:arrayRef_it]+')'+kernelB[arrayRef_it+1:]
-                                        done=True
-                                arrayRef_it+=1
-                    # unpack and replace write-accesses
-                    for wi in range(len(writeIdxList)-1,-1,-1):
-                        [v, a, p, dw, up, wst, wen, asgidx]=writeIdxList[wi]
-                        writeIdx_loc=']'.join('['.join(kernelB[wst:asgidx].split('[')[1:]).split(']')[:-1])
-                        writeIdx_val=kernelB[asgidx+1:wen]
-                        writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+','+self.prefix_kernel_smc_startpointer+v+');\n'
-                        writeIdx_replacer+='__syncthreads();\n'
-                        kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
-                    """
                     # generate writeback code
                     if st=='READ_WRITE' or st=='WRITE_ONLY':
                         # fetch data to local memory
@@ -2069,9 +2066,7 @@ class codegen(object):
                         writeback+='int rw_offset = '+dw+'-'+w_dw+';\n'
                         writeback+='int  __ipmacc_stride=__syncthreads_count(1);\n'
                         writeback+='for(int kk=threadIdx.x; kk<('+wlength+'); kk+=__ipmacc_stride)\n'
-                        #writeback+='for(int kk=threadIdx.x; kk<('+length+'); kk+=blockDim.x)\n'
                         writeback+='{\n'
-                        #writeback+='int idx=blockIdx.x*'+self.blockDim_cuda+'+kk-'+dw+'+'+p+';\n'
                         writeback+='int idx='+self.prefix_kernel_smc_startpointer+v+'+kk+rw_offset;\n'
                         writeback+='if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
                         writeback+='{\n'
@@ -2091,403 +2086,48 @@ class codegen(object):
                     if nctadim<=1: #not GENMULTIDIMTB:
                         print 'Error! multi-dimensional SMC works with multi-dimensional grid. Enable GENMULTIDIMTB in codegen.py'
                         exit(-1)
-                    #length=self.blockDim_cuda_xyz+'+'+dw+'+'+up
-                    #length_2=self.blockDim_cuda_xyz+'+'+dw2range+'+'+up2range
-                    length  =ctadimx+'+'+dw      +'+'+up
-                    length_2=ctadimy+'+'+dw2range+'+'+up2range
-                    # declare local memories
-                    decl+='\n/* declare the shared memory of '+v+' */\n'
-                    if tagbasedcache_size!='':
-                        decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+tagbasedcache_size+'];\n'
-                        decl+='__shared__ '+tagbasedcache_datp+' '+self.prefix_kernel_smc_tagpref+v+'['+tagbasedcache_size+'];\n'
-                    else:
-                        decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+']['+length_2+'];\n'
-                    decl+='/*__shared__*/ int '+self.prefix_kernel_smc_startpointer+v+';\n'
-                    decl+='/*__shared__*/ int '+self.prefix_kernel_smc_endpointer+v+';\n'
-                    decl+='/*__shared__*/ int '+self.prefix_kernel_smc_startpointer+v+'_2d;\n'
-                    decl+='/*__shared__*/ int '+self.prefix_kernel_smc_endpointer+v+'_2d;\n'
-                    decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
-                    decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
-                    decl+=self.prefix_kernel_smc_endpointer+v+'_2d=-1;\n'
-                    decl+=self.prefix_kernel_smc_startpointer+v+'_2d=-1;\n'
-                    if tagbasedcache_size!='':
-                        decl+='{\n //initialize the tag array to zero\n'
-                        decl+='int iterator_of_smc_x=0, iterator_of_smc_y=0;\n'
-                        decl+='/*\n'
-                        decl+='for(iterator_of_smc_y=threadIdx.y; iterator_of_smc_y<('+length+'); iterator_of_smc_y+=blockDim.y){\n'
-                        decl+='for(iterator_of_smc_x=threadIdx.x; iterator_of_smc_x<('+length_2+'); iterator_of_smc_x+=blockDim.x){\n'
-                        decl+=self.prefix_kernel_smc_varpref+v+'[iterator_of_smc_y][iterator_of_smc_x]=0;\n'
-                        decl+='}\n'
-                        decl+='}\n'
-                        decl+='*/\n'
-                        decl+='for(iterator_of_smc_y=threadIdx.y; (iterator_of_smc_y*blockDim.x+threadIdx.x)<('+tagbasedcache_size+'); iterator_of_smc_y+=blockDim.y){\n'
-                        decl+=self.prefix_kernel_smc_tagpref+v+'[iterator_of_smc_y*blockDim.x+threadIdx.x]=-1;\n'
-                        decl+='}\n'
-                        decl+='__syncthreads();\n'
-                        decl+='}\n'
+                    [f_is_stataic_p, f_is_stataic_p2, length, length_2, smc_decl_part]\
+                        = self.oacc_smc_codegen_declaration(kernelId, kernelB, p, pivot2,\
+                                                            v, up, dw, up2range, dw2range,\
+                                                            ctadimx, ctadimy, t, 2)
+                    decl += smc_decl_part
+
                     if st=='READ_ONLY' or st=='READ_WRITE' or st=='FETCH_CHANNEL':
                         # fetch data to local memory
-                        datafetch ='{ // fetch begins\n'
+                        pre_region ='__syncthreads();\n'
+                        pre_region+='{ // fetch begins\n'
                         # 1. specify the boundry 
-                        #   start address
-                        if isfusion:
-                            [tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7]=fusionSMC[fusionIdx]
-                            # merge this fetch with previous one 
-                            tmp1='__fusion_merge_boundary_'+str(fusionIdx)+'()'
-                            tmp8 =self.prefix_kernel_smc_endpointer+v+'=     '+self.prefix_kernel_smc_endpointer+tmp7+';\n'
-                            tmp8+=self.prefix_kernel_smc_endpointer+v+'_2d=  '+self.prefix_kernel_smc_endpointer+tmp7+'_2d;\n'
-                            tmp8+=self.prefix_kernel_smc_startpointer+v+'=   '+self.prefix_kernel_smc_startpointer+tmp7+';\n'
-                            tmp8+=self.prefix_kernel_smc_startpointer+v+'_2d='+self.prefix_kernel_smc_startpointer+tmp7+'_2d;\n'
-                            #print 'fusion! >'+str(fusionIdx)+'\n'+kernelB
-                            kernelB=kernelB.replace(tmp1,tmp1+'\n'+tmp8)
-                        else:
-                            datafetch+="\n // FINDING TILE START\n"
-                            # ALTERNATIVES TO FIND START OF TILE
-                            #  ALT 1:
-                            #datafetch+='\n__syncthreads();\n'
-                            #datafetch+='if(threadIdx.x==0 && threadIdx.y==0){\n'
-                            ##datafetch+=self.prefix_kernel_smc_startpointer+v+'=0;\n' #FIXME
-                            #datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
-                            #datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+';\n'
-                            #if GENDEBUGCODE:
-                            #    datafetch+="""printf("blockID(%u,%u,%u)> startIdx(%d,%d)\\n",
-                            #                blockIdx.x, blockIdx.y, blockIdx.z,
-                            #                """+self.prefix_kernel_smc_startpointer+v+""",
-                            #                """+self.prefix_kernel_smc_startpointer+v+'_2d'+""");\n"""
-                            #datafetch+='}\n'
-                            #datafetch+='\n__syncthreads();\n'
-                            #  ALT 2: 
-                            if (self.is_function_of_iterator_var(kernelId,kernelB,p)):
-                                datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+'-threadIdx.y;\n'
-                            else:
-                                datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
-                            if (self.is_function_of_iterator_var(kernelId,kernelB,pivot2)):
-                                datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+'-threadIdx.x;\n'
-                            else:
-                                datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+';\n'
-                            datafetch+="\n // FINDING DONE\n"
-                            # ALTERNATIVES TO FIND END OF TILE
-                            datafetch+="\n // FINDING TILE END\n"
-                            #  ALT 1:
-                            #datafetch+="\n__shared__ unsigned int __ipmacc_elder_corner;"
-                            #datafetch+="\n__ipmacc_elder_corner=0;"
-                            #datafetch+="\natomicMax(&__ipmacc_elder_corner, (threadIdx.y*blockDim.x+threadIdx.x));"
-                            #datafetch+="\n__syncthreads();"
-                            #datafetch+="\nif((threadIdx.y*blockDim.x+threadIdx.x)==__ipmacc_elder_corner){"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"="+p+'+'+up+";"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"_2d="+pivot2+'+'+up2range+";"
-                            #datafetch+="\n}"
-                            #datafetch+='\n__syncthreads();\n'
-                            #  ALT 2:
-                            #datafetch+='if(threadIdx.x==0 && threadIdx.y==0){\n'
-                            #datafetch+="\nif(blockIdx.x==(gridDim.x-1) and blockIdx.y==(gridDim.y-1)){"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"="+dimhi+"-1;"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"_2d="+dim2high+"-1;"
-                            #datafetch+="\n}else if(blockIdx.y==(gridDim.y-1)){"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"="+dimhi+"-1;"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"_2d=blockDim.x+"+self.prefix_kernel_smc_startpointer+v+"_2d-1;"
-                            #datafetch+="\n}else if(blockIdx.x==(gridDim.x-1)){"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"=blockDim.y+"+self.prefix_kernel_smc_startpointer+v+"-1;"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"_2d="+dim2high+"-1;"
-                            #datafetch+="\n}else{"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"=blockDim.y+"+self.prefix_kernel_smc_startpointer+v+"-1;"
-                            #datafetch+="\n    "+self.prefix_kernel_smc_endpointer+v+"_2d=blockDim.x+"+self.prefix_kernel_smc_startpointer+v+"_2d-1;"
-                            #datafetch+="\n}"
-                            #datafetch+="\n}"
-                            #datafetch+='\n__syncthreads();\n'
-                            #  ALT 3: 
-                            # datafetch+="\n /* FINDING END OF TILE STARTED*/"
-                            # datafetch+='int __ipmacc_stride=__syncthreads_count(1);\n'
-                            # datafetch+='if((threadIdx.y*blockDim.x+threadIdx.x)==(__ipmacc_stride-1)){\n'
-                            # datafetch+=self.prefix_kernel_smc_endpointer+v+'='+p+'+'+up+';\n'
-                            # datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+pivot2+'+'+up2range+';\n'
-                            # if GENDEBUGCODE:
-                            #     datafetch+="""printf("blockID(%u,%u,%u)> endIdx(%d,%d)\\n",
-                            #                 blockIdx.x, blockIdx.y, blockIdx.z,
-                            #                 """+self.prefix_kernel_smc_endpointer+v+""",
-                            #                 """+self.prefix_kernel_smc_endpointer+v+'_2d'+""");\n"""
-                            # datafetch+='}\n'
-                            # datafetch+='__syncthreads();\n'
-                            #  ALT 4:
-                            datafetch+="bool lastcol=blockIdx.x==(gridDim.x-1);\n"
-                            datafetch+="bool lastrow=blockIdx.y==(gridDim.y-1);\n"
-                            datafetch+=self.prefix_kernel_smc_endpointer+v+'='+'(lastrow)?'+dimhi+'-1:blockDim.y+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
-                            datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+'(lastcol)?'+dim2high+'-1:blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'_2d+'+up2range+'+'+dw2range+'-1;\n'
-                            datafetch+="// FINDING DONE\n"
-                            datafetch+='//__fusion_merge_boundary_'+str(len(fusionSMC)-1)+'()\n'
-
+                        [set_boundary_pointers, kernelB] = self.oacc_smc_codegen_set_boundary_pointers(\
+                                        kernelId, kernelB, p, pivot2, v, up, dw,\
+                                        up2range, dw2range, ctadimx, ctadimy, t,\
+                                        isfusion, fusionIdx, fusionSMC,\
+                                        f_is_stataic_p, f_is_stataic_p2, 2)
                         # 2. fetch the data in using parallel available threads of thread-block
-                        if isfusion:
-                            # merge this fetch with previous one 
-                            tmp1='__fusion_merge_fetch_'+str(fusionIdx)+'()'
-                            tmp2=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
-                            #print 'fusion! >'+str(fusionIdx)+'\n'+kernelB
-                            kernelB=kernelB.replace(tmp1,tmp1+'\n'+tmp2)
-                        else:
-                            datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
-                            datafetch+='int __ipmacc_length_2d='+self.prefix_kernel_smc_endpointer+v+'_2d-'+self.prefix_kernel_smc_startpointer+v+'_2d+1;\n'
-                            if GENDEBUGCODE:
-                                datafetch+='assert((__ipmacc_length)<=(256+'+dw+'+'+up+'));\n' #FIXME
-                            #datafetch+='assert('+self.prefix_kernel_smc_startpointer+v+'>0);\n'
-                            #datafetch+='assert('+self.prefix_kernel_smc_endpointer+v+'>0);\n'
-                            #if div=='false':
-                            #    datafetch+='int __ipmacc_stride=blockDim.x;\n__syncthreads();\n'
-                            #else:
-                            #    datafetch+='int __ipmacc_stride=__syncthreads_count(1);\n'
-                            datafetch+='int kk=0,kk2=0;\n'
-                            if dw.strip()=='0' and up.strip()=='0':
-                                datafetch+='  kk2=threadIdx.x;\n'
-                            else:
-                                datafetch+='  for(kk2=threadIdx.x; kk2<__ipmacc_length_2d; kk2+=blockDim.x)\n'
-                            datafetch+='  {\n'
-                            datafetch+='   int idx2='+self.prefix_kernel_smc_startpointer+v+'_2d+kk2;\n'
-                            datafetch+='   if(idx2<('+dim2high+') && idx2>=('+dim2low+'))\n'
-                            datafetch+='   {\n'
-                            if dw2range.strip()=='0' and up2range.strip()=='0':
-                                datafetch+='  kk=threadIdx.y;\n'
-                            else:
-                                datafetch+='for(kk=threadIdx.y; kk<__ipmacc_length; kk+=blockDim.y)\n'
-                            datafetch+='{\n'
-                            datafetch+=' int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
-                            datafetch+=' if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
-                            datafetch+=' {\n'
-                            if tagbasedcache_size!='':
-                                datafetch+='unsigned int sidx = (idx*'+dim2high+'+idx2)&('+tagbasedcache_size+'-1);\n'
-                                datafetch+=self.prefix_kernel_smc_varpref+v+'[sidx]='+v+'[idx*'+dim2high+'+idx2];\n'
-                                datafetch+=self.prefix_kernel_smc_tagpref+v+'[sidx]=(idx*'+dim2high+'+idx2);\n'
-                            else:
-                                datafetch+=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
-                            datafetch+='//__fusion_merge_fetch_'+str(len(fusionSMC)-1)+'()\n'
-                            datafetch+='   }\n'
-                            datafetch+='  }\n'
-                            datafetch+=' }\n'
-                            datafetch+='}\n'
-                            datafetch+='__syncthreads();\n'
-                        datafetch+='} // end of fetch\n'
-                        # pragma to replace global memory access with smc 
-                        #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+v+((', '+self.prefix_kernel_smc_tagpref+v) if TAGBASEDSMC else '')+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+')\n'
-                        #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+', '+self.prefix_kernel_smc_startpointer+v+','+dimlo+','+dimhi+')\n'
-                        kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
-                    # construct the smc_select_ per array for READ
-                    #smc_select_calls+='__noinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr1, int startptr2, int endptr1, int endptr2, int pitch){\n'
-                    smc_select_calls+='__forceinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2,\n'
-                    smc_select_calls+=((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+'\n'
-                    smc_select_calls+=t+' g_array, '
-                    smc_select_calls+=t.replace('*','')+(' s_array['+tagbasedcache_size+'], ' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+'\n'
-                    smc_select_calls+=' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){\n'
-                    if div=='false':
-                        smc_select_calls+='// the pragmas are well-set. do not check the boundaries.\n'
-                        if GENDEBUGCODE:
-                            smc_select_calls+="""#define REPLACECALL() printf("tid> (%d,%d,%d) bid> (%d,%d,%d) index> %d idx> %d idx2> %d startptr> %d startptr2> %d\\n",\\
-        threadIdx.x,threadIdx.y,threadIdx.z,\\
-        blockIdx.x,blockIdx.y,blockIdx.z,\\
-        index,idx,idx2,startptr,startptr2);\n
-    if(!(((idx-startptr)>=0))){\n
-        REPLACECALL()\n
-            assert((idx-startptr)>=0);\n
-    }\n
-    if(!((idx-startptr)<("""+length+"""))){\n
-        REPLACECALL()\n
-            assert((idx-startptr)<("""+length+"""));\n
-    }\n
-    if(!((idx2-startptr2)>=0)){\n
-        REPLACECALL()\n
-            assert((idx2-startptr2)>=0);\n
-    }\n
-    if(!((idx2-startptr2)<("""+length_2+"""))){\n
-        REPLACECALL()\n
-            assert((idx2-startptr2)<"""+length_2+""");\n
-    }\n"""
-                        smc_select_calls+='return s_array[index1-startptr1][index2-startptr2];\n'
-                    else:
-                        #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
-                        smc_select_calls+='// the pragmas are not well-set. do check the boundaries.\n'
-                        smc_select_calls+='// also we check the tag to assure data is already fetched.\n'
-                        if GENDEBUGCODE:
-                            smc_select_calls+="""#define REPLACECALL() printf("tid> (%d,%d,%d) bid> (%d,%d,%d) index> %d idx> %d idx2> %d startptr> %d startptr2> %d\\n",\\\n
-        threadIdx.x,threadIdx.y,threadIdx.z,\\\n
-        blockIdx.x,blockIdx.y,blockIdx.z,\\\n
-        index,idx,idx2,startptr,startptr2);\n
-    if(!(((idx-startptr)>=0))){\n
-        REPLACECALL()\n
-            assert((idx-startptr)>=0);\n
-    }\n
-    if(!((idx-startptr)<16)){\n
-        REPLACECALL()\n
-            assert((idx-startptr)<16);\n
-    }\n
-    if(!((idx2-startptr2)>=0)){\n
-        REPLACECALL()\n
-            assert((idx2-startptr2)>=0);\n
-    }\n
-    if(!((idx2-startptr2)<20)){\n
-        REPLACECALL()\n
-            assert((idx2-startptr2)<16);\n
-    }\n"""
-                        #smc_select_calls+='return s_array[diff1][diff2];\n'
-                        if tagbasedcache_size!='':
-                            smc_select_calls+=t.replace('*','')+' value_to_return;\n'
-                            smc_select_calls+='int gidx = (index1*pitch+index2);\n'
-                            smc_select_calls+='//return g_array[gidx];\n'
-                            smc_select_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
-                            smc_select_calls+='if(tag_array[sidx]==(gidx)){\n'
-                            smc_select_calls+='value_to_return = s_array[sidx];\n'
-                            smc_select_calls+='}\n'
-                            smc_select_calls+='bool tag_updated=false;\n'
-                            smc_select_calls+='if(tag_array[sidx]!=(gidx)){ \n'
-                            smc_select_calls+='value_to_return = g_array[gidx];\n'
-                            smc_select_calls+='s_array[sidx] = value_to_return;\n'
-                            smc_select_calls+='tag_updated = true;\n'
-                            smc_select_calls+='}\n'
-                            smc_select_calls+='__syncthreads();\n' 
-                            smc_select_calls+='if(tag_updated) tag_array[sidx] = gidx;\n' 
-                            smc_select_calls+='__syncthreads();\n' 
-                            smc_select_calls+='return value_to_return;\n'
-                        else:
-                            smc_select_calls+=t.replace('*','')+' ret = s_array[diff1][diff2];\n'
-                            smc_select_calls+='if(!(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 )){\n'
-                            #smc_select_calls+='assert(0);\n'
-                            smc_select_calls+='ret = g_array[index1*pitch+index2];\n'
-                            smc_select_calls+='}\n'
-                            smc_select_calls+='return ret;\n'
-                        #smc_select_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
-                        #smc_select_calls+='// dynamic runtime performs the check\n'
-                        #smc_select_calls+='bool a=index>=down && index>=lbnd;\n'
-                        #smc_select_calls+='bool b=index<=up && index<ubnd;\n'
-                        #smc_select_calls+='bool d=a&b;\n'
-                        #smc_select_calls+='if(d){\n'
-                        ##smc_select_calls+='return s_array[index-(vector_size*blockIdx.x)+before-pivot];\n'
-                        #smc_select_calls+='return s_array[index-startptr];\n'
-                        #smc_select_calls+='}\n'
-                        #smc_select_calls+='return g_array[index];\n'
-                    smc_select_calls+='}\n'
-                    # construct the smc_write_ per array for WRITE
-                    #smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, '+t+' g_array, '+t.replace('*','')+' s_array['+length+']['+length_2+'], int startptr, int startptr2, int dim2size, '+t.replace('*','')+' value){\n'
-                    smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index1, int index2, '+((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+t+' g_array, '+t.replace('*','')+(' s_array['+tagbasedcache_size+'],' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, '+t.replace('*','')+' value){\n'
-                    #smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index, int down, int up, '+t+' g_array, '+t+' s_array, int vector_size, int pivot, int before,'+t.replace('*','')+' value, int startptr){\n'
-                    if div=='false':
-                        smc_write_calls+='// the pragmas are well-set. do not check the boundaries.\n'
-                        smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
-                    else:
-                        #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
-                        if tagbasedcache_size:
-                            smc_write_calls+='int gidx = (index1*pitch+index2);\n'
-                            smc_write_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
-                            smc_write_calls+='if(tag_array[sidx]==(gidx)){\n'
-                            smc_write_calls+='s_array[sidx]=value;\n'
-                            smc_write_calls+='}else{ \n'
-                            smc_write_calls+='g_array[tag_array[sidx]]=s_array[sidx];\n'
-                            smc_write_calls+='s_array[sidx] = g_array[gidx];\n'
-                            smc_write_calls+='tag_array[sidx]=gidx;\n'
-                            smc_write_calls+='//__syncthreads();\n' 
-                            smc_write_calls+='}\n'
-                        else:
-                            smc_write_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
-                            smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
-                            smc_write_calls+='}else{\n'
-                            smc_write_calls+='g_array[index1*pitch+index2]=value;\n'
-                            smc_write_calls+='}\n'
-                        #smc_write_calls+='// The tile is not well covered by the pivot, dw-range, and up-range\n'
-                        #smc_write_calls+='// dynamic runtime performs the check\n'
-                        #smc_write_calls+='bool a=index>=down;\n'
-                        #smc_write_calls+='bool b=index<up;\n'
-                        #smc_write_calls+='bool d=a&b;\n'
-                        #smc_write_calls+='if(d){\n'
-                        #smc_write_calls+='s_array[index-startptr]=value;\n'
-                        ##smc_write_calls+='s_array[index-(vector_size*blockIdx.x)+before-pivot]=value;\n'
-                        #smc_write_calls+='}\n'
-                        #smc_write_calls+='g_array[index]=value;\n'
-                    smc_write_calls+='}\n'
+                        [datafetch, kernelB] = self.oacc_smc_codegen_initial_fetch(\
+                                        kernelId, kernelB, p, pivot2, v, up, dw,\
+                                        up2range, dw2range, ctadimx, ctadimy, t,\
+                                        dimlo, dimhi, dim2low, dim2high,\
+                                        isfusion, fusionIdx, fusionSMC,\
+                                        f_is_stataic_p, f_is_stataic_p2, 2)
+                        post_region='} // end of fetch\n'
+                        code_to_inject = pre_region+set_boundary_pointers+datafetch+post_region+'\n'+fcall
+                        kernelB = kernelB.replace(fcall, code_to_inject)
+                    # inject cache read/write calls
+                    [smc_select_call, smc_write_call] = self.oacc_smc_codegen_readwrite_calls(t, a, v, length, length_2, div)
+                    smc_select_calls += smc_select_call
+                    smc_write_calls += smc_write_call
+
                     # replace array-ref [] with function call ()
-                    fcallst=self.prefix_kernel_smc_fetch+str(a)+'();'
-                    fcallen=self.prefix_kernel_smc_fetchend+str(a)+'();'
-                    changeRangeIdx_start=kernelB.find(fcallst)
-                    changeRangeIdx_end=kernelB.find(fcallen)
-                    #print kernelB[changeRangeIdx_start:changeRangeIdx_end]
-                    if (changeRangeIdx_start==-1 ) or (changeRangeIdx_end==-1) or (changeRangeIdx_start>changeRangeIdx_end):
-                        print 'fatal error! could not determine the smc range for '+v
-                        exit(-1)
-                    # READ WRITE REPLACE ACCESSES
-                    [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
-                    for idx_num in range(len(readIdxStartEndPtrs)-1, -1, -1):
-                        [idx_s, idx_e]=readIdxStartEndPtrs[idx_num]
-                        if DEBUGSMCPRECALCINDEX:
-                            print '> '+kernelB[idx_s:idx_e]
-                        if div=='false':
-                            kernelB=kernelB[:idx_s]+self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim2'+']'+' /* replacing '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
-                        else:
-                            [tmp_idx1, tmp_idx2] = self.decompose1Dindexto2D(unifiedIdxSet[unifiedIdxList[idx_num]], '0', dim2high, '2D')
-                            tmp_diff1=tmp_idx1+'-'+self.prefix_kernel_smc_startpointer+v
-                            tmp_diff2=tmp_idx2+'-'+self.prefix_kernel_smc_startpointer+v+'_2d'
-                            access_tmp='__smc_select_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if tagbasedcache_size else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
-                            kernelB=kernelB[:idx_s]+access_tmp+'/* '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
-                            #datafetch+='#define '+v+'(index) __smc_select_'+str(a)+'_'+v+'(index, '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+')\n'
-                            #self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim2'+']'+' /* replacing '
-                    #[writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
-                    indexCalculationCode=self.smc_get_indexCalculation(readIdxSet, readIdxList, v, dim2high, writeIdxSet, writeIdxList, unifiedIdxSet, unifiedIdxList, '2D')
-                    kernelB=kernelB.replace(fcall,indexCalculationCode+fcall)
-                    changeRangeIdx_start=kernelB.find(fcallst)
-                    changeRangeIdx_end=kernelB.find(fcallen)
-                    [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
-                    # list all read accesses
-                    # unpack and replace write-accesses
-                    for wi in range(len(writeIdxStartEndPtrs)-1,-1,-1):
-                        [v, a, p, dw, up, wst, wen, asgidx]=writeIdxStartEndPtrs[wi]
-                        writeIdx_loc=']'.join('['.join(kernelB[wst:asgidx].split('[')[1:]).split(']')[:-1])
-                        writeIdx_val=kernelB[asgidx+1:wen]
-                        #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+','+self.prefix_kernel_smc_startpointer+v+');\n'
-                        # ALT1: 
-                        #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+', '+writeIdx_val[:-1]+');\n'
-                        #writeIdx_replacer+='__syncthreads();\n'
-                        # ALT2: 
-                        writeIdx_replacer ='__syncthreads();\n'
-                        if div=='false':
-                            writeIdx_replacer+=self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim2'+']='+writeIdx_val[:-1]+';\n'
-                        else:
-                            print 'cache divergent write not implemented! #'+str(getframeinfo(currentframe()).lineno)+'\n'
-                            exit(-1)
-                            if TAGBASEDSMC:
-                                writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+writeIdx_val[:-1]+')'
-                            else:
-                                writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
-                        writeIdx_replacer+='__syncthreads();\n'
-                        kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
+                    [fcallen, kernelB] = self.oacc_smc_codegen_cache_region_replace_accesses(a, v, t,\
+                                    p, dw, up,\
+                                    pivot2, dw2range, up2range,\
+                                    dim2high, div, fcall,\
+                                    kernelB, st)
+
                     # generate writeback code
                     if st=='READ_WRITE' or st=='WRITE_ONLY':
-                        # fetch data to local memory
-                        writeback ='{ // writeback begins\n'
-                        writeback+='__syncthreads();\n'
-                        if w_dw=='':
-                            wlength=length
-                        else:
-                            wlength=self.blockDim_cuda_xyz+'+'+w_dw+'+'+w_up
-                        if w_dw2range=='':
-                            wlength_2=length_2
-                        else:
-                            wlength_2=self.blockDim_cuda_xyz+'+'+w_dw2range+'+'+w_up2range
-                        writeback+='int kk=0,kk2=0;\n'
-                        writeback+='int rw_offset = '+dw+'-'+w_dw+';\n'
-                        writeback+='int rw_offset_2 = '+dw2range+'-'+w_dw2range+';\n'
-                        writeback+='int  __ipmacc_stride=__syncthreads_count(1);\n'
-                        writeback+='for(kk=0; kk<('+wlength+'); kk++)\n'
-                        #writeback+='for(int kk=threadIdx.x; kk<('+wlength+'); kk+=__ipmacc_stride)\n'
-                        writeback+='{\n'
-                        writeback+=' int idx='+self.prefix_kernel_smc_startpointer+v+'+kk+rw_offset;\n'
-                        writeback+=' if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
-                        writeback+=' {\n'
-                        writeback+='  for(kk2=threadIdx.y*blockDim.x+threadIdx.x; kk2<('+wlength_2+'); kk2+=__ipmacc_stride)\n'
-                        writeback+='  {\n'
-                        writeback+='   int idx2='+self.prefix_kernel_smc_startpointer+v+'_2d+kk2+rw_offset_2;\n'
-                        writeback+='   if(idx2<('+dim2high+') && idx2>=('+dim2low+'))\n'
-                        writeback+='   {\n'
-                        writeback+=v+'[idx*'+dim2high+'+idx2]='+self.prefix_kernel_smc_varpref+v+'[kk+rw_offset][kk2+rw_offset_2];\n'
-                        writeback+='   }\n'
-                        writeback+='  }\n'
-                        writeback+=' }\n'
-                        writeback+='}\n'
-                        writeback+='__syncthreads();\n'
-                        writeback+='} // end of writeback\n' 
-                        kernelB=kernelB.replace(fcallen,writeback+'\n'+fcallen)
+                        kernelB = self.oacc_smc_codegen_writeback(length, length_2, w_dw, w_up,\
+                                        w_dw2range, w_up2range, v, dimlo, dimhi, dim2low, dim2high, fcallen)
 
                     # undef function call ()
                     if st=='READ_ONLY' or st=='READ_WRITE'  or st=='FETCH_CHANNEL':
@@ -2501,27 +2141,7 @@ class codegen(object):
                 fcallen=self.prefix_kernel_smc_fetchend+str(ids)+'();'
                 kernelB=kernelB.replace(fcallst,'')
                 kernelB=kernelB.replace(fcallen,'')
-            ## 2) serve reductions
-            #types=[] # types to reserve space for fast shared-memory reductions
-            #rfreelist=[] #remove reduction calls
-            #reduinfo.reverse()
-            #for [v, i, o, a, t] in reduinfo:
-            #    fcall=self.prefix_kernel_reduction_region+str(a)+'();'
-            #    # 2) 1) append proper reduction code for this variable
-            #    kernelB=kernelB.replace(fcall,self.codegen_reduceVariable(v,t,o,ctasize)+fcall)
-            #    types.append(t)
-            #    rfreelist.append(a)
-            #    decl+=t+' '+v+';'
-            #reduinfo.reverse()
-            ## 2) 2) allocate shared memory reduction array
-            #types=list(set(types))
-            #for t in types:
-            #    code=code+'__shared__ '+t+' '+self.prefix_kernel_reduction_shmem+t+'['+ctasize+'];\n'
-            #rfreelist=list(set(rfreelist))
-            ## 2) 3) free remaining fcalls
-            #for ids in rfreelist:
-            #    fcall=self.prefix_kernel_reduction_region+str(ids)+'();'
-            #    kernelB=kernelB.replace(fcall,'')
+
         compKernelB=kernelB
         if len(compInfo)>0:
             for compVarObj in compInfo:
@@ -2685,7 +2305,119 @@ class codegen(object):
             newKernelB=newKernelB[0:wst-1]+'\n'+v+'__ipmacc_guard = true;\n'+newKernelB[wst:]
         return newKernelB
 
-    def smc_kernelBody_parse(self, kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up):
+    def util_is_written_to(self, code, vname, offset):
+        try:
+            #print 'looking for', vname, 'in', code.replace('\n',' ').strip()[:40]
+            #skip to the end of variable
+            arrayRef_it=offset
+            arrayRef_pcnt=0
+            done=False
+            while not done:
+                if code[arrayRef_it]=='[':
+                    arrayRef_pcnt+=1
+                elif code[arrayRef_it]==']':
+                    arrayRef_pcnt-=1
+                    if arrayRef_pcnt==0:
+                        done=True
+                arrayRef_it+=1
+            # check whether it is a write access
+            iswrite=False
+            assignmentIdx=-1
+            assignmentOpr='='
+            while True:
+                if code[arrayRef_it]==';':
+                    break
+                elif code[arrayRef_it]=='=' and code[arrayRef_it+1]!='=' and (code[arrayRef_it-1]==' ' or code[arrayRef_it-1]=='\t' or code[arrayRef_it-1]=='\n' or code[arrayRef_it-1]=='+' or code[arrayRef_it-1]=='|' or code[arrayRef_it-1]=='&' or code[arrayRef_it-1]=='-' or code[arrayRef_it-1]=='\\' or code[arrayRef_it-1]=='*' or code[arrayRef_it-1]=='^' or code[arrayRef_it-1]=='%' or code[arrayRef_it-1].isalpha() or code[arrayRef_it-1].isdigit()):
+                    iswrite=True
+                    assignmentIdx=arrayRef_it
+                    if not (code[arrayRef_it-1].isalpha() or code[arrayRef_it-1].isdigit()):
+                        assignmentOpr=(code[arrayRef_it-1]+'=').strip()
+                arrayRef_it+=1
+            # keep the track of write accesses 
+            if iswrite:
+                writeIdx_str=offset
+                writeIdx_end=arrayRef_it+1
+                writeIdx_loc=']'.join('['.join(code[writeIdx_str:assignmentIdx].split('[')[1:]).split(']')[:-1]).replace(' ','')
+                writeIdx_val=code[assignmentIdx+1:writeIdx_end]
+            else:
+                writeIdx_str = -1
+                writeIdx_end = -1
+                writeIdx_loc = ''
+                writeIdx_val = ''
+            return [iswrite, assignmentIdx, assignmentOpr, writeIdx_str, writeIdx_end, writeIdx_loc, writeIdx_val]
+        except Exception as e:
+            print e
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            print exc_tb
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print exc_type, fname, exc_tb.tb_lineno
+            exit(-1)
+
+    def find_kernel_writes(self, code, kid):
+        try:
+            [arraccs,indecis,dependt] = srcml_get_arrayaccesses(srcml_code2xml(code), [])
+            # get location of every arraccs[] in code; 
+            # first find them in the code
+            # second append them to the list
+            remap = {}
+            # print code
+            # print 'set:', list(set(arraccs))
+            for v  in list(set(arraccs)):
+                if not( v in remap):
+                    remap[v] = []
+                for arrayRef in re.finditer('\\b'+v.strip()+'[\\ \\t\\n\\r]*\[',code):
+                    arrayRef_it=arrayRef.start(0)
+                    # print arrayRef_it, v
+                    remap[v].append(arrayRef_it)
+            arraccs_loc = []
+            # print 'list:', arraccs
+            for v in arraccs:
+                if len(remap[v])>0:
+                    arrayRef_it = remap[v].pop(0)
+                    # print 'pop:', arrayRef_it, v
+                else:
+                    print_error('unable to find array location', ['variable: '+v])
+                arraccs_loc.append(arrayRef_it)
+            if len(arraccs)!=len(arraccs_loc):
+                print 'internal error: failed to locate array access'
+                print 'procedure: find_kernel_writes'
+                print 'arrays:', len(arraccs)
+                print 'locations:', len(arraccs_loc)
+                print 'aborting()'
+                exit(-1)
+
+            # having the locations of array accesses in the code,
+            # isolates reads and writes
+            kernelwrites = []
+            kernelreads  = []
+            for idx in range(0,len(arraccs)):
+                offset = arraccs_loc[idx]
+                # skip local array read/writes
+                if not arraccs[idx].strip() in self.oacc_kernelsVarNams[kid]:
+                    continue
+                # proceed with global read/writes
+                [iswrite, assignmentIdx, assignmentOpr, writeIdx_str, writeIdx_end, writeIdx_loc, writeIdx_val] = self.util_is_written_to(code[offset:], arraccs[idx], 0)
+                if iswrite:
+                    kernelwrites.append([arraccs[idx], indecis[idx], dependt[idx], arraccs_loc[idx], offset+assignmentIdx, assignmentOpr, offset+writeIdx_str, offset+writeIdx_end, writeIdx_loc])
+                else:
+                    kernelreads.append([arraccs[idx], indecis[idx], dependt[idx], arraccs_loc[idx]])
+            return [kernelwrites, kernelreads]
+        except Exception as e:
+            print e
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            print exc_tb
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print exc_type, fname, exc_tb.tb_lineno
+            exit(-1)
+
+    def smc_kernelBody_parse(self, kernelB, changeRangeIdx_start, changeRangeIdx_end, arg_smc_uid, arg_smc_subarray_name, arg_smc_type, arg_smc_subarray_d2_size, arg_smc_range_p, arg_smc_range_dw, arg_smc_range_up):
+        a  = arg_smc_uid
+        v  = arg_smc_subarray_name
+        st = arg_smc_type
+        dim2high = arg_smc_subarray_d2_size
+        p  = arg_smc_range_p
+        dw = arg_smc_range_dw
+        up = arg_smc_range_up
         writeIdxList=[]
         writeIdxSet=[]
         writeIdxStartEndPtrs=[]
@@ -2696,48 +2428,48 @@ class codegen(object):
         unifiedIdxList=[]
         for arrayRef in re.finditer('\\b'+v+'[\\ \\t\\n\\r]*\[',kernelB[changeRangeIdx_start:changeRangeIdx_end]):
             #skip to the end of variable
-            arrayRef_it=changeRangeIdx_start+arrayRef.start(0)
-            arrayRef_pcnt=0
-            done=False
-            while not done:
-                if kernelB[arrayRef_it]=='[':
-                    #if arrayRef_pcnt==0:
-                        #kernelB[arrayRef_it]='('
-                        #kernelB=kernelB[:arrayRef_it]+'('+kernelB[arrayRef_it+1:]
-                    arrayRef_pcnt+=1
-                elif kernelB[arrayRef_it]==']':
-                    arrayRef_pcnt-=1
-                    if arrayRef_pcnt==0:
-                        #kernelB[arrayRef_it]=')'
-                        #kernelB=kernelB[:arrayRef_it]+')'+kernelB[arrayRef_it+1:]
-                        done=True
-                arrayRef_it+=1
-            # check whether it is a write access
-            iswrite=False
-            assignmentIdx=-1
-            assignmentOpr='='
-            while True:
-                if kernelB[arrayRef_it]==';':
-                    break
-                elif kernelB[arrayRef_it]=='=' and kernelB[arrayRef_it+1]!='=' and (kernelB[arrayRef_it-1]==' ' or kernelB[arrayRef_it-1]=='\t' or kernelB[arrayRef_it-1]=='\n' or kernelB[arrayRef_it-1]=='+' or kernelB[arrayRef_it-1]=='|' or kernelB[arrayRef_it-1]=='&' or kernelB[arrayRef_it-1]=='-' or kernelB[arrayRef_it-1]=='\\' or kernelB[arrayRef_it-1]=='*' or kernelB[arrayRef_it-1]=='^' or kernelB[arrayRef_it-1]=='%' or kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
-                    iswrite=True
-                    assignmentIdx=arrayRef_it
-                    if not (kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
-                        assignmentOpr=(kernelB[arrayRef_it-1]+'=').strip()
-                arrayRef_it+=1
-            # keep the track of write accesses 
+            [iswrite, assignmentIdx, assignmentOpr, writeIdx_str, writeIdx_end, writeIdx_loc, writeIdx_val] = self.util_is_written_to(kernelB, v, changeRangeIdx_start+arrayRef.start(0))
+            # arrayRef_it=changeRangeIdx_start+arrayRef.start(0)
+            # arrayRef_pcnt=0
+            # done=False
+            # while not done:
+            #     if kernelB[arrayRef_it]=='[':
+            #         #if arrayRef_pcnt==0:
+            #             #kernelB[arrayRef_it]='('
+            #             #kernelB=kernelB[:arrayRef_it]+'('+kernelB[arrayRef_it+1:]
+            #         arrayRef_pcnt+=1
+            #     elif kernelB[arrayRef_it]==']':
+            #         arrayRef_pcnt-=1
+            #         if arrayRef_pcnt==0:
+            #             #kernelB[arrayRef_it]=')'
+            #             #kernelB=kernelB[:arrayRef_it]+')'+kernelB[arrayRef_it+1:]
+            #             done=True
+            #     arrayRef_it+=1
+            # # check whether it is a write access
+            # iswrite=False
+            # assignmentIdx=-1
+            # assignmentOpr='='
+            # while True:
+            #     if kernelB[arrayRef_it]==';':
+            #         break
+            #     elif kernelB[arrayRef_it]=='=' and kernelB[arrayRef_it+1]!='=' and (kernelB[arrayRef_it-1]==' ' or kernelB[arrayRef_it-1]=='\t' or kernelB[arrayRef_it-1]=='\n' or kernelB[arrayRef_it-1]=='+' or kernelB[arrayRef_it-1]=='|' or kernelB[arrayRef_it-1]=='&' or kernelB[arrayRef_it-1]=='-' or kernelB[arrayRef_it-1]=='\\' or kernelB[arrayRef_it-1]=='*' or kernelB[arrayRef_it-1]=='^' or kernelB[arrayRef_it-1]=='%' or kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
+            #         iswrite=True
+            #         assignmentIdx=arrayRef_it
+            #         if not (kernelB[arrayRef_it-1].isalpha() or kernelB[arrayRef_it-1].isdigit()):
+            #             assignmentOpr=(kernelB[arrayRef_it-1]+'=').strip()
+            #     arrayRef_it+=1
+            # # keep the track of write accesses 
             if iswrite and (st=='WRITE_ONLY' or st=='READ_WRITE' or  st=='FETCH_CHANNEL'):
-                writeIdx_str=changeRangeIdx_start+arrayRef.start(0)
-                writeIdx_end=arrayRef_it+1
-                writeIdx_loc=']'.join('['.join(kernelB[writeIdx_str:assignmentIdx].split('[')[1:]).split(']')[:-1]).replace(' ','')
-                writeIdx_val=kernelB[assignmentIdx+1:writeIdx_end]
+                #writeIdx_str=changeRangeIdx_start+arrayRef.start(0)
+                #writeIdx_end=arrayRef_it+1
+                #writeIdx_loc=']'.join('['.join(kernelB[writeIdx_str:assignmentIdx].split('[')[1:]).split(']')[:-1]).replace(' ','')
+                #writeIdx_val=kernelB[assignmentIdx+1:writeIdx_end]
                 #writeIdx_replacer='__smc_write_'+str(a)+'_'+v+'('+v+','+self.prefix_kernel_smc_varpref+v+','+writeIdx_loc+','+writeIdx_val[:-1]+');'
                 #writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', ('+self.prefix_kernel_smc_startpointer+v+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+', '+self.prefix_kernel_smc_startpointer+v+');\n'
                 #writeIdx_replacer='//__syncthreads();\n//__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', (blockIdx.x*'+self.blockDim_cuda+')-('+dw+'), ((blockIdx.x+1)*'+self.blockDim_cuda+')+('+up+'), '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.blockDim_cuda+', '+p+', '+dw+','+writeIdx_val[:-1]+', '+self.prefix_kernel_smc_startpointer+v+');\n'
                 writeIdx_replacer='__syncthreads();\n__smc_write_'+str(a)+'_'+v+'('+writeIdx_loc+', '+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d, '+dim2high+', '+writeIdx_val[:-1]+')\n'
                 writeIdx_replacer+='__syncthreads();\n'
                 writeIdxStartEndPtrs.append([v, a, p, dw, up, writeIdx_str, writeIdx_end, assignmentIdx])
-                #writeIdxList.append([v, a, p, dw, up, writeIdx_str, writeIdx_end, assignmentIdx])
                 try:
                     newAccess=unifiedIdxSet.index(writeIdx_loc)
                 except:
@@ -2750,8 +2482,6 @@ class codegen(object):
                 else:
                     writeIdxList.append(newAccess)
                     unifiedIdxList.append(newAccess)
-                #print 'smc: write-access on ->\n\tlocation:'+writeIdx_loc+'\n\tstart-in-kernelB:'+str(writeIdx_str)+'\n\tend-in-kernelB:'+str(writeIdx_end)+'\n\tvalue-in-kernelB:'+writeIdx_val+'\n\tend-to-end-statement:<<'+kernelB[writeIdx_str:writeIdx_end]+'>> \n\treplacer:'+writeIdx_replacer
-                #kernelB[changeRangeIdx_start+arrayRef.start(0):assignmentIdx]+')('+kernelB[assignmentIdx+1:arrayRef_it]+')'
             if (st=='READ_ONLY' or st=='READ_WRITE'  or st=='FETCH_CHANNEL') and not iswrite:
                 #replace [ and ] with ( and )
                 arrayRef_it=changeRangeIdx_start+arrayRef.start(0)
@@ -2778,15 +2508,6 @@ class codegen(object):
                             done=True
                     arrayRef_it+=1
                 readIdxStartEndPtrs.append([wholeread_ptr_st, wholeread_ptr_en])
-                #try:
-                #    newAccess=readIdxSet.index(kernelB[index_ptr_st:index_ptr_en].replace(' ',''))
-                #except:
-                #    newAccess=-1
-                #if newAccess==-1:
-                #    readIdxList.append(len(readIdxSet))
-                #    readIdxSet.append(kernelB[index_ptr_st:index_ptr_en].replace(' ',''))
-                #else:
-                #    readIdxList.append(newAccess)
                 try:
                     newAccess=unifiedIdxSet.index(kernelB[index_ptr_st:index_ptr_en].replace(' ',''))
                 except:
@@ -2799,6 +2520,8 @@ class codegen(object):
                 else:
                     readIdxList.append(newAccess)
                     unifiedIdxList.append(newAccess)
+        if DEBUGCACHE:
+            print [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet]
         return [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet]
     def memAlloc_cuda(self, var, size):
         codeM='cudaMalloc((void**)&'+var+','+size+');\n'
@@ -3195,7 +2918,6 @@ class codegen(object):
         if cleanKerDec=='':
             print 'Fatal internal error! unable to retrieve back the kernel!'
             exit(-1)
-        #print '===================='+kerDec
         # prepare the prototype of function called in the regions
         func_proto=self.codegen_getFuncProto('accel')
         # prepare the declaration of function called in the regions
@@ -3228,6 +2950,9 @@ class codegen(object):
         # construct smc calls
         smc_select_calls=''
         if len(smcinfo)>0:
+            print 'error: cache/smc is not implemented on OpenCL'
+            print 'aborting()'
+            exit(-1)
             if DEBUGSMC: print 'found smc clause'
             pfreelist=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
@@ -3629,9 +3354,12 @@ class codegen(object):
                 lockindex+=1
         smc_select_calls=''
         if len(smcinfo)>0:
+            print 'error: cache/smc directive is not implemented on OpenCL!'
+            print 'aborting()'
+            exit(-1)
             #pfreelist=[]
             #for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
-            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range] in smcinfo:
+            for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range, vcode] in smcinfo:
                 if dim2low!='' and dim2high!='':
                     print 'two dimensional smc is not implemented on OpenCL.'
                     print 'aborting()'
@@ -3885,7 +3613,9 @@ class codegen(object):
                 lockindex+=1
         smc_select_calls=''
         if len(smcinfo)>0:
-            print 'warning: smc is not implemented for ISPC.'
+            print 'error: smc is not implemented for ISPC.'
+            print 'aborting()'
+            exit(-1)
             #pfreelist=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
                 fcall=self.prefix_kernel_smc_fetch+str(a)+'();'
@@ -4010,7 +3740,6 @@ class codegen(object):
             print self.code+'\n'+kerDec
             print 'Fatal internal error! unable to retrieve back the kernel! #'+str(getframeinfo(currentframe()).lineno)
             exit(-1)
-        #print '===================='+kerDec
         # prepare the prototype of function called in the regions
         # prepare the declaration of function called in the regions
         kerId_str=str(kerId)
@@ -4036,7 +3765,9 @@ class codegen(object):
         # construct smc calls
         smc_select_calls=''
         if len(smcinfo)>0:
-            print 'warning: smc is not implemented for ISPC.'
+            print 'error: smc is not implemented for ISPC.'
+            print 'aborting()'
+            exit(-1)
             if DEBUGSMC: print 'found smc clause'
             pfreelist=[]
             for [v, t, st, p, dw, up, div, a, dimlo, dimhi, w_dw, w_up] in smcinfo:
@@ -4128,7 +3859,7 @@ class codegen(object):
         self.code_include+='// no header for ISPC\n'
     def generate_kernel_file_ispc(self):
         ispcfile='.'.join(self.foname.split('.')[0:-1])+'.ispc'
-        print '\twarning: Storing ispc kernels in '+ispcfile
+        print '  warning: storing ispc kernels in '+ispcfile
         f=open(ispcfile, 'w')
         #code=re.sub('\\b'+'int'+'[\\ \\t\\n\\r]*','int32 ', self.ispc_kerneldecl)
         code ='#define char int8\n'
@@ -4235,7 +3966,7 @@ class codegen(object):
             self.code=self.code+self.mark_implicitcopy('in',self.oacc_kernelId)
             # * generate dummy kernel launch function call
             self.code=self.code+self.prefix_kernel+str(self.oacc_kernelId)+'();'
-            self.carry_loopAttr2For(root,False,[],[],'','',[])
+            self.carry_loopAttr2For(root,False,[],[],'','',[],'')
             self.oacc_kernels.append(root)
             # * generate proper code after the kernels region:
             #   - copy, copyout (transfer)
@@ -4494,8 +4225,10 @@ class codegen(object):
                 funcTyps=fnT
                 if DEBUGSRCMLC: print 'Error 1093! unimplemented AST parser!'
                 # get variables declared within the kernel 
-                kernel_core_body = self.scanner_xml2code(self.oacc_kernels[id])
-                [kernelLocalVN, kernelLocalVT] = srcml_get_var_details(srcml_code2xml(kernel_core_body), '')
+                # print id, len(self.oacc_kernels[id]), funcName
+                if funcName=="kernel":
+                    kernel_core_body = self.scanner_xml2code(self.oacc_kernels[id])
+                    [kernelLocalVN, kernelLocalVT] = srcml_get_var_details(srcml_code2xml(kernel_core_body), '')
             # make sure functionParent is found
             if fname=='':
                 print 'Fatal Internal Error!'
@@ -4629,7 +4362,6 @@ class codegen(object):
                     for var in funcBody.findall(".//Decl"):
                         # single variable Decl
                         if var.get('uid').split(',')[0].strip()==varName.strip():
-                            # print('============ var '+varName+' found')
                             init='unitilialized'
                             if len(var)==2:
                                 # print('declaration and initialization')
@@ -4696,61 +4428,67 @@ class codegen(object):
             codeCout='' #code for performing copyin
             codeM='' #code for performing allocation
             vardeclare=''
-            [kernel_id, cp_expression]=self.oacc_copys[i]
-            for j in cp_expression.split('\n'):
-                varname=''
-                incom=''
-                present='false'
+            [kernel_id, d_copydetails]=self.oacc_copys[i]
+            #for j in cp_expression.split('\n'):
+            for j in d_copydetails: #.split('\n'):
+                varname=j['varname']#''
+                incom=j['in']       #''
+                present=j['present']#'false'
                 dim=[]
-                type=''
-                dname=''
-                size=''
-                parentFunc=''
-                clause=''
-                dataid=''
-                pseudotp=''
-                isexit=False
-                isenter=False
-                compression=''
-                min=''
-                max=''
-                if DEBUGCP>1:
-                    print 'Copy tuple > '+j
-                for (a, b, c, d, e) in regex.findall(j):
-                    if DEBUGREGEX:
-                        print j+'> '+','.join([a,b,c,d,e])
-                    if a=='varname':
-                        varname=d
-                    elif a=='in':
-                        incom=d
-                    elif a=='present':
-                        present=d
-                    elif a.find('dim')!=-1:
-                        dim.append(d)
-                    elif a=='type':
-                        type=d
-                    elif a=='dname':
-                        dname=d
-                    elif a=='size':
-                        size=d
-                    elif a=='parentFunc':
-                        parentFunc=d
-                    elif a=='clause':
-                        clause=d
-                    elif a=='dataid':
-                        dataid=d
-                    elif a=='pseudotp':
-                        pseudotp=d
-                    elif a=='isenterdirective':
-                        isenter= True if d=='true' else False
-                    elif a=='isexitdirective':
-                        isexit= True if d=='true' else False
-                    elif a=='compression':
-                        compression=d
-                    elif a=='max':
-                        max=d
-                    elif a=='min':
-                        min=d
+                for d in [0, 1, 2, 3]:
+                    try:
+                        dim.append(j['dim'+str(d)])
+                    except:
+                        break
+                type=j['type']
+                dname=j['dname']
+                size=j['size']
+                parentFunc=j['parentFunc']
+                clause=j['clause']
+                dataid=j['dataid']
+                pseudotp=j['pseudotp'] if 'pseudotp' in j else ''
+                isexit=True if j['isenterdirective']=='true' else False
+                isenter=True if j['isexitdirective']=='true' else False
+                compression=j['compression']
+                min=j['min'] if 'min' in j else ''
+                max=j['max'] if 'max' in j else ''
+                # if DEBUGCP>1:
+                #     print 'Copy tuple > '+j
+                # for (a, b, c, d, e) in regex.findall(j):
+                #     if DEBUGREGEX:
+                #         print j+'> '+','.join([a,b,c,d,e])
+                #     if a=='varname':
+                #         varname=d
+                #     elif a=='in':
+                #         incom=d
+                #     elif a=='present':
+                #         present=d
+                #     elif a.find('dim')!=-1:
+                #         dim.append(d)
+                #     elif a=='type':
+                #         type=d
+                #     elif a=='dname':
+                #         dname=d
+                #     elif a=='size':
+                #         size=d
+                #     elif a=='parentFunc':
+                #         parentFunc=d
+                #     elif a=='clause':
+                #         clause=d
+                #     elif a=='dataid':
+                #         dataid=d
+                #     elif a=='pseudotp':
+                #         pseudotp=d
+                #     elif a=='isenterdirective':
+                #         isenter= True if d=='true' else False
+                #     elif a=='isexitdirective':
+                #         isexit= True if d=='true' else False
+                #     elif a=='compression':
+                #         compression=d
+                #     elif a=='max':
+                #         max=d
+                #     elif a=='min':
+                #         min=d
                 # handle dynamic allocation here
                 if size.find('dynamic')!=-1 and clause!='present':
                     if size.count('dynamic')!=len(dim) and not self.oacc_data_dynamicAllowed(clause):
@@ -5059,41 +4797,53 @@ class codegen(object):
         # explicit memory copies
         for i in range(0,len(self.oacc_copys)):
             #print i
-            [kernel_id, cp_expression]=self.oacc_copys[i]
-            list=(cp_expression).split('\n')
+            [kernel_id, l_d_cp_expression]=self.oacc_copys[i]
+            #list=(cp_expression).split('\n')
+            d_copydetails = [{}]*(len(l_d_cp_expression)-1)
             self.oacc_copys[i]=''
-            for j in range(0,len(list)-1):
-                regex = re.compile(r'([a-zA-Z0-9_]*)([=])(\")([a-zA-Z0-9_:\(\)\*]*)(\")')
-                if DEBUGREGEX:
-                    print 'regex='+str(regex.findall(list[j]))
-                for (a, b, c, d, e) in regex.findall(list[j]):
+            #for j in range(0,len(list)-1):
+            # print l_d_cp_expression
+            for j in range(0,len(l_d_cp_expression)-1):
+                #regex = re.compile(r'([a-zA-Z0-9_]*)([=])(\")([a-zA-Z0-9_:\(\)\*]*)(\")')
+                #if DEBUGREGEX:
+                #    print 'regex='+str(regex.findall(list[j]))
+                #for (a, b, c, d, e) in regex.findall(list[j]):
+                d_tmp = {}
+                for a, d in l_d_cp_expression[j].iteritems():
+                    d_tmp[a] = d
                     if a=='varname':
-                            # find the `d` variable in the region
+                        # find the `d` variable in the region
                         try:
                             varNameList=self.oacc_copysVarNams[i]
                             varTypeList=self.oacc_copysVarTyps[i]
                             #print varTypeList[varNameList.index(d)]
                             foundType=varTypeList[varNameList.index(d)]
                             if self.container_class_supported(foundType):
-                                list[j]=list[j]+' type="'+foundType+'" pseudotp="'+self.container_class_pseudo(foundType)+'"'
+                                #list[j]=list[j]+' type="'+foundType+'" pseudotp="'+self.container_class_pseudo(foundType)+'"'
+                                # list[j]=list[j]+' type="'+foundType+'" pseudotp="'+self.container_class_pseudo(foundType)+'"'
+                                d_tmp['type'] = foundType
+                                d_tmp['pseudotp'] = self.container_class_pseudo(foundType)
                             else:
-                                list[j]=list[j]+' type="'+foundType+'"'
-                            #ndim=varTypeList[varNameList.index(d)].count('*')
-                            #for it in range(1,ndim+1):
-                            #    list[j]=list[j]+' dim'+str(it)+'="'+'NA'+'"'
+                                # list[j]=list[j]+' type="'+foundType+'"'
+                                d_tmp['type'] = foundType
                         except:
                             print "fatal error! variable "+d+" is undefined!"
                             print str(len(self.oacc_copysVarNams))+' '+str(len(self.oacc_copys))
                             print "defined  vars: "+','.join(varNameList)
                             print "defined types: "+','.join(varTypeList)
                             exit(-1)
-                        list[j]=list[j]+' dname="'+self.varmapper_getDeviceName_elseCreate(self.oacc_copysParent[i],d,[i])+'"'
-                        list[j]=list[j]+' size="'+self.var_find_size(d,self.oacc_copysParent[i],root)+'"'
-                        list[j]=list[j]+' parentFunc="'+self.oacc_copysParent[i]+'"'
+                        # list[j]=list[j]+' dname="'+self.varmapper_getDeviceName_elseCreate(self.oacc_copysParent[i],d,[i])+'"'
+                        # list[j]=list[j]+' size="'+self.var_find_size(d,self.oacc_copysParent[i],root)+'"'
+                        # list[j]=list[j]+' parentFunc="'+self.oacc_copysParent[i]+'"'
+                        d_tmp['dname'] = self.varmapper_getDeviceName_elseCreate(self.oacc_copysParent[i],d,[i])
+                        d_tmp['size'] = self.var_find_size(d,self.oacc_copysParent[i],root)
+                        d_tmp['parentFunc'] = self.oacc_copysParent[i]
+                d_copydetails[j] = d_tmp
             if DEBUGCP>0:
-                print '\n'.join(list[0:len(list)-1])
-            self.oacc_copys[i]=[kernel_id, '\n'.join(list[0:len(list)-1])]
-            # print self.oacc_copys[i]
+                # print '\n'.join(list[0:len(list)-1])
+                print d_copydetails
+            self.oacc_copys[i]=[kernel_id, d_copydetails]
+            #self.oacc_copys[i]=[kernel_id, '\n'.join(list[0:len(list)-1])]
 
         # implicit memory copies
         for i in range(0,len(self.oacc_kernelsImplicit)):
@@ -5335,6 +5085,7 @@ class codegen(object):
         gang=''
         vector=''
         smc=[]
+        perforation=''
         #for it in regex.findall(clause):
         for [i0, i3] in clauseDecomposer_break(clause):
             if DEBUGLD:
@@ -5361,9 +5112,12 @@ class codegen(object):
             # smc
             elif i0.strip()=='smc' and i3.strip()!='':
                 smc.append(i3.strip())
+            # perforation
+            elif i0.strip()=='perforation' and i3.strip()!='':
+                perforation=i3.strip()
         if DEBUGLD:
-            print 'returning> '+str(indep)+'<>'+','.join(private)+'<>'+','.join(reduction)+'<>'+gang+'<>'+vector
-        return [indep, private, reduction, gang, vector, smc]
+            print 'returning> '+str(indep)+'<>'+','.join(private)+'<>'+','.join(reduction)+'<>'+gang+'<>'+vector+'<>'+perforation
+        return [indep, private, reduction, gang, vector, smc, perforation]
 
     def code_gen_reversiFor(self, initial, boundary, increment):
         return 'for('+initial+';'+str(boundary)+';'+str(increment)+')'
@@ -5396,15 +5150,34 @@ class codegen(object):
             idx=scopeVarsNames.index(var)
             if DEBUGCP>1:
                 print '\tretriving information of variable `'+var+'` ('+scopeVarsTypes[idx]+') for implicit copy'
-    def oacc_smc_getVarNames(self, kernelId, listOfSmc):
+
+    def oacc_get_pointer_range(self, kid, variable):
+        dim_ranges = {}
+        for [s_k, l_d_cpexpr] in self.oacc_copys:
+            if s_k==kid:
+                for l in l_d_cpexpr:
+                    for key, val in l.iteritems():
+                        if key.find('dim')!=-1:
+                            dim_ranges[key] = val
+        return dim_ranges
+
+    def oacc_smc_find_rw_type(self, variable, vcode):
+        is_written = srcml_is_written(srcml_code2xml(vcode),variable)
+        if is_written:
+            return 'FETCH_CHANNEL'
+        else:
+            return 'FETCH_CHANNEL' #'READ_ONLY'
+
+    def oacc_smc_getVarNames(self, kernelId):
         scopeVarsNames=self.oacc_kernelsVarNams[kernelId]
         scopeVarsTypes=self.oacc_kernelsVarTyps[kernelId]
+        listOfSmc = self.oacc_loopSMC
         endList=[]
         corr=0
         if DEBUGCACHE:
             print 'List of SMC is: '+str(listOfSmc)
             #exit(-1)
-        for [kid, vlist] in listOfSmc:
+        for [kid, vlist, vcode] in listOfSmc:
             # each pair corresponds to a call which will be replaced with proper SMC localization
             if kid==kernelId:
                 for vop in vlist.split(','):
@@ -5412,7 +5185,91 @@ class codegen(object):
                     if DEBUGCACHE:
                         print 'vop: '+vop
                     # find the varname, initvalue,
-                    if vop.count(':')==6:
+                    if vop.count(':')==1:
+                        # valid cache notation, subarray[start:length]
+                        spl=vop.split(':')
+                        variable=spl[0].split('[')[0]
+                        diminfo = self.oacc_get_pointer_range(kid, variable)
+                        if len(diminfo)!=1:
+                            print 'error: expected one dimensional array to be cache found otherwise.'
+                            print diminfo
+                            print 'subarray name: ', variable
+                            exit(-1)
+                        else:
+                            dimlow  = diminfo['dim0'].split(':')[0]
+                            dimhigh = diminfo['dim0'].split(':')[1]
+                        smctype = self.oacc_smc_find_rw_type(variable, vcode)
+                        pivot   = spl[0].split('[')[1]
+                        dwrange = '0'
+                        uprange = spl[1].split(']')[0]
+                        diverge = 'false' if CACHE_IMPL_MATHOD==CACHE_IMPL_MATHOD_RBI else 'true' # default to RBI, set true for RBC
+                        # print variable, diminfo, dimlow, dimhigh
+                        # print smctype, pivot, dwrange, uprange, diverge
+                        # print self.oacc_copys
+                        # exit(-1)
+                        dim2low =''
+                        dim2high=''
+                        pivot2  =''
+                        dw2range=''
+                        up2range=''
+                        w_dwrange = ''
+                        w_uprange = ''
+                        w_dw2range = ''
+                        w_up2range = ''
+                    elif vop.count(':')==2:
+                        # valid cache notation, subarray[start:length]
+                        spl=vop.split(':')
+                        variable=spl[0].split('[')[0]
+                        diminfo = self.oacc_get_pointer_range(kid, variable)
+                        if len(diminfo)!=2:
+                            if len(diminfo)==1 and diminfo['dim0'].find('*')!=-1:
+                                # assume it is flattened 2d 
+                                dimlow   = diminfo['dim0'].split(':')[0]
+                                dim2low  = diminfo['dim0'].split(':')[0]
+                                dimhigh  = diminfo['dim0'].split(':')[1].split('*')[0]
+                                dim2high = diminfo['dim0'].split(':')[1].split('*')[1]
+                                print '  warning: assuming '+variable+' is flattened 2D:', dimhigh, 'by', dim2high
+                            else:
+                                print 'error: expected two dimensional array to be cache found otherwise.'
+                                print diminfo
+                                print 'subarray name: ', variable
+                                exit(-1)
+                        else:
+                            dimlow  = diminfo['dim0'].split(':')[0]
+                            dimhigh = diminfo['dim0'].split(':')[1]
+                            dim2low = diminfo['dim1'].split(':')[0]
+                            dim2high= diminfo['dim1'].split(':')[1]
+                        #print variable, diminfo, dimlow, dimhigh
+                        #print self.oacc_copys
+                        smctype = self.oacc_smc_find_rw_type(variable, vcode)
+                        pivot   = spl[0].split('[')[1]
+                        dwrange = '0' 
+                        uprange = spl[1].split(']')[0].strip()
+                        try:
+                            uprange = str(eval(uprange+'-1'))
+                        except:
+                            print uprange, 'is not constant in', vop
+                            print 'aborting()'
+                            exit(1)
+                        diverge = 'false' if CACHE_IMPL_MATHOD==CACHE_IMPL_MATHOD_RBI else 'true' # default to RBI, set true for RBC
+                        pivot2  = spl[1].split('[')[1]
+                        dw2range= '0'
+                        up2range= spl[2].split(']')[0].strip()
+                        try:
+                            up2range= str(eval(up2range+'-1'))
+                        except:
+                            print up2range, 'is not constant in', vop
+                            print 'aborting()'
+                            exit(1)
+                        # print smctype, pivot, dwrange, uprange, diverge, pivot2, dw2range, up2range
+                        # print '2D cache is not implemented!'
+                        # print 'aborting()'
+                        # exit(-1)
+                        w_dwrange = ''
+                        w_uprange = ''
+                        w_dw2range = ''
+                        w_up2range = ''
+                    elif vop.count(':')==6:
                         # valid smc
                         spl=vop.split(':')
                         variable=spl[0].split('[')[0]
@@ -5508,7 +5365,7 @@ class codegen(object):
                     except:
                         print 'Error: Could not determine the type of variable declared for smc: '+variable
                         exit(-1)
-                    endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, corr, dimlow, dimhigh, w_dwrange, w_uprange, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range])
+                    endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, corr, dimlow, dimhigh, w_dwrange, w_uprange, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range, vcode])
                     #endList.append([variable, type, smctype, pivot, dwrange, uprange, diverge, kid, dimlow, dimhigh])
             corr+=1
         return endList
@@ -5620,6 +5477,14 @@ class codegen(object):
             # print self.func_comp_vars
 
 
+    def util_get_var_type(self, kernelId, vname):
+        scopeVarsNames=self.oacc_kernelsVarNams[kernelId]
+        scopeVarsTypes=self.oacc_kernelsVarTyps[kernelId]
+        if vname in scopeVarsNames:
+            return scopeVarsTypes[scopeVarsNames.index(vname)]
+        else:
+            print_error('variable type not found', ['variable name: '+vname])
+
     def find_kernel_undeclaredVars_and_args(self, kernelBody, kernelId):
         # here we look for variable 
         # and return their declarations, if they are not already declared
@@ -5721,7 +5586,7 @@ class codegen(object):
             self.debug_dump_privredInfo('private',privInfo)
             self.debug_dump_privredInfo('reduction',reduInfo)
         # five, listing all smc variables to this kernel
-        smcInfo=self.oacc_smc_getVarNames(kernelId,self.oacc_loopSMC)
+        smcInfo=self.oacc_smc_getVarNames(kernelId)
         if DEBUGSMC:
             self.debug_dump_smcInfo(smcInfo)
         # six, find the function arguments and implicit copies
@@ -5862,8 +5727,11 @@ class codegen(object):
                 atomicBlocks.append([atomicId, atomicBody, atomicClause])
         if len(atomicBlocks)>0:
             function_args.append(self.atomicRegion_locktype+' * '+self.prefix_kernel_atomicLocks)
-
-            
+        
+        # perforation expansion rate passed as argument
+        for idx, [prfr_kernelId, prfr_Expansion] in enumerate(self.perforationrates):
+            if str(prfr_kernelId).strip()==str(kernelId):
+                function_args.append('float __ipmacc_prfr_'+str(idx))#+' = '+prfr_Expansion)
 
         # report stats
         if VERBOSE==1:
@@ -5877,7 +5745,7 @@ class codegen(object):
     def kernel_forSize_CReadable(self, l):
         if len(l)==1 and not (type(l[0]) is str):
             return self.kernel_forSize_CReadable(l[0])
-        max=[]
+        mmax=[]
         prod=[]
         for ch in l:
             if type(ch) is str:
@@ -5885,13 +5753,13 @@ class codegen(object):
             else:
                 j=self.kernel_forSize_CReadable(ch)
                 if j!='':
-                    max.append(j)
-        if len(prod)>0 and len(max)>0:
-            return '*'.join(prod)+'*'+'IPMACC_MAX'+str(len(max))+'('+','.join(max)+')'
+                    mmax.append(j)
+        if len(prod)>0 and len(mmax)>0:
+            return '*'.join(prod)+'*'+'IPMACC_MAX'+str(len(mmax))+'('+','.join(mmax)+')'
         elif len(prod)>0:
             return '('+'*'.join(prod)+')'
-        elif len(max)>0:
-            return 'IPMACC_MAX'+str(len(max))+'('+','.join(max)+')'
+        elif len(mmax)>0:
+            return 'IPMACC_MAX'+str(len(mmax))+'('+','.join(mmax)+')'
         else:
             return ''
 
@@ -5912,6 +5780,17 @@ class codegen(object):
                 itercount='('+root.attrib['gang']+'*'+root.attrib['vector']+')'
             else:
                 itercount=self.count_loopIter(root.attrib.get('init'),root.attrib.get('terminate'),root.attrib.get('incoperator'),root.attrib.get('incstep'),root.attrib.get('boundary'))
+            [prfr_ty, prfr_prm, prfr_en, prfr_fix] = self.perforation_read_clause(root.attrib['perforation'])
+            if prfr_en:
+                if self.perforationshrink:
+                    if prfr_ty=='stride':
+                        itercount = '(('+itercount+')/((float)'+prfr_prm[0]+'))'
+                    elif prfr_ty=='rate':
+                        itercount = '(('+itercount+')*(1.0-('+prfr_prm[0]+')))'
+                    else:
+                        print 'unknown perforation type.'
+                        print 'aborting()'
+                        exit(-1)
             if currentdepth>len(output):
                 # append new dimension
                 output.append([])
@@ -5972,10 +5851,24 @@ class codegen(object):
             accumulation.append(itercount) #FIXME
             return accumulation
         elif root.tag=='for' and root.attrib['independent']=='true':
+            # count iterations 
             if root.attrib['gang']!='' and root.attrib['vector']!='':
                 itercount='('+root.attrib['gang']+'*'+root.attrib['vector']+')'
             else:
                 itercount=self.count_loopIter(root.attrib.get('init'),root.attrib.get('terminate'),root.attrib.get('incoperator'),root.attrib.get('incstep'),root.attrib.get('boundary'))
+            # consider perforation
+            [prfr_ty, prfr_prm, prfr_en, prfr_fix] = self.perforation_read_clause(root.attrib['perforation'])
+            if prfr_en:
+                if self.perforationshrink:
+                    if prfr_ty=='stride':
+                        itercount = '(('+itercount+')/((float)'+prfr_prm[0]+'))'
+                    elif prfr_ty=='rate':
+                        itercount = '(('+itercount+')*(1.0-('+prfr_prm[0]+')))'
+                    else:
+                        print 'unknown perforation type.'
+                        print 'aborting()'
+                        exit(-1)
+
             # mark if this loop is on the same rank as an algorithm 
             try:
                 algorithm_ranks.index(root.attrib['reversedepth'])
@@ -6029,7 +5922,7 @@ class codegen(object):
             return [iterator_p, '@'+self.count_loopIter(root.attrib.get('init'),root.attrib.get('terminate'),root.attrib.get('incoperator'),root.attrib.get('incstep'),root.attrib.get('boundary'))+size, iterator_s]
         return [iterator_p, size, iterator_s]
 
-    def carry_loopAttr2For(self, root, independent, private, reduction, gangs, vectors, smcs):
+    def carry_loopAttr2For(self, root, independent, private, reduction, gangs, vectors, smcs, perforation):
         # get kernels region and go through to carry loop clauses to the corresponding for
         # mark independent loops, private vars, reduction vars
         if DEBUGLD:
@@ -6037,14 +5930,14 @@ class codegen(object):
         if root.tag=='pragma':
             if root.attrib.get('directive')=='kernels':
                 for ch in root:
-                    self.carry_loopAttr2For( ch, False, private, reduction, gangs, vectors, smcs)
+                    self.carry_loopAttr2For( ch, False, private, reduction, gangs, vectors, smcs, perforation)
             elif root.attrib.get('directive')=='loop':
-                [indep, priv, reduc, gang, vector, smc]=self.oacc_clauseparser_loop_isindependent(root.attrib.get('clause'))
+                [indep, priv, reduc, gang, vector, smc, perfor]=self.oacc_clauseparser_loop_isindependent(root.attrib.get('clause'))
                 for ch in root:
-                    self.carry_loopAttr2For(ch, indep, private+priv, reduction+reduc, gangs+gang, vectors+vector, smcs+smc)
+                    self.carry_loopAttr2For(ch, indep, private+priv, reduction+reduc, gangs+gang, vectors+vector, smcs+smc, perfor)
             elif root.attrib.get('directive')=='cache':
                 for ch in root:
-                    self.carry_loopAttr2For( ch, False, private, reduction, gangs, vectors, smcs)
+                    self.carry_loopAttr2For( ch, False, private, reduction, gangs, vectors, smcs, perforation)
             elif root.attrib.get('directive')=='atomic' or root.attrib.get('directive')=='algorithm':
                 righton = True
             else:
@@ -6066,12 +5959,49 @@ class codegen(object):
             root.attrib['vector']=vectors
             # cut smc
             root.attrib['smc']=','.join(smcs)
+            # cut perforation 
+            root.attrib['perforation']=perforation
             # go through the childs
             for ch in root:
-                self.carry_loopAttr2For(ch, False, [], [], '', '', [])
+                self.carry_loopAttr2For(ch, False, [], [], '', '', [], '')
             if DEBUGLD:
                 # print loop attribute
                 print self.print_loopAttr(root)
+    def perforation_gen_expansion(self, kerId):
+        decl = ''
+        if len(self.perforationrates)>0:
+            for prfr_idx, [prfr_kernelId, prfr_Expansion] in enumerate(self.perforationrates):
+                if str(prfr_kernelId)==str(kerId):
+                    decl += 'float __ipmacc_prfr_'+str(prfr_idx)+' = '+prfr_Expansion+';\n'
+        return decl
+
+    def perforation_gen_fix(self, pointername, index, vname, prfr_fix):
+        code  = ''
+        code += '{\n'
+        code += '// fix '+pointername+index+'\n'
+        if   prfr_fix=='fixcpy':
+            code += pointername+index+'='+vname+';\n'
+        elif prfr_fix=='fixavg':
+            code += pointername+index+'= (__shfl_down('+vname+',1)+__shfl_up('+vname+',1)+'+vname+')/3.0;\n'
+        elif prfr_fix=='fixmin':
+            code += pointername+index+'= min(min(__shfl_down('+vname+',1),__shfl_up('+vname+',1)),'+vname+');\n'
+        elif prfr_fix=='fixmax':
+            code += pointername+index+'= max(max(__shfl_down('+vname+',1),__shfl_up('+vname+',1)),'+vname+');\n'
+        elif prfr_fix=='fixwav':
+            code += pointername+index+'= (__shfl_down('+vname+',1)+__shfl_up('+vname+',1)+2*'+vname+')/4.0;\n'
+        else:
+            print_error('unimplemented perforation fix method', ['perforation method: '+prfr_fix])
+        code += '}\n'
+        return code
+    def perforation_read_clause(self, clause):
+        prfr_en = False
+        prfr_ty = ''
+        prfr_prm = []
+        if clause!='':
+            prfr_ty = clause.split(',')[0]
+            prfr_prm= clause.split(',')[1:]
+            prfr_en = prfr_ty!=''
+        return [prfr_ty, prfr_prm, prfr_en, self.perforationfixtyp]
 
     def get_dim_iterator(self, depth):
         if   depth=='0':
@@ -6102,25 +6032,25 @@ class codegen(object):
                         code=code+self.var_kernel_genPlainCode(id, ch, nesting)
                     code=code+'}\n'
                 elif root.attrib.get('directive')=='loop':
-                    [indep, priv, reduc, gang, vector, smc]=self.oacc_clauseparser_loop_isindependent(root.attrib.get('clause'))
+                    [indep, priv, reduc, gang, vector, smc, perforation]=self.oacc_clauseparser_loop_isindependent(root.attrib.get('clause'))
                     self.oacc_kernelsConfig_update(id, vector if vector!='' else 'PREDEF', nesting)
                     for ch in root:
                         #print str(indep)
                         code=code+self.var_kernel_genPlainCode(id, ch, nesting)
                 elif root.attrib.get('directive')=='cache':
+                    # backtrack
+                    codeinside = ''
+                    for ch in root:
+                        codeinside+=self.var_kernel_genPlainCode(id, ch, nesting)
+                    #print codeinside
                     code+='//go on with the clause '+root.attrib.get('clause')+'\n'
-                    # smc open
+                    # cache region open
                     smcId=len(self.oacc_loopSMC)
-                    #if root.attrib.get('smc')!='' and root.attrib['independent']=='true':
-                    #    code+='{ // opened for smc fetch\n'
                     variables=root.attrib.get('clause').strip()[1:-1]
                     code+=self.prefix_kernel_smc_fetch+str(smcId)+'();\n'
-                    self.oacc_loopSMC.append([id,variables])
-                    # backtrack
-                    for ch in root:
-                        code=code+self.var_kernel_genPlainCode(id, ch, nesting)
-                    # smc end
-                    #if root.attrib.get('smc')!='' and root.attrib['independent']=='true':
+                    self.oacc_loopSMC.append([id,variables,codeinside])
+                    code+=codeinside
+                    # cache region close
                     code+=self.prefix_kernel_smc_fetchend+str(smcId)+'();\n'
                     code+='//end up with the clause '+root.attrib.get('clause')+'\n'
                 elif root.attrib.get('directive')=='atomic':
@@ -6150,32 +6080,75 @@ class codegen(object):
                     exit(-1)
             elif root.tag=='for':
                 if (self.target_platform=='CUDA' or self.target_platform=='OPENCL') and root.attrib['independent']=='true': #independent:
+                    [prfr_ty, prfr_prm, prfr_en, prfr_fix] = self.perforation_read_clause(root.attrib['perforation'])
+                    if prfr_en:
+                        print '  warning: loop undergoes perforation:', root.attrib['perforation']
+                        if root.attrib.get('incoperator')!='-' and root.attrib.get('incoperator')!='+':
+                            print_error('unimplemented increment operator under perforation', ['inc operator: '+root.attrib.get('incoperator')])
                     if DEBUGLD:
                         print 'for loop of -> '+root.attrib['iterator']+' -> '+root.attrib['dimloops']
                     # generate indexing
                     dimension_iterator=self.get_dim_iterator(root.attrib.get('reversedepth'))
                     # iterating value 
                     if root.attrib.get('incoperator')=='+' or root.attrib.get('incoperator')=='-':
-                        iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+root.attrib.get('incstep')+'*('+dimension_iterator+');'
+                        ex_incstep_nscald = root.attrib.get('incstep')
+                        ex_incstep_scaled = '(__ipmacc_prfr_'+str(len(self.perforationrates))+'*'+root.attrib.get('incstep')+')'
+                        iteratorVal_scaled_prev=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_scaled+'*('+dimension_iterator+'-1)'
+                        iteratorVal_scaled_next=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_scaled+'*('+dimension_iterator+'+1)'
+                        iteratorVal_scaled_iter=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_scaled+'*('+dimension_iterator+')'
+                        iteratorVal_nscald_prev=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_nscald+'*('+dimension_iterator+'-1)'
+                        iteratorVal_nscald_next=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_nscald+'*('+dimension_iterator+'+1)'
+                        iteratorVal_nscald_iter=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+ex_incstep_nscald+'*('+dimension_iterator+')'
+                        if (not prfr_en) or (not self.perforationshrink):
+                            iteratorVal = iteratorVal_nscald_iter
+                        else:
+                            iteratorVal = iteratorVal_scaled_iter
+                        if prfr_en:
+                            if prfr_ty=='stride':
+                                expansion_rate = prfr_prm[0]
+                                self.perforationrates.append([id, expansion_rate])
+                            elif prfr_ty=='rate':
+                                expansion_rate = '(1/(1-'+prfr_prm[0]+'))'
+                                self.perforationrates.append([id, expansion_rate])
+                            else:
+                                print 'unknown perforation type.'
+                                print 'aborting()'
+                                exit(-1)
                     elif root.attrib.get('incoperator')=='/' or root.attrib.get('incoperator')=='*':
                         powerfunction = 'pown((float)'+root.attrib.get('incstep')+',(int)'+dimension_iterator+')' if self.target_platform=='OPENCL' else 'powf((float)'+root.attrib.get('incstep')+',(float)'+dimension_iterator+')'
-                        iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+powerfunction+';'
+                        iteratorVal=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+powerfunction+''
+                        if prfr_en and prfr_fix!='non':
+                            powerfunction = 'pown((float)'+root.attrib.get('incstep')+',((int)'+dimension_iterator+'+1))' if self.target_platform=='OPENCL' else 'powf((float)'+root.attrib.get('incstep')+',(float)('+dimension_iterator+'+1))'
+                            iteratorVal_scaled_next=('('+root.attrib.get('init')+')'+root.attrib.get('incoperator'))+powerfunction+';'
                     else:
                         print 'unsupported loop increment operator> '+root.attrib.get('incoperator')
                         exit(-1)
+                    if prfr_en:
+                        code+='int __ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_prev ='+iteratorVal_scaled_prev+';\n'
+                        code+='int __ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_next ='+iteratorVal_scaled_next+';\n'
+                        code+='int __ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_iter ='+iteratorVal_scaled_iter+';\n'
+                        code+='int __ipmacc_internal_it_nscald_'+root.attrib.get('iterator')+'_next ='+iteratorVal_nscald_next+';\n'
+                        code+='int __ipmacc_internal_it_nscald_'+root.attrib.get('iterator')+'_prev ='+iteratorVal_nscald_prev+';\n'
+                        code+='int __ipmacc_internal_it_nscald_'+root.attrib.get('iterator')+'_iter ='+iteratorVal_nscald_iter+';\n'
+                        code+='int __ipmacc_internal_it_'+root.attrib.get('iterator')+'_missing_fw = '+iteratorVal+root.attrib.get('incoperator')+'1;\n' # iterator that is dropped
+                        code+='int __ipmacc_internal_it_'+root.attrib.get('iterator')+'_missing_bw = '+iteratorVal+root.attrib.get('incoperator')+'1*(-1);\n' # iterator that is dropped
+                        code+='bool __ipmacc_internal_next_is_dropped = '+'__ipmacc_internal_it_'+root.attrib.get('iterator')+'_missing_fw!=__ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_next'+';\n'
+                        code+='bool __ipmacc_internal_this_is_dropped = '+'__ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_prev!=('+'__ipmacc_internal_it_scaled_'+root.attrib.get('iterator')+'_iter'+');\n'
+                        if prfr_fix!='non':
+                            code+='__ipmacc_internal_n_output_to_cache\n'
                     code+=root.attrib.get('declared')+' ' #append iterator type if it is carried
-                    code+=root.attrib.get('iterator')+'='+iteratorVal+'\n'
+                    code+=root.attrib.get('iterator')+'='+iteratorVal+';\n'
                     # generate work-sharing control statement
                     if root.attrib.get('gang')!='' and root.attrib.get('vector')!='':
                         # FIXME
                         print 'unimplemented configuration:'
-                        print 'gang and vector are enable together.'
+                        print 'gang and vector are enabled together.'
                         print 'aborting()'
                         exit(-1)
                         code+='if('+self.prefix_kernel_uid_x+'<('+root.attrib.get('gang')+'*'+root.attrib.get('vector')+'*'+root.attrib.get('dimloops')+'))'
-                        code+='for('+root.attrib.get('iterator')+'='+iteratorVal+' '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+='+root.attrib.get('gang')+'*'+root.attrib.get('vector')+')\n'
+                        code+='for('+root.attrib.get('iterator')+'='+iteratorVal+'; '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+='+root.attrib.get('gang')+'*'+root.attrib.get('vector')+')\n'
                     elif root.attrib['algoonrank']=='true':
-                        code+='for('+root.attrib.get('iterator')+'='+iteratorVal+' '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+=blockDim.x /*assumed algorithm is always in the inner loop*/)\n'
+                        code+='for('+root.attrib.get('iterator')+'='+iteratorVal+'; '+root.attrib.get('boundary')+'; '+root.attrib.get('iterator')+'+=blockDim.x /*assumed algorithm is always in the inner loop*/)\n'
                     else:
                         code+='if('+root.attrib.get('boundary')+')\n'
                     # private/reduction
@@ -6187,19 +6160,58 @@ class codegen(object):
                         code=code+'/*private:'+variables+'*/\n'
                         code=code+self.prefix_kernel_privred_region+str(len(self.oacc_loopPrivatizin))+'();'+'\n'
                         self.oacc_loopPrivatizin.append([id,variables])
+                    # go through children
+                    codeinside = ''
+                    for ch in root:
+                        codeinside+= self.var_kernel_genPlainCode(id, ch, nesting+1)
+                    if prfr_en:
+                        if DEBUGPRFR: print codeinside
+                        [prfr_kernel_writes, prfr_kernel_reads] = self.find_kernel_writes(codeinside, id)
+                        if DEBUGPRFR:
+                            for [arraccs, indecis, dependt, arraccs_loc, assignmentIdx, assignmentOpr, writeIdx_str, writeIdx_end, writeIdx_loc] in prfr_kernel_writes:
+                                print '========='
+                                print 'ARRAY NAME:', arraccs
+                                print 'INDEX EXPR:', indecis
+                                print 'DEPND. VAR:', dependt
+                                print 'ACCESS COD:', codeinside[arraccs_loc:arraccs_loc+10], '...'
+                                print 'ASSIGNMTOP:', assignmentOpr
+                                print 'WRITE EXPR:', codeinside[writeIdx_str:writeIdx_end], '...'
+                                print 'WRITE  IDX:', writeIdx_loc
+                                print '========='
+                            for [arraccs, indecis, dependt, arraccs_loc] in prfr_kernel_reads:
+                                print '========='
+                                print 'ARRAY NAME:', arraccs
+                                print 'INDEX EXPR:', indecis
+                                print 'DEPND. VAR:', dependt
+                                print 'ACCESS COD:', codeinside[arraccs_loc:arraccs_loc+10], '...'
+                                print '========='
+                        if prfr_fix!='non':
+                            codeinside+='// perforation fixup\n'
+                            codeinside+='if(__ipmacc_internal_next_is_dropped)\n{\n'
+                            codeinside+='int '+root.attrib.get('iterator')+'='+'__ipmacc_internal_it_'+root.attrib.get('iterator')+'_missing_fw;\n'
+                            codeinside+='if('+root.attrib.get('boundary')+')\n{\n'
+                            code_cacheoutput = ''
+                            for tmp_idx in range(len(prfr_kernel_writes)-1,-1,-1):
+                                [arraccs, indecis, dependt, arraccs_loc, assignmentIdx, assignmentOpr, writeIdx_str, writeIdx_end, writeIdx_loc] = prfr_kernel_writes[tmp_idx]
+                                variabletype = self.util_get_var_type(id, arraccs).replace('*','').strip()
+                                code_cacheoutput += variabletype+' __ipmacc_internal_output_'+str(tmp_idx)+';\n'
+                                codeinside = codeinside[0:writeIdx_str] + '__ipmacc_internal_output_' + str(tmp_idx) + ' = ' + codeinside[writeIdx_str:]
+                                codeinside += self.perforation_gen_fix(arraccs, indecis, '__ipmacc_internal_output_' + str(tmp_idx), prfr_fix)
+                            codeinside+='}\n'
+                            codeinside+='}\n'
+                            code = code.replace('__ipmacc_internal_n_output_to_cache', code_cacheoutput)
                     # smc
                     smcId=len(self.oacc_loopSMC)
                     if root.attrib.get('smc')!='' and root.attrib['independent']=='true':
                         code+='{ // opened for smc fetch\n'
                         variables=root.attrib.get('smc')
                         code+=self.prefix_kernel_smc_fetch+str(smcId)+'();\n'
-                        self.oacc_loopSMC.append([id,variables])
-                    # go through childs
-                    for ch in root:
-                        code=code+self.var_kernel_genPlainCode(id, ch, nesting+1)
-                    if root.attrib.get('smc')!='' and root.attrib['independent']=='true':
+                        self.oacc_loopSMC.append([id,variables,codeinside])
+                        code+=codeinside
                         code+=self.prefix_kernel_smc_fetchend+str(smcId)+'();\n'
                         code+='} // closed for smc fetch end\n'
+                    else:
+                        code+=codeinside
                     if root.attrib.get('reduction')!='':
                         # generate reduction operations
                         variables=root.attrib.get('reduction')+':'+str(nesting)
@@ -6297,11 +6309,650 @@ class codegen(object):
     def debug_dump_privredInfo(self, type, privredList):
         for [v, i, o, a, t] in privredList:
             print type+'> variable: '+v+' initialized: '+i+' operator: '+o+' assignee: '+str(a)+' type: '+t
+
+    # get a list of pack of smcInfos and prints struct elements
+    # input: list smcList
+    # output: void   
     def debug_dump_smcInfo(self, smcList):
         #for [variable, type, smctype, pivot, dwrange, uprange, diverge, kid, dimlo, dimhi] in smcList:
-        for [variable, type, smctype, pivot, dwrange, uprange, diverge, corr, dimlow, dimhigh, w_dwrange, w_uprange, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range] in smcList:
-            print 'SMC info: variable: '+variable+' type: '+type+' smctype: '+smctype+' pivot: '+pivot+' dwrange: '+dwrange+' uprange: '+uprange+' divergent: '+diverge+' assignee: '+str(kid)+' dimlow: '+dimlow+' dimhigh: '+dimhigh+' dwwrange: '+w_dwrange+' upwrange: '+w_uprange+' pivot2: '+pivot2+' dwrange2: '+dw2range+' uprange2: '+up2range+' dim2low: '+dim2low+' dim2high: '+dim2high+' dw2wrange: '+w_dw2range+' up2wrange: '+w_up2range
+        for [variable, type, smctype, pivot, dwrange, uprange, diverge, corr, dimlow, dimhigh, w_dwrange, w_uprange, dim2low, dim2high, pivot2, dw2range, up2range, w_dw2range, w_up2range, vcode] in smcList:
+            print 'SMC info:'
+            print '\tvariable: '+variable
+            print '\ttype: '+type
+            print '\tsmctype: '+smctype
+            print '\tpivot: '+pivot
+            print '\tdwrange: '+dwrange
+            print '\tuprange: '+uprange
+            try:
+                print '\tlength: ', int(dwrange)+int(uprange)+1
+            except:
+                print '\tlength: ', dwrange+uprange+str(1)
+            print '\tdivergent: '+diverge
+            print '\tdimlow: '+dimlow
+            print '\tdimhigh: '+dimhigh
+            print '\tdwwrange: '+w_dwrange
+            print '\tupwrange: '+w_uprange
+            if dw2range!='' and up2range!='':
+                print '\tpivot2: '+pivot2
+                print '\tdwrange2: '+dw2range
+                print '\tuprange2: '+up2range
+                try:
+                    print '\tlength2: ', int(dw2range)+int(up2range)+1
+                except:
+                    print '\tlength2: ', dw2range+up2range+str(1)
+                print '\tdim2low: '+dim2low
+                print '\tdim2high: '+dim2high
+                print '\tdw2wrange: '+w_dw2range
+                print '\tup2wrange: '+w_up2range
+            print '\tcoderegion: '+vcode
 
+    # @ cache directive
+    # process base index variable (called pivot here) and 
+    # verify if it's in the normal form: R*T+O
+    # where T is an induction variable and O and R are expressions not derived from
+    # induction variables.
+    # input:  string pivot (base index variable)
+    # input:  list loop_induction_vars_list (list of induction variables in this kernel)
+    # input:  string code (kernel code)
+    # output: True if normal, False otherwise
+    def smc_cache_base_is_normal(self, pivot, loop_induction_vars_list, code):
+        return True   # FIXME
+        # this requires sophisticated lex/yacc to detect the normal form
+        # will do upon releasing the compiler.
+        print 'verifying cache index normal form:'
+        print '\tbase index:', pivot
+        [srcmlO1, srcmlO2, srcmlO3, srcmlO4] = srcml_get_dependentVars(srcml_code2xml(code), [pivot])
+        # print '\t', srcmlO1
+        # print '\t', srcmlO2
+        # print '\t', srcmlO3
+        print '\tform to verify:', srcmlO4 
+        print '\tinduction variables in the kernel:', ','.join(loop_induction_vars_list)
+        print '\tkernel code:', code.replace('\n', '\n\t\t')
+        return False
+    
+    # @ cache directive
+    # process base index variable and return R and O if index is normal (R*T+O)
+    # input:  string pivot (base index variable)
+    # input:  list loop_induction_vars_list (list of induction variables in this kernel)
+    # input:  string code (kernel code)
+    # output: True if normal, False otherwise
+    def smc_cache_base_normal_get_RO(self, pivot, loop_induction_vars_list, code):
+        return ['1', '0'] # FIXME
+
+    # @ cache directive
+    # process the code and if `call' might be called from a divergent path
+    # input: string call (name of the function that is called in the code)
+    # input: string code (kernel code)
+    # output: True if divergent, False otherwise
+    def smc_cache_is_divergent(self, call, code):
+        return False # FIXME
+
+    # @ cache directive
+    # generate declaration statements; including shared memory allocation and pointer declarations
+    # input: int kernelId (ID of the current kernel)
+    # input: string kernelB (kernel body)
+    # input: string p (pivot index of 1st dim)
+    # input: string v (cache subarray/variable name)
+    # input: string up (#of elements before pivot that are cached on 1st dim)
+    # input: string dw (#of elements after pivot that are cached on 1st dim)
+    # input: string up2range (#of elements before pivot that are cached on 2nd dim)
+    # input: string dw2range (#of elements after pivot that are cached on 2nd dim)
+    # input: string ctadimx ((thread block size dim.x)
+    # input: string ctadimy ((thread block size dim.y)
+    # input: string t (v data type)
+    # input: bool subarrayndim (number of dimensions in subarray)
+    # output: True if p is static to induction variables, otherwise False
+    # output: True if pivot2 is static to induction variables, otherwise False
+    # output: length of 1st dimension of cache allocated in shared memory
+    # output: length of 2nd dimension of cache allocated in shared memory
+    # output: string of declaration statments
+    def oacc_smc_codegen_declaration(self, kernelId, kernelB, p, pivot2, v, up, dw, up2range, dw2range, ctadimx, ctadimy, t, subarrayndim):
+        if subarrayndim>2:
+            print_error('cache directive: unsupported multidimentional subarray.', [])
+        if CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_COMMUN:
+            prefix  = '__shared__ '
+        elif CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_PRIVATE:
+            prefix  = '' 
+        else:
+            print_error('cache: unknown pointer calculation method!', [])
+        f_is_stataic_p = ''
+        f_is_stataic_p2 = ''
+        length = ''
+        length_2 = ''
+        decl ='\n/* declare the shared memory of '+v+' */\n'
+
+        # if subarrayndim>=1:
+        #     f_is_stataic_p = not self.is_function_of_iterator_var(kernelId,kernelB,p)
+        #     length   = self.oacc_smc_squeez_size(ctadimy, up, dw, f_is_stataic_p, p, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB)
+        #     decl+=prefix+' int '+self.prefix_kernel_smc_startpointer+v+';\n'
+        #     decl+=prefix+' int '+self.prefix_kernel_smc_endpointer+v+';\n'
+        #     decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
+        #     decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
+        if subarrayndim==1:
+            f_is_stataic_p = not self.is_function_of_iterator_var(kernelId,kernelB,p)
+            length   = self.oacc_smc_squeez_size(ctadimx, up, dw, f_is_stataic_p, p, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB)
+            decl+=prefix+' int '+self.prefix_kernel_smc_startpointer+v+';\n'
+            decl+=prefix+' int '+self.prefix_kernel_smc_endpointer+v+';\n'
+            decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
+            decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
+            decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+'];\n'
+        elif subarrayndim==2:
+            f_is_stataic_p = not self.is_function_of_iterator_var(kernelId,kernelB,p)
+            length   = self.oacc_smc_squeez_size(ctadimy, up, dw, f_is_stataic_p, p, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB)
+            decl+=prefix+' int '+self.prefix_kernel_smc_startpointer+v+';\n'
+            decl+=prefix+' int '+self.prefix_kernel_smc_endpointer+v+';\n'
+            decl+=self.prefix_kernel_smc_endpointer+v+'=-1;\n'
+            decl+=self.prefix_kernel_smc_startpointer+v+'=-1;\n'
+            f_is_stataic_p2= not self.is_function_of_iterator_var(kernelId,kernelB,pivot2)
+            length_2 = self.oacc_smc_squeez_size(ctadimx, up2range, dw2range, f_is_stataic_p2, pivot2, self.oacc_kernelsLoopIteratorsPar[kernelId], kernelB)
+            decl+=prefix+' int '+self.prefix_kernel_smc_startpointer+v+'_2d;\n'
+            decl+=prefix+' int '+self.prefix_kernel_smc_endpointer+v+'_2d;\n'
+            decl+=self.prefix_kernel_smc_endpointer+v+'_2d=-1;\n'
+            decl+=self.prefix_kernel_smc_startpointer+v+'_2d=-1;\n'
+            decl+='__shared__ '+t.replace('*','')+' '+self.prefix_kernel_smc_varpref+v+'['+length+']['+length_2+'];\n'
+        return [f_is_stataic_p, f_is_stataic_p2, length, length_2, decl]
+
+    # @ cache directive
+    # set boundary pointers for RBC and RBI
+    # input: int kernelId (ID of the current kernel)
+    # input: string kernelB (kernel body)
+    # input: string p (pivot index of 1st dim)
+    # input: string v (cache subarray/variable name)
+    # input: string up (#of elements before pivot that are cached on 1st dim)
+    # input: string dw (#of elements after pivot that are cached on 1st dim)
+    # input: string up2range (#of elements before pivot that are cached on 2nd dim)
+    # input: string dw2range (#of elements after pivot that are cached on 2nd dim)
+    # input: string ctadimx ((thread block size dim.x)
+    # input: string ctadimy ((thread block size dim.y)
+    # input: string t (v data type)
+    # input: bool isfusion (True if this subarray fetch can be merged with a previously generated code)
+    # input: int fusionIdx (if isfusion, the fusion ID is returned in fusionSMC) 
+    # input: bool f_is_stataic_p (True if p is static to induction variables, otherwise False)
+    # input: bool f_is_stataic_p2 (True if pivot2 is static to induction variables, otherwise False)
+    # input: bool subarrayndim (number of dimensions in subarray)
+    # output: string of statments setting the boundary pointers
+    # output: string of new kernelB
+    def oacc_smc_codegen_set_boundary_pointers(self, kernelId, kernelB, p, pivot2, v, up, dw,\
+            up2range, dw2range, ctadimx, ctadimy, t,\
+            isfusion, fusionIdx, fusionSMC,\
+            f_is_stataic_p, f_is_stataic_p2, ndim):
+        #   start address
+        datafetch = ''
+        if isfusion:
+            [tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7]=fusionSMC[fusionIdx]
+            # merge this fetch with previous one 
+            tmp1='__fusion_merge_boundary_'+str(fusionIdx)+'()'
+            if ndim>=1:
+                tmp8 =self.prefix_kernel_smc_endpointer+v+'=     '+self.prefix_kernel_smc_endpointer+tmp7+';\n'
+                tmp8+=self.prefix_kernel_smc_startpointer+v+'=   '+self.prefix_kernel_smc_startpointer+tmp7+';\n'
+            if ndim>=2:
+                tmp8+=self.prefix_kernel_smc_endpointer+v+'_2d=  '+self.prefix_kernel_smc_endpointer+tmp7+'_2d;\n'
+                tmp8+=self.prefix_kernel_smc_startpointer+v+'_2d='+self.prefix_kernel_smc_startpointer+tmp7+'_2d;\n'
+            kernelB=kernelB.replace(tmp1,tmp1+'\n'+tmp8)
+        else:
+            datafetch+="\n // FINDING TILE START\n"
+            datafetch+=    """/*
+                               * This works as long as all threads of the thread block are active here.'
+                               * Also works if threads from 0...Nx and 0...Ny
+                               *   are active and Nx<blockDim.x Ny<blockDim.x'
+                               * Generally might not work if threads are diverged here.
+                               * For instance:
+                               * might not work if threads from Lx...blockDim.x and Ly...blockDim.y
+                               *    are active and Lx>0 or Ly>0
+                               */\n"""
+            # count the number threads active in this code region
+            datafetch+="""/* Find the number of active threads in the thread block
+                           * Configured by CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD in codegen.py
+                           */\n"""
+            if CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD==CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_SYNC:
+                if ndim>=1:
+                    datafetch+="int __ipmacc_stride_x = __syncthreads_count(threadIdx.y==0);\n"
+                if ndim>=2:
+                    datafetch+="int __ipmacc_stride_y = __syncthreads_count(threadIdx.x==0);\n"
+            elif CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD==CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_ARG:
+                if ndim>=1:
+                    datafetch+='int __ipmacc_stride_x = (blockIdx.x==(gridDim.x-1))?__ipmacc_last_blockdim_x:blockDim.x;\n'
+                if ndim>=2:
+                    datafetch+='int __ipmacc_stride_y = (blockIdx.y==(gridDim.y-1))?__ipmacc_last_blockdim_y:blockDim.y;\n'
+            elif CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD==CACHE_RBX_ACTIVE_THREADS_COUNT_METHOD_FIXED:
+                if ndim>=1:
+                    datafetch+='int __ipmacc_stride_x = blockDim.x;\n'
+                if ndim>=2:
+                    datafetch+='int __ipmacc_stride_y = blockDim.y;\n'
+            else:
+                print_error('cache: unknown thread count method', [])
+
+            # find the subarray range shared within thread block
+            datafetch+="""/* Find the pointers pointing to start and end of
+                           * the subarray shared among threads of the thread block.
+                           * Configured by CACHE_RBX_POINTER_TYPE in codegen.py
+                           */\n"""
+            if CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_COMMUN:
+                if ndim==1:
+                    datafetch+="if(threadIdx.x==0){\n"
+                    datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
+                    datafetch+="}\n"
+                    datafetch+="if(threadIdx.x==(__ipmacc_stride_x-1)){\n"
+                    datafetch+=self.prefix_kernel_smc_endpointer+v+'  ='+p+'+'+up+';\n'
+                    datafetch+="}\n"
+                elif ndim==2:
+                    datafetch+="if(threadIdx.x==0 && threadIdx.y==0){\n"
+                    datafetch+=self.prefix_kernel_smc_startpointer+v+'   ='+p+'-'+dw+';\n'
+                    datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+';\n'
+                    datafetch+="}\n"
+                    datafetch+="if(threadIdx.x==(__ipmacc_stride_x-1) && threadIdx.y==(__ipmacc_stride_y-1)){\n"
+                    datafetch+=self.prefix_kernel_smc_endpointer+v+'   ='+p+'+'+up+';\n'
+                    datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+pivot2+'+'+up2range+';\n'
+                    datafetch+="}\n"
+                else:
+                    print_error('cache: unsupported multidimensional subarray!', [])
+                datafetch+="__syncthreads();\n"
+            elif CACHE_RBX_POINTER_TYPE==CACHE_RBX_POINTER_TYPE_PRIVATE:
+                if ndim>=1:
+                    if not f_is_stataic_p:
+                        datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+'-threadIdx.y;\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'=blockDim.y+'+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+'-1;\n'
+                    else:
+                        datafetch+=self.prefix_kernel_smc_startpointer+v+'='+p+'-'+dw+';\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'='+self.prefix_kernel_smc_startpointer+v+'+'+up+'+'+dw+';\n'
+                if ndim>=2:
+                    if not f_is_stataic_p2:
+                        datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+'-threadIdx.x;\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d=blockDim.x+'+self.prefix_kernel_smc_startpointer+v+'_2d+'+up2range+'+'+dw2range+'-1;\n'
+                    else:
+                        datafetch+=self.prefix_kernel_smc_startpointer+v+'_2d='+pivot2+'-'+dw2range+';\n'
+                        datafetch+=self.prefix_kernel_smc_endpointer+v+'_2d='+self.prefix_kernel_smc_startpointer+v+'_2d+'+up2range+'+'+dw2range+';\n'
+            else:
+                print_error('cache: unknown pointer calculation method!', [])
+
+            datafetch+="// FINDING DONE\n"
+            datafetch+='//__fusion_merge_boundary_'+str(len(fusionSMC)-1)+'()\n'
+        return [datafetch, kernelB]
+
+    # @ cache directive
+    # set boundary pointers for RBC and RBI
+    # input: int kernelId (ID of the current kernel)
+    # input: string kernelB (kernel body)
+    # input: string p (pivot index of 1st dim)
+    # input: string v (cache subarray/variable name)
+    # input: string up (#of elements before pivot that are cached on 1st dim)
+    # input: string dw (#of elements after pivot that are cached on 1st dim)
+    # input: string up2range (#of elements before pivot that are cached on 2nd dim)
+    # input: string dw2range (#of elements after pivot that are cached on 2nd dim)
+    # input: string ctadimx ((thread block size dim.x)
+    # input: string ctadimy ((thread block size dim.y)
+    # input: string t (v data type)
+    # input: string dimlo (first dimension lower-bound of the array associated with the subarray)
+    # input: string dimhigh (first dimension upper-bound of the array associated with the subarray)
+    # input: string dim2low (second dimension lower-bound of the array associated with the subarray)
+    # input: string dim2high (second dimension upper-bound of the array associated with the subarray)
+    # input: bool isfusion (True if this subarray fetch can be merged with a previously generated code)
+    # input: int fusionIdx (if isfusion, the fusion ID is returned in fusionSMC) 
+    # input: bool f_is_stataic_p (True if p is static to induction variables, otherwise False)
+    # input: bool f_is_stataic_p2 (True if pivot2 is static to induction variables, otherwise False)
+    # input: bool subarrayndim (number of dimensions in subarray)
+    # output: string of statments initializing the shared memory with data from subarray
+    # output: string of new kernelB
+    def oacc_smc_codegen_initial_fetch(self, kernelId, kernelB, p, pivot2, v, up, dw,\
+            up2range, dw2range, ctadimx, ctadimy, t,\
+            dimlo, dimhi, dim2low, dim2high,\
+            isfusion, fusionIdx, fusionSMC,\
+            f_is_stataic_p, f_is_stataic_p2, ndim):
+        datafetch = ''
+        if isfusion:
+            # merge this fetch with previous one 
+            tmp1='__fusion_merge_fetch_'+str(fusionIdx)+'()'
+            if ndim==1:
+                tmp2=self.prefix_kernel_smc_varpref+v+'[kk]='+v+'[idx];\n'
+            elif ndim==2:
+                tmp2=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
+            else:
+                print_error('cache: unsupported multidimensional subarray!', [])
+            #print 'fusion! >'+str(fusionIdx)+'\n'+kernelB
+            kernelB=kernelB.replace(tmp1,tmp1+'\n'+tmp2)
+        else:
+            if ndim==1:
+                datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
+                if GENDEBUGCODE:
+                    datafetch+='assert((__ipmacc_length)<=(256+'+dw+'+'+up+'));\n' #FIXME
+                datafetch+='int kk=0;\n'
+                if dw.strip()=='0' and up.strip()=='0':
+                    datafetch+="kk=threadIdx.x;\n";
+                else:
+                    datafetch+='for(int kk=threadIdx.x; kk<__ipmacc_length; kk+=__ipmacc_stride_x)\n'
+                datafetch+='{\n'
+                datafetch+='int idx='+self.prefix_kernel_smc_startpointer+v+'+kk;\n'
+                datafetch+='if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
+                datafetch+='{\n'
+                datafetch+=self.prefix_kernel_smc_varpref+v+'[kk]='+v+'[idx];\n'
+                datafetch+='//'+self.prefix_kernel_smc_tagpref+v+'[kk]=1;\n'
+                datafetch+='}\n'
+                datafetch+='}\n'
+                datafetch+='__syncthreads();\n'
+                datafetch+='} // end of fetch\n'
+                # pragma to replace global memory access with smc 
+                # kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
+            elif ndim==2:
+                datafetch+='int __ipmacc_length='+self.prefix_kernel_smc_endpointer+v+'-'+self.prefix_kernel_smc_startpointer+v+'+1;\n'
+                datafetch+='int __ipmacc_length_2d='+self.prefix_kernel_smc_endpointer+v+'_2d-'+self.prefix_kernel_smc_startpointer+v+'_2d+1;\n'
+                if GENDEBUGCODE:
+                    datafetch+='assert((__ipmacc_length)<=(256+'+dw+'+'+up+'));\n' #FIXME
+                codeblock_4_0='int kk=0,kk2=0;\n'
+                codeblock_4_1='  kk2=threadIdx.x;\n'
+                codeblock_4_2='  for(kk2=threadIdx.x; kk2<__ipmacc_length_2d; kk2+=__ipmacc_stride_x)\n'
+                codeblock_4 = codeblock_4_0
+                if (dw.strip()=='0' and up.strip()=='0') or str(eval(dw.strip()+'+'+up.strip()+'+1'))==ctadimx:
+                    codeblock_4 += codeblock_4_1
+                else:
+                    codeblock_4 += codeblock_4_2
+                codeblock_5="""
+                          {
+                           int idx2="""+self.prefix_kernel_smc_startpointer+v+"""_2d+kk2;
+                           if(idx2<("""+dim2high+""") && idx2>=("""+dim2low+"""))
+                           {
+                            """
+                codeblock_6_1='  kk=threadIdx.y;\n'
+                codeblock_6_2='for(kk=threadIdx.y; kk<__ipmacc_length; kk+=__ipmacc_stride_y)\n'
+                if (dw2range.strip()=='0' and up2range.strip()=='0') or str(eval(dw2range.strip()+'+'+up2range.strip()+'+1'))==ctadimy:
+                    codeblock_6 = codeblock_6_1
+                else:
+                    codeblock_6 = codeblock_6_1
+                codeblock_7="""
+                     {
+                      int idx="""+self.prefix_kernel_smc_startpointer+v+"""+kk;
+                      if(idx<("""+dimhi+""") && idx>=("""+dimlo+"""))
+                     {
+                    """
+                codeblock_8=''
+                codeblock_8+=self.prefix_kernel_smc_varpref+v+'[kk][kk2]='+v+'[idx*'+dim2high+'+idx2];\n'
+                codeblock_8+='//__fusion_merge_fetch_'+str(len(fusionSMC)-1)+'()\n'
+                codeblock_8+='   }\n'
+                codeblock_8+='  }\n'
+                codeblock_8+=' }\n'
+                codeblock_8+='}\n'
+
+                # datafetch+= 'if(__ipmacc_stride_x==blockDim.x && __ipmacc_stride_y==blockDim.y){\n'
+                datafetch+= 'if(__ipmacc_stride_x>=__ipmacc_length_2d && __ipmacc_stride_y>=__ipmacc_length){\n'
+                datafetch+= codeblock_4+codeblock_5+codeblock_6+codeblock_7+codeblock_8
+                datafetch+= '\n}else{\n'
+                datafetch+= codeblock_4_0+codeblock_4_2+codeblock_5+codeblock_6_2+codeblock_7+codeblock_8
+                datafetch+= '}\n'
+                datafetch+='__syncthreads();\n'
+                # kernelB=kernelB.replace(fcall,datafetch+'\n'+fcall)
+            else:
+                print_error('cache: unsupported multidimensional subarray!', [])
+
+        return [datafetch, kernelB]
+
+    # @ cache directive
+    # set boundary pointers for RBC and RBI
+    # input: string v (cache subarray/variable name)
+    # input: string a ()
+    # input: string t (v data type)
+    # input: string length   (length of 1st dimension of cache allocated in shared memory)
+    # input: string length_2 (length of 2nd dimension of cache allocated in shared memory)
+    # input: string div (false if RBI, false if RBC)
+    # output: string of statements declaring cache read routine
+    # output: string of statements declaring cache write routine
+    def oacc_smc_codegen_readwrite_calls(self, t, a, v, length, length_2, div):
+        # construct the smc_select_ per array for READ
+        smc_select_calls ='__forceinline__ __device__ '+t.replace('*','')+' __smc_select_'+str(a)+'_'+v+'(int index1, int index2,\n'
+        #smc_select_calls+=((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+'\n'
+        smc_select_calls+=t+' g_array, '
+        #smc_select_calls+=t.replace('*','')+(' s_array['+tagbasedcache_size+'], ' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+'\n'
+        smc_select_calls+=t.replace('*','')+(' s_array['+length+']['+length_2+'], ')+'\n'
+        smc_select_calls+=' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, int diff1, int diff2){\n'
+        if div=='false':
+            smc_select_calls+='// the pragmas are well-set. do not check the boundaries.\n'
+            # if GENDEBUGCODE:
+            #     smc_select_calls+="""#define REPLACECALL() printf("tid> (%d,%d,%d) bid> (%d,%d,%d) index> %d idx> %d idx2> %d startptr> %d startptr2> %d\\n",\\
+            #     threadIdx.x,threadIdx.y,threadIdx.z,\\
+            #     blockIdx.x,blockIdx.y,blockIdx.z,\\
+            #     index,idx,idx2,startptr,startptr2);\n
+            # if(!(((idx-startptr)>=0))){\n
+            #     REPLACECALL()\n
+            #         assert((idx-startptr)>=0);\n
+            # }\n
+            # if(!((idx-startptr)<("""+length+"""))){\n
+            #     REPLACECALL()\n
+            #         assert((idx-startptr)<("""+length+"""));\n
+            # }\n
+            # if(!((idx2-startptr2)>=0)){\n
+            #     REPLACECALL()\n
+            #         assert((idx2-startptr2)>=0);\n
+            # }\n
+            # if(!((idx2-startptr2)<("""+length_2+"""))){\n
+            #     REPLACECALL()\n
+            #         assert((idx2-startptr2)<"""+length_2+""");\n
+            # }\n"""
+            smc_select_calls+='return s_array[index1-startptr1][index2-startptr2];\n'
+        else:
+            #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
+            smc_select_calls+='// the pragmas are not well-set. do check the boundaries.\n'
+            smc_select_calls+='// also we check the tag to assure data is already fetched.\n'
+            # if GENDEBUGCODE:
+            #     smc_select_calls+="""#define REPLACECALL() printf("tid> (%d,%d,%d) bid> (%d,%d,%d) index> %d idx> %d idx2> %d startptr> %d startptr2> %d\\n",\\\n
+            #     threadIdx.x,threadIdx.y,threadIdx.z,\\\n
+            #     blockIdx.x,blockIdx.y,blockIdx.z,\\\n
+            #     index,idx,idx2,startptr,startptr2);\n
+            # if(!(((idx-startptr)>=0))){\n
+            #     REPLACECALL()\n
+            #         assert((idx-startptr)>=0);\n
+            # }\n
+            # if(!((idx-startptr)<16)){\n
+            #     REPLACECALL()\n
+            #         assert((idx-startptr)<16);\n
+            # }\n
+            # if(!((idx2-startptr2)>=0)){\n
+            #     REPLACECALL()\n
+            #         assert((idx2-startptr2)>=0);\n
+            # }\n
+            # if(!((idx2-startptr2)<20)){\n
+            #     REPLACECALL()\n
+            #         assert((idx2-startptr2)<16);\n
+            # }\n"""
+            #smc_select_calls+='return s_array[diff1][diff2];\n'
+            # if tagbasedcache_size!='':
+            #     smc_select_calls+=t.replace('*','')+' value_to_return;\n'
+            #     smc_select_calls+='int gidx = (index1*pitch+index2);\n'
+            #     smc_select_calls+='//return g_array[gidx];\n'
+            #     smc_select_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
+            #     smc_select_calls+='if(tag_array[sidx]==(gidx)){\n'
+            #     smc_select_calls+='value_to_return = s_array[sidx];\n'
+            #     smc_select_calls+='}\n'
+            #     smc_select_calls+='bool tag_updated=false;\n'
+            #     smc_select_calls+='if(tag_array[sidx]!=(gidx)){ \n'
+            #     smc_select_calls+='value_to_return = g_array[gidx];\n'
+            #     smc_select_calls+='s_array[sidx] = value_to_return;\n'
+            #     smc_select_calls+='tag_updated = true;\n'
+            #     smc_select_calls+='}\n'
+            #     smc_select_calls+='__syncthreads();\n' 
+            #     smc_select_calls+='if(tag_updated) tag_array[sidx] = gidx;\n' 
+            #     smc_select_calls+='__syncthreads();\n' 
+            #     smc_select_calls+='return value_to_return;\n'
+            # else:
+            #     smc_select_calls+=t.replace('*','')+' ret = s_array[diff1][diff2];\n'
+            #     smc_select_calls+='if(!(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 )){\n'
+            #     #smc_select_calls+='assert(0);\n'
+            #     smc_select_calls+='ret = g_array[index1*pitch+index2];\n'
+            #     smc_select_calls+='}\n'
+            #     smc_select_calls+='return ret;\n'
+            smc_select_calls+=t.replace('*','')+' ret = s_array[diff1][diff2];\n'
+            smc_select_calls+='if(!(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2 )){\n'
+            smc_select_calls+='ret = g_array[index1*pitch+index2];\n'
+            smc_select_calls+='}\n'
+            smc_select_calls+='return ret;\n'
+
+        smc_select_calls+='}\n'
+        # smc_write_calls+='__device__ void __smc_write_'+str(a)+'_'+v+'(int index1, int index2, '+\
+        #     ((tagbasedcache_datp+' tag_array['+tagbasedcache_size+'], ') if tagbasedcache_size!='' else '')+\
+        #     t+' g_array, '+t.replace('*','')+\
+        #     (' s_array['+tagbasedcache_size+'],' if tagbasedcache_size!='' else ' s_array['+length+']['+length_2+'], ')+\
+        #     ' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, '+\
+        #     t.replace('*','')+' value){\n'
+        smc_write_calls ='__device__ void __smc_write_'+str(a)+'_'+v+'(int index1, int index2, '+\
+            t+' g_array, '+t.replace('*','')+\
+            ' s_array['+length+']['+length_2+'], '+\
+            ' int startptr1, int startptr2, int endptr1, int endptr2, int pitch, '+\
+            t.replace('*','')+' value){\n'
+        if div=='false':
+            smc_write_calls+='// the pragmas are well-set. do not check the boundaries.\n'
+            smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
+        else:
+            #print 'Warning! divergent is not implemented for 2D SMC. Falling back to non-divergent'
+            # if tagbasedcache_size:
+            #     smc_write_calls+='int gidx = (index1*pitch+index2);\n'
+            #     smc_write_calls+='int sidx = (gidx)&('+tagbasedcache_size+'-1);\n'
+            #     smc_write_calls+='if(tag_array[sidx]==(gidx)){\n'
+            #     smc_write_calls+='s_array[sidx]=value;\n'
+            #     smc_write_calls+='}else{ \n'
+            #     smc_write_calls+='g_array[tag_array[sidx]]=s_array[sidx];\n'
+            #     smc_write_calls+='s_array[sidx] = g_array[gidx];\n'
+            #     smc_write_calls+='tag_array[sidx]=gidx;\n'
+            #     smc_write_calls+='//__syncthreads();\n' 
+            #     smc_write_calls+='}\n'
+            # else:
+            #     smc_write_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
+            #     smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
+            #     smc_write_calls+='}else{\n'
+            #     smc_write_calls+='g_array[index1*pitch+index2]=value;\n'
+            #     smc_write_calls+='}\n'
+            smc_write_calls+='if(index1>=startptr1 && index1<=endptr1 && index2>=startptr2 && index2<=endptr2){\n'
+            smc_write_calls+='s_array[index1-startptr1][index2-startptr2]=value;\n'
+            smc_write_calls+='}else{\n'
+            smc_write_calls+='g_array[index1*pitch+index2]=value;\n'
+            smc_write_calls+='}\n'
+
+        smc_write_calls+='}\n'
+        return [smc_select_calls, smc_write_calls]
+    
+    def oacc_smc_codegen_cache_region_replace_accesses(self, a, v, t,\
+            p, dw, up,\
+            pivot2, dw2range, up2range,\
+            dim2high, div, fcall,\
+            kernelB, st):
+        fcallst=self.prefix_kernel_smc_fetch+str(a)+'();'
+        fcallen=self.prefix_kernel_smc_fetchend+str(a)+'();'
+        changeRangeIdx_start=kernelB.find(fcallst)
+        changeRangeIdx_end=kernelB.find(fcallen)
+        #print kernelB[changeRangeIdx_start:changeRangeIdx_end]
+        if (changeRangeIdx_start==-1 ) or (changeRangeIdx_end==-1) or (changeRangeIdx_start>changeRangeIdx_end):
+            print 'fatal error! could not determine the smc range for '+v
+            exit(-1)
+        # READ WRITE REPLACE ACCESSES
+        [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
+        for idx_num in range(len(readIdxStartEndPtrs)-1, -1, -1):
+            [idx_s, idx_e]=readIdxStartEndPtrs[idx_num]
+            if DEBUGSMCPRECALCINDEX:
+                print '> '+kernelB[idx_s:idx_e]
+            if div=='false':
+                kernelB=kernelB[:idx_s]+self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(readIdxList[idx_num])+'_dim2'+']'+' /* replacing '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
+            else:
+                [tmp_idx1, tmp_idx2] = self.decompose1Dindexto2D(unifiedIdxSet[unifiedIdxList[idx_num]], '0', dim2high, '2D')
+                tmp_diff1=tmp_idx1+'-'+self.prefix_kernel_smc_startpointer+v
+                tmp_diff2=tmp_idx2+'-'+self.prefix_kernel_smc_startpointer+v+'_2d'
+                    #(self.prefix_kernel_smc_tagpref+v+', ' if tagbasedcache_size else '')+v+', '+
+                access_tmp='__smc_select_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+\
+                    v+', '+\
+                    self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+\
+                    self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+\
+                    self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
+                kernelB=kernelB[:idx_s]+access_tmp+'/* '+kernelB[idx_s:idx_e]+'*/ '+kernelB[idx_e:]
+        indexCalculationCode=self.smc_get_indexCalculation(readIdxSet, readIdxList, v, dim2high, writeIdxSet, writeIdxList, unifiedIdxSet, unifiedIdxList, '2D')
+        kernelB=kernelB.replace(fcall,indexCalculationCode+fcall)
+        changeRangeIdx_start=kernelB.find(fcallst)
+        changeRangeIdx_end=kernelB.find(fcallen)
+        [writeIdxList, readIdxList, readIdxSet, readIdxStartEndPtrs, writeIdxSet, writeIdxStartEndPtrs, unifiedIdxList, unifiedIdxSet] = self.smc_kernelBody_parse(kernelB, changeRangeIdx_start, changeRangeIdx_end, a, v, st, dim2high, p, dw, up)
+        # list all read accesses
+        # unpack and replace write-accesses
+        for wi in range(len(writeIdxStartEndPtrs)-1,-1,-1):
+            [v, a, p, dw, up, wst, wen, asgidx]=writeIdxStartEndPtrs[wi]
+            writeIdx_loc=']'.join('['.join(kernelB[wst:asgidx].split('[')[1:]).split(']')[:-1])
+            writeIdx_val=kernelB[asgidx+1:wen]
+            writeIdx_replacer ='__syncthreads();\n'
+            if div=='false':
+                writeIdx_replacer+=self.prefix_kernel_smc_varpref+v+'['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim1'+']['+'__ipmacc_smc_index_'+v+'_'+str(writeIdxList[wi])+'_dim2'+']='+writeIdx_val[:-1]+';\n'
+            else:
+                print 'cache divergent write not implemented! #'+str(getframeinfo(currentframe()).lineno)+'\n'
+                exit(-1)
+                if TAGBASEDSMC:
+                    writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+writeIdx_val[:-1]+')'
+                else:
+                    writeIdx_replacer+='__smc_write_'+str(a)+'_'+v+'('+tmp_idx1+', '+tmp_idx2+', '+(self.prefix_kernel_smc_tagpref+v+', ' if TAGBASEDSMC else '')+v+', '+self.prefix_kernel_smc_varpref+v+', '+self.prefix_kernel_smc_startpointer+v+', '+self.prefix_kernel_smc_startpointer+v+'_2d'+', '+self.prefix_kernel_smc_endpointer+v+', '+self.prefix_kernel_smc_endpointer+v+'_2d'+', '+dim2high+','+tmp_diff1+','+tmp_diff2+')'
+            writeIdx_replacer+='__syncthreads();\n'
+            kernelB=kernelB[0:wst]+writeIdx_replacer+kernelB[wen+1:]
+        return [fcallen, kernelB]
+
+    def oacc_smc_codegen_writeback(self, length, length_2, w_dw, w_up,\
+            w_dw2range, w_up2range, v, dimlo, dimhi, dim2low, dim2high, fcallen):
+        # fetch data to local memory
+        writeback ='{ // writeback begins\n'
+        writeback+='__syncthreads();\n'
+        if w_dw=='':
+            wlength=length
+        else:
+            wlength=self.blockDim_cuda_xyz+'+'+w_dw+'+'+w_up
+        if w_dw2range=='':
+            wlength_2=length_2
+        else:
+            wlength_2=self.blockDim_cuda_xyz+'+'+w_dw2range+'+'+w_up2range
+        writeback+='int kk=0,kk2=0;\n'
+        writeback+='int rw_offset = '+dw+'-'+w_dw+';\n'
+        writeback+='int rw_offset_2 = '+dw2range+'-'+w_dw2range+';\n'
+        writeback+='int  __ipmacc_stride=__syncthreads_count(1);\n'
+        writeback+='for(kk=0; kk<('+wlength+'); kk++)\n'
+        #writeback+='for(int kk=threadIdx.x; kk<('+wlength+'); kk+=__ipmacc_stride)\n'
+        writeback+='{\n'
+        writeback+=' int idx='+self.prefix_kernel_smc_startpointer+v+'+kk+rw_offset;\n'
+        writeback+=' if(idx<('+dimhi+') && idx>=('+dimlo+'))\n'
+        writeback+=' {\n'
+        writeback+='  for(kk2=threadIdx.y*blockDim.x+threadIdx.x; kk2<('+wlength_2+'); kk2+=__ipmacc_stride)\n'
+        writeback+='  {\n'
+        writeback+='   int idx2='+self.prefix_kernel_smc_startpointer+v+'_2d+kk2+rw_offset_2;\n'
+        writeback+='   if(idx2<('+dim2high+') && idx2>=('+dim2low+'))\n'
+        writeback+='   {\n'
+        writeback+=v+'[idx*'+dim2high+'+idx2]='+self.prefix_kernel_smc_varpref+v+'[kk+rw_offset][kk2+rw_offset_2];\n'
+        writeback+='   }\n'
+        writeback+='  }\n'
+        writeback+=' }\n'
+        writeback+='}\n'
+        writeback+='__syncthreads();\n'
+        writeback+='} // end of writeback\n' 
+        kernelB=kernelB.replace(fcallen,writeback+'\n'+fcallen)
+        return kernelB
+
+
+    # @ cache directive
+    # determine the size of subarray in the cache for a thread block
+    # input: string ctadimx (size of this dimension of thread block)
+    # input: string up (subarray elements after pivot)
+    # input: string dw (subarray elements before pivot)
+    # input: bool flag (True if pivot is static to kernel's induction variables, otherwise False)
+    # input: string pivot (subarray pivot index)
+    # output: string of cache size
+    def oacc_smc_squeez_size(self, ctadimx, up, dw, flag, pivot, loop_induction_vars_list, code):
+        [rate, offset] = self.smc_cache_base_normal_get_RO(pivot, loop_induction_vars_list, code)
+        if flag:
+            if   ctadimx==str(eval(up+'+1')):
+                length  =rate+'*'+ctadimx+('' if dw=='0' else '+'+dw)
+            elif ctadimx==str(eval(dw+'+1')):
+                length  =rate+'*'+ctadimx+('' if up=='0' else '+'+up)
+            else:
+                length  =rate+'*'+ctadimx+('' if dw=='0' else '+'+dw)+('' if up=='0' else '+'+up)
+        else:
+            length  =rate+'*'+ctadimx+('' if dw=='0' else '+'+dw)+('' if up=='0' else '+'+up)
+        # print 'squeezed to > ', length, flag, rate, ctadimx #FIXME
+        return length
+
+    def oacc_smc_get_endpointer(self, flag, p, up, ctadimx):
+        if flag:
+            if   ctadimx==up:
+                length  =p+'+'+ctadimx+'-1'
+            else:
+                length  =p+'+'+ctadimx+('' if up=='0' else '+'+up)
+        else:
+            length  =p+'+'+ctadimx+('' if up=='0' else '+'+up)
+        return length
     def recursive_compVar_tracer(self,fname,compArgsInd):
         for i in range(0,len(self.active_calls_decl)):
             if self.active_calls_decl[i][0]==fname:
@@ -6517,6 +7168,8 @@ parser.add_option("-a", "--args", dest="nvcc_args",
                   help="Arguments passed to code generator (mostly, to communicate with underlying gnu cpp)", default="")
 parser.add_option("-o", "--opt", dest="optimizations",
                   help="Enabled optimizations (availables are: readonlycache)", default="")
+parser.add_option("-p", "--perforation-config", dest="perforationconf",
+                  help="Enabled optimizations (availables are: readonlycache)", default="")
 (options, args) = parser.parse_args()
 
 if options.target_platform=="":
@@ -6527,7 +7180,7 @@ if options.filename=="":
     parser.print_help()
     exit(-1)
 else:
-    print '\twarning: Storing the translated code in <'+options.filename+'> (target: <'+options.target_platform+'>)'
+    print '  warning: storing the translated code in <'+options.filename+'> (target: <'+options.target_platform+'>)'
 
 
 # read the input XML which is validated by parser
@@ -6537,7 +7190,7 @@ if CLEARXML:
     os.remove('__inter.xml')
 
 # create a code generator module
-k = codegen(options.target_platform, options.filename, options.nvcc_args, options.optimizations)
+k = codegen(options.target_platform, options.filename, options.nvcc_args, options.optimizations, options.perforationconf)
 
 # prepare the destination code by parsing the XML tree
 k.code_descendentRetrieve(root,0,[])
