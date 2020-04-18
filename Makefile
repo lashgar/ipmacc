@@ -23,15 +23,15 @@ CC=gcc
 CXX=g++
 endif
 
-libxml2lib=libxml2/libxml2-2.7.6/build/lib/libxml2.so
-libxsltlib=libxml2/libxslt-1.1.26/build/lib/libxslt.so
+libxml2lib=build/liblibxml2.so
+libxsltlib=build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
 uncrustifybin=$(ROOTDIR)/uncrustify/build/bin/uncrustify
 apilib=lib/libopenacc.so
 pycparser=parser/utils_clause.py
+listdevices=src/listdevices
 
-
-all: venv/bin/activate $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser
+all: venv/bin/activate $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser $(listdevices)
 	echo 'all done'
 
 venv/bin/activate:
@@ -109,6 +109,9 @@ $(apilib):
 	echo -en '~ compiling OpenACC API .'
 	make -C $(ROOTDIR)/src/ libopenacc
 	echo '. done'
+
+$(listdevices):
+	make -C $(ROOTDIR)/src/ listdevices
 
 clean:
 	# python env
