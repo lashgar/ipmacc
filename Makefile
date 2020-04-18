@@ -33,7 +33,7 @@ listdevices=src/listdevices
 venv=venv/bin/activate
 
 all: $(venv) $(uncrustifybin) $(src2srcmlbin) core $(apilib) parser/oaccparser $(listdevices)
-	echo 'all done'
+	@echo 'all done'
 
 $(venv):
 	# use the python on the path to create virtualenv
@@ -42,7 +42,6 @@ $(venv):
 	. $(ROOTDIR)/venv/bin/activate && pip install -r $(ROOTDIR)/requirements.txt && deactivate
 
 $(libxml2lib): # (the compatible version for srcML)
-	echo '~ compiling libxml2-2.7.6'
 	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
 	cd $(ROOTDIR)/build/extract/libxml2; \
 	tar xzf $(IPMACCROOT)/vendor-drop/libxml2-2.7.6.tar.gz ; \
@@ -50,10 +49,8 @@ $(libxml2lib): # (the compatible version for srcML)
 	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/build/ > /dev/null; \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
-	echo 'done'
 
 $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
-	echo '~ compiling libxslt-1.1.26'
 	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
 	cd $(ROOTDIR)/build/extract/libxml2; \
 	tar xzf $(IPMACCROOT)/vendor-drop/libxslt-1.1.26.tar.gz; \
@@ -61,11 +58,9 @@ $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
 	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/build/ --with-libxml-prefix=$(IPMACCROOT)/build/ > /dev/null;  \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
-	echo 'done'
 
 # Code standardazing
 $(uncrustifybin): $(ROOTDIR)/vendor-drop/uncrustify.tar.gz
-	echo '~ compiling uncrustify ' 
 	mkdir -p $(ROOTDIR)/build/extract/uncrustify; \
 	cd $(ROOTDIR)/build/extract/uncrustify/; \
 	tar xvzf $(ROOTDIR)/vendor-drop/uncrustify.tar.gz > /dev/null; \
@@ -75,24 +70,18 @@ $(uncrustifybin): $(ROOTDIR)/vendor-drop/uncrustify.tar.gz
 	make $(PARALLELBUILD) > /dev/null;  \
 	make install > /dev/null; 
 	ln -s $(ROOTDIR)/config/avalon.cfg $(ROOTDIR)/build/bin/avalon.cfg 
-	echo '. done' 
 
 # Parser
 parser/oaccparser:
-	echo -en '~ compiling pycparser .'
 	make -C $(ROOTDIR)/parser/
-	echo -en '.'
 	ln -s $(ROOTDIR)/src/utils_clause.py $(ROOTDIR)/parser/
-	echo '. done'
 
 # srcML
 $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
-	echo -en '~ compiling srcML parser .'
 	cd $(ROOTDIR)/srcML/ ; \
 	tar xzf $(IPMACCROOT)/vendor-drop/srcml.tar.gz > /dev/null ; \
 	cd src/ ; \
 	make > /dev/null # too shaky for parellel build
-	echo '. done'
 
 # Scanner and CUDA code generator
 core:
@@ -106,9 +95,7 @@ core:
 
 # API
 $(apilib):
-	echo -en '~ compiling OpenACC API .'
 	make -C $(ROOTDIR)/src/ libopenacc
-	echo '. done'
 
 $(listdevices):
 	make -C $(ROOTDIR)/src/ listdevices
