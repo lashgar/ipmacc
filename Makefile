@@ -44,20 +44,22 @@ venv/bin/activate:
 
 $(libxml2lib): # (the compatible version for srcML)
 	echo '~ compiling libxml2-2.7.6'
-	cd $(ROOTDIR)/libxml2; \
-	tar xzf libxml2-2.7.6.tar.gz ; \
+	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
+	cd $(ROOTDIR)/build/extract/libxml2; \
+	tar xzf $(IPMACCROOT)/vendor-drop/libxml2-2.7.6.tar.gz ; \
 	cd libxml2-2.7.6/; \
-	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null; \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/build/ > /dev/null; \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
 	echo 'done'
 
 $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
 	echo '~ compiling libxslt-1.1.26'
-	cd $(ROOTDIR)/libxml2; \
-	tar xzf libxslt-1.1.26.tar.gz; \
+	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
+	cd $(ROOTDIR)/build/extract/libxml2; \
+	tar xzf $(IPMACCROOT)/vendor-drop/libxslt-1.1.26.tar.gz; \
 	cd libxslt-1.1.26/; \
-	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/libxml2/libxslt-1.1.26/build --with-libxml-prefix=$(IPMACCROOT)/libxml2/libxml2-2.7.6/build/ > /dev/null;  \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/build/ --with-libxml-prefix=$(IPMACCROOT)/build/ > /dev/null;  \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
 	echo 'done'
@@ -87,7 +89,7 @@ parser/oaccparser:
 $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
 	echo -en '~ compiling srcML parser .'
 	cd $(ROOTDIR)/srcML/ ; \
-	tar xzf srcml.tar.gz > /dev/null ; \
+	tar xzf $(IPMACCROOT)/vendor-drop/srcml.tar.gz > /dev/null ; \
 	cd src/ ; \
 	make > /dev/null # too shaky for parellel build
 	echo '. done'
@@ -111,22 +113,19 @@ $(apilib):
 clean:
 	# python env
 	rm $(ROOTDIR)/venv -rf
-	# libxml2 libxslt
-	rm $(ROOTDIR)/libxml2/libxml2-2.7.6 -rf
-	rm $(ROOTDIR)/libxml2/libxslt-1.1.26 -rf
 	# Code standardazing
 	rm $(ROOTDIR)/uncrustify/uncrustify/ -rf
 	rm $(ROOTDIR)/uncrustify/build/ -rf
-	# Parser
-	# pycparser
+	# Parser pycparser
 	rm $(ROOTDIR)/parser/utils_clause.pyc $(ROOTDIR)/parser/utils_clause.py -f
 	make -C $(ROOTDIR)/parser/ clean
 	# srcML
 	rm $(ROOTDIR)/srcML/wrapper/wrapper.pyc -f
-	rm $(ROOTDIR)/srcML/bin -rf
-	rm $(ROOTDIR)/srcML/obj -rf
-	rm $(ROOTDIR)/srcML/doc -rf
 	rm $(ROOTDIR)/srcML/src -rf
+	rm $(ROOTDIR)/srcML/obj -rf
+	rm $(ROOTDIR)/srcML/bin -rf
+	# srcML libxml2 libxslt
+	rm $(ROOTDIR)/build/ -rf
 	# clean preprocessor, scanner, and code-generator
 	rm $(ROOTDIR)/preprocessor.py -f
 	rm $(ROOTDIR)/codegen.py -f
