@@ -64,16 +64,17 @@ $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
 	echo 'done'
 
 # Code standardazing
-$(uncrustifybin): $(ROOTDIR)/uncrustify/uncrustify.tar.gz
+$(uncrustifybin): $(ROOTDIR)/vendor-drop/uncrustify.tar.gz
 	echo '~ compiling uncrustify ' 
-	cd $(ROOTDIR)/uncrustify/; \
-	tar xvzf uncrustify.tar.gz > /dev/null; \
+	mkdir -p $(ROOTDIR)/build/extract/uncrustify; \
+	cd $(ROOTDIR)/build/extract/uncrustify/; \
+	tar xvzf $(ROOTDIR)/vendor-drop/uncrustify.tar.gz > /dev/null; \
 	cd uncrustify/; \
 	make clean > /dev/null; \
-	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(ROOTDIR)/uncrustify/build/ > /dev/null; \
+	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(ROOTDIR)/build/ > /dev/null; \
 	make $(PARALLELBUILD) > /dev/null;  \
 	make install > /dev/null; 
-	ln -s $(ROOTDIR)/uncrustify/avalon.cfg $(ROOTDIR)/uncrustify/build/bin/avalon.cfg 
+	ln -s $(ROOTDIR)/config/avalon.cfg $(ROOTDIR)/build/bin/avalon.cfg 
 	echo '. done' 
 
 # Parser
@@ -115,7 +116,6 @@ $(listdevices):
 clean:
 	# python env
 	rm $(ROOTDIR)/venv -rf
-	# Code standardazing
 	rm $(ROOTDIR)/uncrustify/uncrustify/ -rf
 	rm $(ROOTDIR)/uncrustify/build/ -rf
 	# Parser pycparser
@@ -126,7 +126,7 @@ clean:
 	rm $(ROOTDIR)/srcML/src -rf
 	rm $(ROOTDIR)/srcML/obj -rf
 	rm $(ROOTDIR)/srcML/bin -rf
-	# srcML libxml2 libxslt
+	# srcML libxml2 libxslt uncrustify (Code standardazing)
 	rm $(ROOTDIR)/build/ -rf
 	# clean preprocessor, scanner, and code-generator
 	rm $(ROOTDIR)/preprocessor.py -f

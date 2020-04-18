@@ -289,7 +289,7 @@ fi
 
 # RUN IPMACC
 # 1. parse and generate fully-bracketed C/C++ code
-$path/uncrustify/build/bin/uncrustify -c $path/uncrustify/build/bin/avalon.cfg -l C -f $INFILE -o $INFILE.uncrustify
+$path/build/bin/uncrustify -c $path/build/bin/avalon.cfg -l C -f $INFILE -o $INFILE.uncrustify
 if [ "$?" != "0" ] ; then
     exit 255
 fi
