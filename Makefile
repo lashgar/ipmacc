@@ -27,7 +27,7 @@ libxml2lib=build/lib/libxml2.so
 libxsltlib=build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
 uncrustifybin=build/bin/uncrustify
-apilib=lib/libopenacc.so
+apilib=build/runtime-lib/libopenacc.so
 pycparser=parser/utils_clause.py
 listdevices=src/listdevices
 venv=build/venv/bin/activate
@@ -86,6 +86,8 @@ $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
 # API
 $(apilib):
 	make -C $(ROOTDIR)/src/ libopenacc
+	mkdir -p $(ROOTDIR)/build/runtime-lib
+	cp $(ROOTDIR)/src/libopenacc.so $(ROOTDIR)/build/runtime-lib/
 
 $(listdevices):
 	make -C $(ROOTDIR)/src/ listdevices

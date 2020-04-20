@@ -55,6 +55,8 @@ if [[ "$PYTHON_EXECUTABLE" == "" ]] ; then
   echo "error: unable to locate python2 from virtualenv"
   exit 255
 fi
+# put libxslt libxml on LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$IPMACCROOT/build/lib/:$LD_LIBRARY_PATH
 
 # 3. Compile/Link flags for CUDA/OpenCL destination
 export CFLAG="-I$path/include "

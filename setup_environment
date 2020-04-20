@@ -22,6 +22,6 @@ export ISPCSUPPORT=0
 export ISPCHOME=/home/lashgar/src/ispc/ispc-v1.8.2knl-linux/
 
 # no modification is needed for the following lines
-export LD_LIBRARY_PATH=$IPMACCROOT/lib:$IPMACCROOT/build/lib/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$IPMACCROOT/build/runtime-lib/:$LD_LIBRARY_PATH
 export PATH=$IPMACCROOT/:$PATH
 
