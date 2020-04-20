@@ -39,7 +39,7 @@ $(venv):
 	# use the python on the path to create virtualenv
 	virtualenv -p `which python` $(ROOTDIR)/build/venv
 	# install modules in env and exit
-	. $(ROOTDIR)/build/venv/bin/activate && pip install -r $(ROOTDIR)/requirements.txt && deactivate
+	. $(ROOTDIR)/build/venv/bin/activate && pip install -r $(ROOTDIR)/config/requirements.txt && deactivate
 
 $(libxml2lib): # (the compatible version for srcML)
 	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
