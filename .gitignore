@@ -1,7 +1,7 @@
 lib/
-parser/oaccparser
-parser/oaccparser.tab.c
-parser/utils_clause.py
+src/parser/oaccparser
+src/parser/oaccparser.tab.c
+src/parser/utils_clause.py
 src/libopenacc.so
 src/listdevices
 src/openacc.o

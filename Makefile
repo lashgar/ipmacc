@@ -29,10 +29,11 @@ src2srcmlbin=srcML/bin/src2srcml
 uncrustifybin=build/bin/uncrustify
 apilib=build/runtime-lib/libopenacc.so
 pycparser=build/extract/pycparser/pycparser/pycparser/c_parser.py
+oaccparser=src/parser/oaccparser
 listdevices=src/listdevices
 venv=build/venv/bin/activate
 
-all: $(venv) $(uncrustifybin) $(src2srcmlbin) $(apilib) $(pycparser) parser/oaccparser $(listdevices)
+all: $(venv) $(uncrustifybin) $(src2srcmlbin) $(apilib) $(pycparser) $(oaccparser) $(listdevices)
 	@echo 'all done'
 
 $(venv):
@@ -80,9 +81,9 @@ $(uncrustifybin): $(ROOTDIR)/vendor-drop/uncrustify.tar.gz
 	ln -s $(ROOTDIR)/config/avalon.cfg $(ROOTDIR)/build/bin/avalon.cfg 
 
 # Parser
-parser/oaccparser:
-	make -C $(ROOTDIR)/parser/
-	ln -s $(ROOTDIR)/src/utils_clause.py $(ROOTDIR)/parser/
+$(oaccparser):
+	make -C $(ROOTDIR)/src/parser/
+	ln -s $(ROOTDIR)/src/utils_clause.py $(ROOTDIR)/src/parser/
 
 # srcML
 $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
@@ -101,15 +102,15 @@ $(listdevices):
 	make -C $(ROOTDIR)/src/ listdevices
 
 clean:
-	# Parser pycparser
-	rm $(ROOTDIR)/parser/utils_clause.pyc $(ROOTDIR)/parser/utils_clause.py -f
-	make -C $(ROOTDIR)/parser/ clean
+	# Parser parser
+	rm $(ROOTDIR)/src/parser/utils_clause.pyc $(ROOTDIR)/src/parser/utils_clause.py -f
+	make -C $(ROOTDIR)/src/parser/ clean
 	# srcML
 	rm $(ROOTDIR)/srcML/wrapper/wrapper.pyc -f
 	rm $(ROOTDIR)/srcML/src -rf
 	rm $(ROOTDIR)/srcML/obj -rf
 	rm $(ROOTDIR)/srcML/bin -rf
-	# srcML libxml2 libxslt uncrustify (Code standardazing)
+	# srcML libxml2 libxslt uncrustify (Code standardazing) pycparser
 	rm $(ROOTDIR)/build/ -rf
 	rm $(ROOTDIR)/*.pyc -f
 	rm $(ROOTDIR)/a.out -f

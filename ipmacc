@@ -78,8 +78,8 @@ if [ "$VERBOSE" == "1" ] ; then
 fi
 
 # GENERATE SOFTLINK IN CASE THE COMPILATION WAS NOT SUCCESSFUL
-rm $path/parser/utils_clause.py -f
-ln -s $path/src/utils_clause.py $path/parser/
+rm $path/src/parser/utils_clause.py -f
+ln -s $path/src/utils_clause.py $path/src/parser/
 
 # 4. find the arguments and pass proper args to nvcc directly
 ARGS=(${@})
@@ -296,7 +296,7 @@ fi
 rm $INFILE.uncrustify -f
 
 # 3. run parser to check the validity under xml
-$path/parser/parser.sh __inter.xml
+$path/src/parser/parser.sh __inter.xml
 
 if [ "$?" == "0" ] ; then
     # 4. OpenACC to CUDA code generation
