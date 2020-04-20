@@ -7,10 +7,6 @@ src/listdevices
 src/openacc.o
 src/openacc_container.o
 src/tasksys.o
-srcML/bin/
-srcML/doc/
-srcML/obj/
-srcML/src/
 build
 venv
 *.pyc

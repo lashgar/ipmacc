@@ -25,7 +25,7 @@ endif
 
 libxml2lib=build/lib/libxml2.so
 libxsltlib=build/lib/libxslt.so
-src2srcmlbin=srcML/bin/src2srcml
+src2srcmlbin=build/bin/src2srcml
 uncrustifybin=build/bin/uncrustify
 apilib=build/runtime-lib/libopenacc.so
 pycparser=build/extract/pycparser/pycparser/pycparser/c_parser.py
@@ -87,10 +87,13 @@ $(oaccparser):
 
 # srcML
 $(src2srcmlbin): $(libxsltlib) $(libxml2lib)
-	cd $(ROOTDIR)/srcML/ ; \
+	mkdir -p $(ROOTDIR)/build/extract/srcML ; \
+	cd $(ROOTDIR)/build/extract/srcML ; \
 	tar xzf $(IPMACCROOT)/vendor-drop/srcml.tar.gz > /dev/null ; \
 	cd src/ ; \
-	make > /dev/null # too shaky for parellel build
+	make > /dev/null ; \
+	cp $(ROOTDIR)/build/extract/srcML/bin/src2srcml $(ROOTDIR)/build/bin/ ; \
+	cp $(ROOTDIR)/build/extract/srcML/bin/srcml2src $(ROOTDIR)/build/bin/ ; 
 
 # API
 $(apilib):
@@ -106,7 +109,7 @@ clean:
 	rm $(ROOTDIR)/src/parser/utils_clause.pyc $(ROOTDIR)/src/parser/utils_clause.py -f
 	make -C $(ROOTDIR)/src/parser/ clean
 	# srcML
-	rm $(ROOTDIR)/srcML/wrapper/wrapper.pyc -f
+	rm $(ROOTDIR)/src/srcML-wrapper/wrapper.pyc -f
 	rm $(ROOTDIR)/srcML/src -rf
 	rm $(ROOTDIR)/srcML/obj -rf
 	rm $(ROOTDIR)/srcML/bin -rf

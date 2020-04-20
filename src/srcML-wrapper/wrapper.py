@@ -5,6 +5,10 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import tostring
 import xml
 
+ipmaccprefix = os.path.dirname(os.path.realpath(__file__))+"/../../"
+src2srcml_executable = ipmaccprefix+"/build/bin/src2srcml"
+srcml2src_executable = ipmaccprefix+"/build/bin/srcml2src"
+
 # debugging levels
 DEBUG=0
 DEBUGST=0
@@ -854,9 +858,9 @@ class srcML:
         #print '\n'.join(g.readlines())
         #g.close()
         try:
-            p1 = Popen([os.path.dirname(os.path.realpath(__file__))+"/../bin/src2srcml", f.name], stdout=PIPE)
-        except:
-            print 'unable to open src2srcml binary'
+            p1 = Popen([src2srcml_executable, f.name], stdout=PIPE)
+        except Exception as e:
+            print 'unable to open src2srcml binary %s at:\n%s'.format(src2srcml_executable, str(e))
             exit(-1)
         #print p1.stdout.read()
         #content='<unit>\n'+'\n'.join(p1.stdout.read().split('\n')[2:])
@@ -884,7 +888,7 @@ class srcML:
         #print '\n'.join(g.readlines())
         #g.close()
         try:
-            p1 = Popen([os.path.dirname(os.path.realpath(__file__))+"/../bin/srcml2src", f.name], stdout=PIPE)
+            p1 = Popen([srcml2src_executable, f.name], stdout=PIPE)
         except:
             print 'unable to open srcml2src binary'
             exit(-1)
