@@ -59,7 +59,7 @@ export LD_LIBRARY_PATH=$IPMACCROOT/build/lib/:$LD_LIBRARY_PATH
 
 # 3. Compile/Link flags for CUDA/OpenCL destination
 export CFLAG="-I$path/include "
-export LDFLAG="-L$path/lib -lopenacc "
+export LDFLAG="-L$path/build/runtime-lib -lopenacc "
 if [ "$CUDASUPPORT" == "1" ] ; then
  export CFLAG="$CFLAG -I$CUDAHOME/include/ "
  export LDFLAG="$LDFLAG -L$CUDAHOME/lib64/ -lcudart "

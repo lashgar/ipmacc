@@ -26,9 +26,7 @@ libopenacc: openacc.o openacc_container.o tasksys.o
 	@echo 'CFLAG : '$(CFLAG)
 	@echo 'LDFLAG: '$(LDFLAG)
 	@#$(CC) -I$(CUDAHOME)/include/ -L$(CUDAHOME)/lib64/ -lcudart -I$(OPENCLINC)/ -L$(OPENCLLIB)/ -lOpenCL -D__NVCUDA__ -D__NVOPENCL__ openacc.c -c -fPIC
-	mkdir ../lib -p
 	g++ -shared -Wl,-soname,libopenacc.so -o libopenacc.so  openacc.o openacc_container.o
-	cp libopenacc.so ../lib
 
 openacc.o: openacc.c
 	$(CC) $(CFLAG) openacc.c -c -fPIC -g 
