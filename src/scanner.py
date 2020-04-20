@@ -11,8 +11,8 @@ import re
 
 from optparse import OptionParser
 
-sys.path.extend(['.', '..', './pycparser/'])
-from pycparser import c_parser, c_ast
+sys.path.extend(['.', '..', './build/py/'])
+from pycparser import c_parser
 from preprocessor import preprocr
 
 DEBUG=False

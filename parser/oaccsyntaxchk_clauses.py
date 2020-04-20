@@ -7,7 +7,7 @@ DEBUG=False
 lastchar='0'
 
 
-sys.path.extend(['.', '..', './pycparser/'])
+sys.path.extend(['.', '..'])
 from utils_clause import clauseDecomposer
 
 

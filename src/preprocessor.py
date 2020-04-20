@@ -4,9 +4,6 @@ import sys
 import os
 from optparse import OptionParser
 
-#sys.path.extend(['.', '..', './pycparser/'])
-#from pycparser import c_parser, c_ast
-
 DEBUG=0
 TOSDTOUT=0
 

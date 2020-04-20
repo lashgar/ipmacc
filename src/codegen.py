@@ -9,7 +9,7 @@ import os
 from random import randint
 
 ipmaccprefix=os.path.dirname(os.path.realpath(__file__))+"/../"
-sys.path.extend(['.', '..', ipmaccprefix+'./pycparser/', ipmaccprefix+"/srcML/wrapper/"])
+sys.path.extend(['.', '..', ipmaccprefix+'/build/py/', ipmaccprefix+"/srcML/wrapper/"])
 from pycparser import c_parser, c_ast
 from utils_clause import clauseDecomposer,clauseDecomposer_break
 from wrapper import srcml_code2xml, srcml_get_fcn_calls, srcml_get_var_details, srcml_get_parent_fcn, srcml_get_all_ids, srcml_get_declared_vars, srcml_find_var_size, srcml_get_fwdecls, srcml_prefix_functions,srcml_get_dependentVars,srcml_get_active_types,srcml_get_arrayaccesses,srcml_is_written

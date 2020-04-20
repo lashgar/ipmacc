@@ -45,8 +45,7 @@ path=$DIR/
 #echo "IPMACC is located at $path"
 
 # 2. set python path for openacc parser and pycparser
-export PYTHONPATH=$path/:$path/pycparser/:$PYTHONPATH
-#echo $PYTHONPATH
+export PYTHONPATH=$path/:$path/build/py/:$PYTHONPATH
 # activate python path for lxml compatibility
 source $path/build/venv/bin/activate
 # set python executable

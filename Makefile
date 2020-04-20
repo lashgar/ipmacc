@@ -28,11 +28,11 @@ libxsltlib=build/lib/libxslt.so
 src2srcmlbin=srcML/bin/src2srcml
 uncrustifybin=build/bin/uncrustify
 apilib=build/runtime-lib/libopenacc.so
-pycparser=parser/utils_clause.py
+pycparser=build/extract/pycparser/pycparser/pycparser/c_parser.py
 listdevices=src/listdevices
 venv=build/venv/bin/activate
 
-all: $(venv) $(uncrustifybin) $(src2srcmlbin) $(apilib) parser/oaccparser $(listdevices)
+all: $(venv) $(uncrustifybin) $(src2srcmlbin) $(apilib) $(pycparser) parser/oaccparser $(listdevices)
 	@echo 'all done'
 
 $(venv):
@@ -51,13 +51,21 @@ $(libxml2lib): # (the compatible version for srcML)
 	make install > /dev/null
 
 $(libxsltlib): $(libxml2lib) # (the compatble version for srcML)
-	mkdir -p $(ROOTDIR)/build/extract/libxml2; \
-	cd $(ROOTDIR)/build/extract/libxml2; \
+	mkdir -p $(ROOTDIR)/build/extract/libxslt; \
+	cd $(ROOTDIR)/build/extract/libxslt; \
 	tar xzf $(IPMACCROOT)/vendor-drop/libxslt-1.1.26.tar.gz; \
 	cd libxslt-1.1.26/; \
 	CC=$(CC) CXX=$(CXX) ./configure --prefix=$(IPMACCROOT)/build/ --with-libxml-prefix=$(IPMACCROOT)/build/ > /dev/null;  \
 	make $(PARALLELBUILD) > /dev/null; \
 	make install > /dev/null
+
+$(pycparser):
+	mkdir -p $(ROOTDIR)/build/extract/pycparser; \
+	cd $(ROOTDIR)/build/extract/pycparser; \
+	tar xzf $(IPMACCROOT)/vendor-drop/pycparser.tar.gz; \
+	cd pycparser; \
+	mkdir -p $(ROOTDIR)/build/py; \
+	cp -r $(ROOTDIR)/build/extract/pycparser/pycparser/pycparser $(ROOTDIR)/build/py
 
 # Code standardazing
 $(uncrustifybin): $(ROOTDIR)/vendor-drop/uncrustify.tar.gz
