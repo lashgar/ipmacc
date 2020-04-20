@@ -4,8 +4,8 @@ IPMACC supports data, kernels, loop, enter, exit, and atomic directives. It also
 
 # Getting Started:
 * Refer to docs/ipmacc-openacc.pptx to learn basics of OpenACC.
-* Refer to TODO document to see latest changes and the roadmap.
-* Refer to INSTALL file for installation.
+* Refer to docs/TODO document to see latest changes and the roadmap.
+* Refer to docs/INSTALL file for installation.
 * Refer to docs/ipmacc-performance.pdf to see the performance comparison of OpenACC applications compiled by our implementation versus native CUDA implementation.
 * After the installation, the best way to start is to compile and run the samples in the test-case/ directory. Example:
 ```
