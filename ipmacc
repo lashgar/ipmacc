@@ -85,7 +85,7 @@ ln -s $path/src/utils_clause.py $path/src/parser/
 ARGS=(${@})
 NARG=${#ARGS[@]}
 #echo $ARGS $NARG
-NVCCARGS=
+TARGET_COMPILER_ARGS=
 OPTIMIZATION= #optimization swtiches
 PERFORATION="non" #perforation switch
 COMPILEONLY=0
@@ -143,7 +143,7 @@ for (( i = 0 ; i < $NARG ; i++ )) ; do
         pendingobject="1"
     elif [ "$i" != "0" ] ; then
         # append this arg
-        NVCCARGS="${NVCCARGS} ${ARGS[i]}"
+        TARGET_COMPILER_ARGS="${TARGET_COMPILER_ARGS} ${ARGS[i]}"
         if [ "${ARGS[i]}" == "-c" ] ; then
             COMPILEONLY=1
         fi
@@ -303,21 +303,21 @@ if [ "$?" == "0" ] ; then
     if [ "$VERBOSE" == "1" ] ; then
      echo -en "\n========CODE GENERATOR LOGS=========\n"
     fi
-    $PYTHON_EXECUTABLE $path/src/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$NVCCARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
+    $PYTHON_EXECUTABLE $path/src/codegen.py --file $OUTPUT --targetarch $TARGETARCH --args "$TARGET_COMPILER_ARGS" --opt "$OPTIMIZATION" --perforation-config "$PERFORATION"
     if [ "$?" == "0" ] ; then
         if [ $TARGETARCH == "nvcuda" ] ; then
             # 5.a Call NVCC to compile the CUDA
             if [ "$COMPILEONLY" == "1" ] ; then
              if [ "$TARGETOBJ" != "" ] ; then
-              $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
+              $NVCC -w $CFLAG $TARGET_COMPILER_ARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
              else
-              $NVCC -w $CFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+              $NVCC -w $CFLAG $TARGET_COMPILER_ARGS $OUTPUT -D__NVCUDA__ 
              fi
             else
              if [ "$TARGETOBJ" != "" ] ; then
-              $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
+              $NVCC -w $CFLAG $LDFLAG $TARGET_COMPILER_ARGS $OUTPUT -D__NVCUDA__ -o $TARGETOBJ
              else
-              $NVCC -w $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVCUDA__ 
+              $NVCC -w $CFLAG $LDFLAG $TARGET_COMPILER_ARGS $OUTPUT -D__NVCUDA__ 
              fi
             fi
             if [ "$?" != "0" ] ; then
@@ -326,20 +326,12 @@ if [ "$?" == "0" ] ; then
             fi
         elif [ $TARGETARCH == "nvopencl" ] ; then
             # 5.b Call CC to compile the OpenCL
-            if [ "$COMPILEONLY" == "1" ] ; then
-             if [ "$TARGETOBJ" != "" ] ; then
-              $CXX $CFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ -o $TARGETOBJ
-             else
-              $CXX $CFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ 
-             fi
-            else
-             if [ "$TARGETOBJ" != "" ] ; then
-              $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ -o $TARGETOBJ
-             else
-              $CXX $CFLAG $LDFLAG $NVCCARGS $OUTPUT -D__NVOPENCL__ 
-             fi
-            fi
-            # $CXX $NVCCARGS $OUTPUT -D__NVOPENCL__ $CFLAG $LDFLAG 
+            cmd="$CXX $CFLAG $OUTPUT"
+            if [ "$COMPILEONLY" != "1" ] ; then cmd="$cmd $LDFLAG"; fi
+            cmd="$cmd $TARGET_COMPILER_ARGS -D__NVOPENCL__"
+            if [ "$TARGETOBJ" != "" ] ; then cmd="$cmd -o $TARGETOBJ"; fi
+            if [ "$VERBOSE" == "1" ]; then echo $cmd; fi;
+            `$cmd`
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
                 exit 255
@@ -358,21 +350,21 @@ if [ "$?" == "0" ] ; then
             # 5.c.c CC to compile the compile host and link
             if [ "$VERBOSE" == "1" ] ; then
              echo -en "\n=============$CXX LOGS==============\n"
-             echo -en "$CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG "
+             echo -en "$CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $TARGET_COMPILER_ARGS $CFLAG $LDFLAG "
             fi
             if [ "$COMPILEONLY" == "1" ]; then
-             $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG -o /tmp/launcher.o
+             $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $TARGET_COMPILER_ARGS $CFLAG $LDFLAG -o /tmp/launcher.o
              if [ "$TARGETOBJ" != "" ] ; then 
               ld -r /tmp/launcher.o $ISPCKERNELOBJ -o $TARGETOBJ
              fi
             else
              if [ "$TARGETOBJ" != "" ] ; then 
-              $CXX -o $TARGETOBJ $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+              $CXX -o $TARGETOBJ $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $TARGET_COMPILER_ARGS $CFLAG $LDFLAG 
              else
-              $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS $CFLAG $LDFLAG 
+              $CXX $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $TARGET_COMPILER_ARGS $CFLAG $LDFLAG 
              fi
             fi
-            #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $NVCCARGS
+            #$CXX $CFLAG $LDFLAG $OUTPUT -D__INTELISPC__ $ISPCKERNELOBJ $TARGET_COMPILER_ARGS
             if [ "$?" != "0" ] ; then
                 echo "[failed] $CXX failed to generate the binary"
                 exit 255

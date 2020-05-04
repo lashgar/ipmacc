@@ -16,13 +16,13 @@ testcuda:
 #	$(IPMACCFLAGS) $(CC) $(CFLAGS) $(LDFLAGS) 
 #testcl:
 testopencl:
-#	for bench in vectorAdd_gang.c deviceptr.c matMul.c present_clause.c undefined_var.c ; do 
-	for bench in  apitest.c matMulDynamic.c multiple_kernels.c private.c vectorAdd.c implicit_array.c matMulDynamic_gang.c pgi_acc_c3.c scalarVar.c vectorAdd_gang.c matMul.c present_clause.c undefined_var.c function_call.c ; do \
+	# disabled tests (not implemented): matMulDynamic_gang.c vectorAdd_gang.c
+	for bench in  apitest.c matMulDynamic.c multiple_kernels.c private.c vectorAdd.c implicit_array.c pgi_acc_c3.c scalarVar.c matMul.c present_clause.c undefined_var.c function_call.c ; do \
 		echo '====================================================' ; \
-		echo testing $$bench ; \
-		echo 'compiling ...' ; \
+		echo -n "testing $$bench " ; \
+		echo -n "compiling ... " ; \
 		ta=nvopencl $(IPMACCFLAGS) $(CC) $(CFLAGS) $(LDFLAGS) $$bench -o $$bench.ocl > /dev/null; \
-		echo '  running ...' ; \
+		echo -n '  running ... ' ; \
 		./$$bench.ocl > /dev/null ; \
 	done;
 

@@ -83,6 +83,16 @@ doprt( char* s, float* a, float* ah, int i, int j, int n, int m )
     int
 main( int argc, char* argv[] )
 {
+    #ifdef __NVCUDA__
+    acc_init( acc_device_nvcuda );
+    #endif 
+    #ifdef __NVOPENCL__
+    //#define DEVICE_TYPE acc_device_intelocl // alternative: acc_device_nvocl 
+    #define DEVICE_TYPE acc_device_nvocl // alternative: acc_device_intelocl
+    acc_init( DEVICE_TYPE );
+    acc_list_devices_spec( DEVICE_TYPE );
+    #endif 
+
     float *aa, *bb, *aahost, *bbhost;
     int i,j;
     float w0, w1, w2;
@@ -151,8 +161,8 @@ main( int argc, char* argv[] )
     chost = usec(t2,t3);
 
     printf( "matrix %d x %d, %d iterations\n", n, m, iters );
-    printf( "%13ld microseconds optimized\n", cgpu );
-    printf( "%13ld microseconds on host\n", chost );
+    printf( "%13lld microseconds optimized\n", cgpu );
+    printf( "%13lld microseconds on host\n", chost );
 
     aerrs = berrs = 0;
     tol = 0.000005;

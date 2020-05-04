@@ -3067,7 +3067,7 @@ class codegen(object):
             kernelInvoc+=self.checkCallError_opencl('clSetKernelArg','')
         if nctadim>1 or GENMULTIDIMTB:
             kernelInvoc+=dim3_gridblock
-            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: (%d,%d,%d)\\tblockDim: (%d,%d,%d)\\n",__ipmacc_gridDim[0], __ipmacc_gridDim[1], __ipmacc_gridDim[2], __ipmacc_blockDim[0], __ipmacc_blockDim[1], __ipmacc_blockDim[2]);\n')
+            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: (%lu,%lu,%lu)\\tblockDim: (%lu,%lu,%lu)\\n",__ipmacc_gridDim[0], __ipmacc_gridDim[1], __ipmacc_gridDim[2], __ipmacc_blockDim[0], __ipmacc_blockDim[1], __ipmacc_blockDim[2]);\n')
             kernelInvoc+='size_t *global_item_size'+kerId_str+' = __ipmacc_gridDim;\n'
             kernelInvoc+='size_t *local_item_size'+kerId_str+' = __ipmacc_blockDim;\n'
             kernelInvoc+='__ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
@@ -3076,7 +3076,7 @@ class codegen(object):
         else:
             kernelInvoc+='size_t global_item_size'+kerId_str+' = '+gridDim+';\n'
             kernelInvoc+='size_t local_item_size'+kerId_str+' = '+blockDim+';\n'
-            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %llu\\tblockDim: %llu\\n", global_item_size'+kerId_str+', local_item_size'+kerId_str+');\n')
+            kernelInvoc+=('if (getenv("IPMACC_VERBOSE")) printf("IPMACC: Launching kernel '+kerId_str+' > gridDim: %lu\\tblockDim: %lu\\n", global_item_size'+kerId_str+', local_item_size'+kerId_str+');\n')
             kernelInvoc+='__ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
         #kernelInvoc+='cl_command_queue __ipmacc_temp_cmdqueue=(cl_command_queue)acc_training_decide_command_queue('+kernelRandomId+');\n'
             if USEAPI: kernelInvoc+='acc_training_kernel_start('+kernelRandomId+');\n'
@@ -4728,7 +4728,7 @@ class codegen(object):
                         codeCout+='int '+iterator+'=0;\n'
                         codeCout+='{\n'
                         codeCout+='int bound = '+griddimen+'-1;\n'
-                        codeCout+='if(getenv("IPMACC_VERBOSE")) printf("IPMACC: host-side reduction size: %d\\n",'+griddimen+');\n'
+                        codeCout+='if(getenv("IPMACC_VERBOSE")) printf("IPMACC: host-side reduction size: %d\\n",(int)'+griddimen+');\n'
                         #codeCout+='int bound = ('++')==0?('+griddimen+'-2):('+griddimen+'-1);\n'
                         codeCout+='for('+iterator+'=bound; '+ iterator+'>0; '+iterator+'-=1){\n'
                         des=arrname+'['+iterator+'-1]'

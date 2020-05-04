@@ -19,7 +19,7 @@ int main()
     
     size_t free=-1, total=-1;
     acc_get_mem_info(&free, &total);
-    printf("device memory info> free/total %d/%d [%6.4f percent free]\n",free,total,free/(float)total*100);
+    printf("device memory info> free/total %lu/%lu [%6.4f percent free]\n",free,total,free/(float)total*100);
 
     float a[SIZE];
     float b[SIZE];
